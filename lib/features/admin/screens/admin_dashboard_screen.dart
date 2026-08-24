@@ -1,0 +1,145 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/providers/core_providers.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../models/delivery.dart';
+import '../../../models/delivery_status.dart';
+import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/delivery_card.dart';
+import '../providers/admin_providers.dart';
+
+class AdminDashboardScreen extends ConsumerStatefulWidget {
+  const AdminDashboardScreen({super.key});
+
+  @override
+  ConsumerState<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+}
+
+class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
+  DeliveryStatus? _filter;
+
+  @override
+  Widget build(BuildContext context) {
+    final deliveries = ref.watch(allDeliveriesProvider);
+    final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
+    final driverNames = {for (final d in drivers) d.id: d.displayName};
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Dispatch'),
+        actions: [
+          IconButton(
+            tooltip: 'Drivers',
+            icon: const Icon(Icons.groups_outlined),
+            onPressed: () => context.push('/admin/drivers'),
+          ),
+          IconButton(
+            tooltip: 'Sign out',
+            icon: const Icon(Icons.logout),
+            onPressed: () => ref.read(authRepositoryProvider).signOut(),
+          ),
+        ],
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/admin/new'),
+        icon: const Icon(Icons.add),
+        label: const Text('New delivery'),
+      ),
+      body: Column(
+        children: [
+          _StatusFilterBar(
+            value: _filter,
+            onChanged: (status) => setState(() => _filter = status),
+          ),
+          Expanded(
+            child: AsyncValueView<List<Delivery>>(
+              value: deliveries,
+              data: (all) {
+                final items = _filter == null
+                    ? all
+                    : all.where((d) => d.status == _filter).toList();
+
+                if (items.isEmpty) {
+                  return Center(
+                    child: Text(
+                      'No deliveries yet',
+                      style: TextStyle(color: Colors.grey.shade500),
+                    ),
+                  );
+                }
+
+                return RefreshIndicator(
+                  onRefresh: () async => ref.invalidate(allDeliveriesProvider),
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                    itemCount: items.length,
+                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    itemBuilder: (context, index) {
+                      final delivery = items[index];
+                      final driverLabel = delivery.assignedDriverId == null
+                          ? 'Unassigned'
+                          : (driverNames[delivery.assignedDriverId] ?? 'Driver assigned');
+                      return DeliveryCard(
+                        delivery: delivery,
+                        subtitle: '${delivery.customerName} · $driverLabel',
+                        onTap: () => context.push('/admin/delivery/${delivery.id}'),
+                      );
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusFilterBar extends StatelessWidget {
+  const _StatusFilterBar({required this.value, required this.onChanged});
+
+  final DeliveryStatus? value;
+  final ValueChanged<DeliveryStatus?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 48,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        children: [
+          _chip(context, label: 'All', selected: value == null, onTap: () => onChanged(null)),
+          for (final status in DeliveryStatus.values)
+            _chip(
+              context,
+              label: status.label,
+              selected: value == status,
+              onTap: () => onChanged(status),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _chip(BuildContext context,
+      {required String label, required bool selected, required VoidCallback onTap}) {
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: ChoiceChip(
+        label: Text(label),
+        selected: selected,
+        onSelected: (_) => onTap(),
+        selectedColor: AppTheme.primaryLight,
+        labelStyle: TextStyle(
+          color: selected ? AppTheme.primary : Colors.black87,
+          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+        ),
+        side: BorderSide(color: selected ? AppTheme.primary : const Color(0xFFE0E4E9)),
+      ),
+    );
+  }
+}

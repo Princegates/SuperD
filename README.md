@@ -46,6 +46,7 @@ supabase/
     0001_init.sql                  full schema, RLS policies, storage bucket
     0002_roles_step1_enum.sql      splits "admin" into dispatcher + super_admin
     0002_roles_step2_policies.sql  (run right after step1, see below)
+    0003_payments.sql              payments table (records fees, doesn't charge)
 ```
 
 ## 1. Stand up Supabase
@@ -67,6 +68,7 @@ supabase/
    1. `supabase/migrations/0001_init.sql`
    2. `supabase/migrations/0002_roles_step1_enum.sql`
    3. `supabase/migrations/0002_roles_step2_policies.sql`
+   4. `supabase/migrations/0003_payments.sql`
 
    Step 1 and step 2 of the roles migration **must** be separate runs —
    Postgres won't let a brand-new enum value be used in the same
@@ -78,7 +80,7 @@ supabase/
 ### Option B — Supabase Cloud free tier
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor and run the same three files from Option A above,
+2. Open the SQL Editor and run the same four files from Option A above,
    **one at a time, in order** — the roles migration's two steps can't be
    combined into a single run (see the note above).
 3. Copy the **Project URL** and **anon public key** from Project Settings →
@@ -158,6 +160,9 @@ screen instead of crashing.
   coordinates, customer info, status, assigned driver, timestamps.
 - `delivery_status_history` — an automatic audit trail of every status
   change.
+- `payments` — a recorded payment against a delivery: amount, currency,
+  method (cash/card/mobile money/bank transfer), and status
+  (pending/paid/failed/refunded).
 - Storage bucket `proof-of-delivery` — photos drivers capture on delivery.
 
 Row Level Security enforces the roles at the database level, not just in
@@ -171,6 +176,22 @@ the app:
 - Only super admins can change a `profiles.role` value — a separate trigger
   reverts any role change attempted by a dispatcher, driver, or a
   compromised client.
+
+## Payments
+
+A dispatcher can set an expected delivery fee and payment method when
+creating a delivery, which records a `pending` payment. Either the
+dispatcher/super admin or the driver assigned to that delivery can mark it
+`paid` (e.g. once cash-on-delivery is collected) from the delivery detail
+screen.
+
+**This only records payments — it doesn't collect money.** There's no
+payment gateway wired in, so card/mobile-money payments still have to
+happen outside the app (a card reader, a mobile money transfer, etc.); the
+app just tracks that it happened. Wiring an actual gateway (Stripe,
+Paystack, Flutterwave, ...) to charge customers in-app is a bigger,
+separate piece of work — the schema has a `gateway_reference` column ready
+for it whenever you're ready to take that on.
 
 ## Testing
 
@@ -188,3 +209,12 @@ Both run without any Supabase project configured — they don't need
 - Push notifications on status change.
 - Live driver location while en route.
 - Multi-stop routes / route optimization.
+- Online payment gateway (charge customers in-app, not just record it).
+- **Multi-tenant SaaS**: today SuperD is single-business — one Supabase
+  project runs one courier company. Selling it to other companies as a
+  hosted product means adding an `organizations` table, scoping every
+  table and RLS policy by organization, and reworking sign-up to
+  create-or-join an org, plus subscription billing for the orgs
+  themselves. This is a significant redesign of the security model, not
+  an incremental feature — worth its own dedicated planning pass before
+  starting, especially against a database already running real traffic.

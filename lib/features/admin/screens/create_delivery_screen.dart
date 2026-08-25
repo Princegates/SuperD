@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../models/payment_method.dart';
 import '../providers/admin_providers.dart';
 
 class CreateDeliveryScreen extends ConsumerStatefulWidget {
@@ -23,11 +24,13 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   final _dropoffController = TextEditingController();
   final _packageController = TextEditingController();
   final _notesController = TextEditingController();
+  final _feeController = TextEditingController();
 
   double? _pickupLat;
   double? _pickupLng;
 
   String? _assignedDriverId;
+  PaymentMethod _paymentMethod = PaymentMethod.cash;
   bool _isSubmitting = false;
   bool _isLocating = false;
   String? _errorMessage;
@@ -40,6 +43,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
     _dropoffController.dispose();
     _packageController.dispose();
     _notesController.dispose();
+    _feeController.dispose();
     super.dispose();
   }
 
@@ -87,7 +91,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
     });
 
     try {
-      await ref
+      final deliveryId = await ref
           .read(deliveryRepositoryProvider)
           .createDelivery(
             customerName: _customerNameController.text.trim(),
@@ -107,6 +111,18 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
             createdBy: userId,
             assignedDriverId: _assignedDriverId,
           );
+
+      final fee = double.tryParse(_feeController.text.trim());
+      if (fee != null && fee > 0) {
+        await ref
+            .read(paymentRepositoryProvider)
+            .recordPayment(
+              deliveryId: deliveryId,
+              amount: fee,
+              method: _paymentMethod,
+            );
+      }
+
       if (mounted) context.pop();
     } catch (e) {
       setState(
@@ -202,6 +218,39 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Notes (optional)',
                   ),
+                ),
+                const SizedBox(height: 20),
+                const _SectionLabel('Payment'),
+                TextFormField(
+                  controller: _feeController,
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
+                  decoration: const InputDecoration(
+                    labelText: 'Delivery fee (optional)',
+                    prefixIcon: Icon(Icons.attach_money),
+                  ),
+                  validator: (v) {
+                    if (v == null || v.trim().isEmpty) return null;
+                    return double.tryParse(v.trim()) == null
+                        ? 'Enter a valid amount'
+                        : null;
+                  },
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<PaymentMethod>(
+                  initialValue: _paymentMethod,
+                  decoration: const InputDecoration(
+                    labelText: 'Payment method',
+                  ),
+                  items: [
+                    for (final method in PaymentMethod.values)
+                      DropdownMenuItem(
+                        value: method,
+                        child: Text(method.label),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => _paymentMethod = value!),
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Assign driver'),

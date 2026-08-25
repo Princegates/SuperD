@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/delivery_repository.dart';
+import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../models/profile.dart';
 
@@ -20,6 +21,10 @@ final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
 
 final deliveryRepositoryProvider = Provider<DeliveryRepository>((ref) {
   return DeliveryRepository(ref.watch(supabaseClientProvider));
+});
+
+final paymentRepositoryProvider = Provider<PaymentRepository>((ref) {
+  return PaymentRepository(ref.watch(supabaseClientProvider));
 });
 
 /// Fires whenever the Supabase auth session changes (sign in / out / token

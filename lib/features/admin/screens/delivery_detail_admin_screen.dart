@@ -11,6 +11,7 @@ import '../../../shared/providers/delivery_detail_providers.dart';
 import '../../../shared/utils/navigation_launcher.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/map_preview.dart';
+import '../../../shared/widgets/payment_card.dart';
 import '../../../shared/widgets/status_badge.dart';
 import '../providers/admin_providers.dart';
 
@@ -116,6 +117,8 @@ class _DetailBody extends ConsumerWidget {
             ),
           ),
         ),
+        const SizedBox(height: 16),
+        PaymentCard(deliveryId: delivery.id, canEdit: true),
         const SizedBox(height: 16),
         Card(
           child: Padding(

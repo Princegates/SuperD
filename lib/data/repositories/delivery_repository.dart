@@ -45,7 +45,7 @@ class DeliveryRepository {
     return Delivery.fromMap(row);
   }
 
-  Future<void> createDelivery({
+  Future<String> createDelivery({
     required String customerName,
     String? customerPhone,
     required String pickupAddress,
@@ -59,23 +59,28 @@ class DeliveryRepository {
     required String createdBy,
     String? assignedDriverId,
   }) async {
-    await _client.from(_table).insert({
-      'customer_name': customerName,
-      'customer_phone': customerPhone,
-      'pickup_address': pickupAddress,
-      'pickup_lat': pickupLat,
-      'pickup_lng': pickupLng,
-      'dropoff_address': dropoffAddress,
-      'dropoff_lat': dropoffLat,
-      'dropoff_lng': dropoffLng,
-      'package_description': packageDescription,
-      'notes': notes,
-      'created_by': createdBy,
-      'assigned_driver_id': assignedDriverId,
-      'status': assignedDriverId == null
-          ? DeliveryStatus.pending.wireValue
-          : DeliveryStatus.assigned.wireValue,
-    });
+    final row = await _client
+        .from(_table)
+        .insert({
+          'customer_name': customerName,
+          'customer_phone': customerPhone,
+          'pickup_address': pickupAddress,
+          'pickup_lat': pickupLat,
+          'pickup_lng': pickupLng,
+          'dropoff_address': dropoffAddress,
+          'dropoff_lat': dropoffLat,
+          'dropoff_lng': dropoffLng,
+          'package_description': packageDescription,
+          'notes': notes,
+          'created_by': createdBy,
+          'assigned_driver_id': assignedDriverId,
+          'status': assignedDriverId == null
+              ? DeliveryStatus.pending.wireValue
+              : DeliveryStatus.assigned.wireValue,
+        })
+        .select('id')
+        .single();
+    return row['id'] as String;
   }
 
   Future<void> assignDriver({

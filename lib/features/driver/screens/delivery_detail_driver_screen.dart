@@ -14,6 +14,7 @@ import '../../../shared/utils/navigation_launcher.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivered_celebration.dart';
 import '../../../shared/widgets/map_preview.dart';
+import '../../../shared/widgets/payment_card.dart';
 import '../../../shared/widgets/status_badge.dart';
 
 class DeliveryDetailDriverScreen extends ConsumerWidget {
@@ -177,6 +178,8 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                   ),
                 ),
               ),
+              const SizedBox(height: 16),
+              PaymentCard(deliveryId: delivery.id, canEdit: true),
               const SizedBox(height: 16),
               Card(
                 child: Padding(

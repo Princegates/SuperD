@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -53,11 +54,37 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
   late final _vehicleController = TextEditingController(
     text: widget.existing?.vehicleNumber,
   );
+  late final _residentialAddressController = TextEditingController(
+    text: widget.existing?.residentialAddress,
+  );
+  late final _dobController = TextEditingController(
+    text: _formatDate(widget.existing?.dateOfBirth),
+  );
+  late DateTime? _dateOfBirth = widget.existing?.dateOfBirth;
 
   bool _isSubmitting = false;
   String? _errorMessage;
 
   bool get _isDriver => widget.role == UserRole.driver;
+
+  static String _formatDate(DateTime? date) =>
+      date == null ? '' : DateFormat('dd MMM yyyy').format(date);
+
+  Future<void> _pickDateOfBirth() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime(now.year - 25),
+      firstDate: DateTime(now.year - 100),
+      lastDate: now,
+    );
+    if (picked != null) {
+      setState(() {
+        _dateOfBirth = picked;
+        _dobController.text = _formatDate(picked);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -66,6 +93,8 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
     _phoneController.dispose();
     _ghanaCardController.dispose();
     _vehicleController.dispose();
+    _residentialAddressController.dispose();
+    _dobController.dispose();
     super.dispose();
   }
 
@@ -90,6 +119,8 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
           vehicleNumber: _isDriver
               ? _emptyToNull(_vehicleController.text)
               : null,
+          dateOfBirth: _isDriver ? null : _dateOfBirth,
+          residentialAddress: _emptyToNull(_residentialAddressController.text),
         );
         ref
           ..invalidate(allProfilesProvider)
@@ -103,11 +134,16 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                 phone: _emptyToNull(_phoneController.text),
                 ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
                 vehicleNumber: _emptyToNull(_vehicleController.text),
+                residentialAddress: _emptyToNull(
+                  _residentialAddressController.text,
+                ),
               )
             : await repo.createDispatcher(
                 email: _emailController.text.trim(),
                 fullName: _nameController.text.trim(),
-                phone: _emptyToNull(_phoneController.text),
+                phone: _phoneController.text.trim(),
+                dateOfBirth: _dateOfBirth!,
+                residentialAddress: _residentialAddressController.text.trim(),
               );
         ref
           ..invalidate(allProfilesProvider)
@@ -244,7 +280,39 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Phone number'),
+                  decoration: const InputDecoration(
+                    labelText: 'Telephone number',
+                  ),
+                  validator: _isDriver
+                      ? null
+                      : (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+                if (!_isDriver) ...[
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _dobController,
+                    readOnly: true,
+                    onTap: _pickDateOfBirth,
+                    decoration: const InputDecoration(
+                      labelText: 'Date of birth',
+                      suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                ],
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _residentialAddressController,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Residential address',
+                  ),
+                  validator: _isDriver
+                      ? null
+                      : (v) =>
+                            (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 if (_isDriver) ...[
                   const SizedBox(height: 14),

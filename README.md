@@ -52,6 +52,7 @@ supabase/
     0006_profiles_realtime.sql     live-updates profiles (role changes, password flag)
     0007_dispatcher_management.sql lets a super admin add/edit/remove dispatchers too
     0008_role_change_bootstrap.sql  fixes promoting a super admin via direct SQL
+    0009_staff_profile_fields.sql   date of birth + residential address fields
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -82,6 +83,7 @@ supabase/
    7. `supabase/migrations/0006_profiles_realtime.sql`
    8. `supabase/migrations/0007_dispatcher_management.sql`
    9. `supabase/migrations/0008_role_change_bootstrap.sql`
+   10. `supabase/migrations/0009_staff_profile_fields.sql`
 
    Step 1 and step 2 of the roles migration **must** be separate runs —
    Postgres won't let a brand-new enum value be used in the same
@@ -95,7 +97,7 @@ supabase/
 ### Option B — Supabase Cloud free tier
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor and run the same nine files from Option A above,
+2. Open the SQL Editor and run the same ten files from Option A above,
    **one at a time, in order** — the roles migration's two steps can't be
    combined into a single run (see the note above).
 3. Copy the **Project URL** and **anon public key** from Project Settings →
@@ -172,12 +174,15 @@ screen instead of crashing.
 ## Staff management
 
 Dispatchers and super admins can add, edit, and remove drivers straight from
-the Team screen — Full name, email, phone number, Ghana card number, and
-vehicle number. Super admins can also add, edit, and remove **dispatchers**
-the same way (Full name, email, phone number) — that part is exclusive to
-the super admin role, since dispatchers managing other dispatchers would be
-a peer managing peers. A super admin's own account can't be removed from
-this screen either way; that's not a roster edit.
+the Team screen — Full name, email, telephone number, residential address,
+Ghana card number, and vehicle number. Super admins can also add, edit, and
+remove **dispatchers** the same way — Full name, date of birth, email,
+telephone number, and residential address are all required for a
+dispatcher (checked both in the form and server-side). Dispatcher
+management is exclusive to the super admin role, since dispatchers managing
+other dispatchers would be a peer managing peers. A super admin's own
+account can't be removed from this screen either way; that's not a roster
+edit.
 
 Creating or deleting a login needs Supabase's admin API, which requires the
 project's service-role key. That key must never be embedded in the app
@@ -259,10 +264,11 @@ Editing existing accounts and self-signup are unaffected.
 ## How the data model works
 
 - `profiles` — one row per user: `role` (`driver`, `dispatcher`, or
-  `super_admin`), plus `full_name`, `phone`, `ghana_card_number`, and
-  `vehicle_number` (the last two are mainly filled in for drivers), and
+  `super_admin`), plus `full_name`, `phone`, `residential_address`,
+  `date_of_birth` (dispatchers only), `ghana_card_number`, and
+  `vehicle_number` (the last two are drivers only), and
   `must_change_password` (forces the mandatory password screen described
-  above for drivers added by a dispatcher).
+  above for accounts added by a dispatcher/super admin).
 - `deliveries` — one row per parcel job: pickup/drop-off address +
   coordinates, customer info, status, assigned driver, timestamps.
 - `delivery_status_history` — an automatic audit trail of every status

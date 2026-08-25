@@ -106,6 +106,8 @@ Deno.serve(async (req) => {
     const phone = (body.phone ?? "").trim() || null;
     const ghanaCardNumber = (body.ghanaCardNumber ?? "").trim() || null;
     const vehicleNumber = (body.vehicleNumber ?? "").trim() || null;
+    const dateOfBirth = (body.dateOfBirth ?? "").trim() || null;
+    const residentialAddress = (body.residentialAddress ?? "").trim() || null;
     const role = body.role === "dispatcher" ? "dispatcher" : "driver";
 
     if (!email || !fullName) {
@@ -121,6 +123,19 @@ Deno.serve(async (req) => {
       );
     }
 
+    // A dispatcher's record must include date of birth, phone, and
+    // residential address - the app's form already requires these, this
+    // is the server-side backstop.
+    if (role === "dispatcher" && (!phone || !dateOfBirth || !residentialAddress)) {
+      return jsonResponse(
+        {
+          error:
+            "Phone, date of birth, and residential address are required for a dispatcher",
+        },
+        400,
+      );
+    }
+
     const tempPassword = randomPassword();
 
     const { data: created, error: createError } = await admin.auth.admin
@@ -133,6 +148,8 @@ Deno.serve(async (req) => {
           phone,
           ghana_card_number: ghanaCardNumber,
           vehicle_number: vehicleNumber,
+          date_of_birth: dateOfBirth,
+          residential_address: residentialAddress,
           must_change_password: true,
         },
       });

@@ -7,6 +7,8 @@ class Profile {
   final String? phone;
   final String? ghanaCardNumber;
   final String? vehicleNumber;
+  final DateTime? dateOfBirth;
+  final String? residentialAddress;
   final UserRole role;
   final bool isActive;
   final bool mustChangePassword;
@@ -19,6 +21,8 @@ class Profile {
     this.phone,
     this.ghanaCardNumber,
     this.vehicleNumber,
+    this.dateOfBirth,
+    this.residentialAddress,
     this.isActive = true,
     this.mustChangePassword = false,
   });
@@ -31,6 +35,10 @@ class Profile {
       phone: map['phone'] as String?,
       ghanaCardNumber: map['ghana_card_number'] as String?,
       vehicleNumber: map['vehicle_number'] as String?,
+      dateOfBirth: map['date_of_birth'] == null
+          ? null
+          : DateTime.tryParse(map['date_of_birth'] as String),
+      residentialAddress: map['residential_address'] as String?,
       role: UserRole.fromString(map['role'] as String? ?? 'driver'),
       isActive: map['is_active'] as bool? ?? true,
       mustChangePassword: map['must_change_password'] as bool? ?? false,

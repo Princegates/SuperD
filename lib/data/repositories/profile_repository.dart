@@ -76,6 +76,8 @@ class ProfileRepository {
     String? phone,
     String? ghanaCardNumber,
     String? vehicleNumber,
+    DateTime? dateOfBirth,
+    String? residentialAddress,
   }) async {
     await _client
         .from('profiles')
@@ -84,6 +86,8 @@ class ProfileRepository {
           'phone': phone,
           'ghana_card_number': ghanaCardNumber,
           'vehicle_number': vehicleNumber,
+          'date_of_birth': _dateOnly(dateOfBirth),
+          'residential_address': residentialAddress,
         })
         .eq('id', userId);
   }
@@ -96,6 +100,7 @@ class ProfileRepository {
     String? phone,
     String? ghanaCardNumber,
     String? vehicleNumber,
+    String? residentialAddress,
   }) => _createStaffAccount(
     role: UserRole.driver,
     email: email,
@@ -103,6 +108,7 @@ class ProfileRepository {
     phone: phone,
     ghanaCardNumber: ghanaCardNumber,
     vehicleNumber: vehicleNumber,
+    residentialAddress: residentialAddress,
   );
 
   /// Creates a dispatcher's login and profile via the same Edge Function.
@@ -110,12 +116,16 @@ class ProfileRepository {
   Future<({String tempPassword, bool emailSent})> createDispatcher({
     required String email,
     required String fullName,
-    String? phone,
+    required String phone,
+    required DateTime dateOfBirth,
+    required String residentialAddress,
   }) => _createStaffAccount(
     role: UserRole.dispatcher,
     email: email,
     fullName: fullName,
     phone: phone,
+    dateOfBirth: dateOfBirth,
+    residentialAddress: residentialAddress,
   );
 
   /// Creates a login + profile via the "admin-create-driver" Edge Function
@@ -130,6 +140,8 @@ class ProfileRepository {
     String? phone,
     String? ghanaCardNumber,
     String? vehicleNumber,
+    DateTime? dateOfBirth,
+    String? residentialAddress,
   }) async {
     try {
       final response = await _client.functions.invoke(
@@ -140,6 +152,8 @@ class ProfileRepository {
           'phone': phone,
           'ghanaCardNumber': ghanaCardNumber,
           'vehicleNumber': vehicleNumber,
+          'dateOfBirth': _dateOnly(dateOfBirth),
+          'residentialAddress': residentialAddress,
           'role': role.wireValue,
         },
       );
@@ -152,6 +166,8 @@ class ProfileRepository {
       throw StaffManagementException(_messageFrom(e));
     }
   }
+
+  String? _dateOnly(DateTime? date) => date?.toIso8601String().substring(0, 10);
 
   /// Clears the "must change password" flag once the user has set their
   /// own password after first sign-in.

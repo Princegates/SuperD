@@ -43,8 +43,9 @@ lib/
   shared/          widgets and utilities used by more than one feature
 supabase/
   migrations/
-    0001_init.sql   full schema, RLS policies, storage bucket
-    0002_roles.sql  splits the old "admin" role into dispatcher + super_admin
+    0001_init.sql                  full schema, RLS policies, storage bucket
+    0002_roles_step1_enum.sql      splits "admin" into dispatcher + super_admin
+    0002_roles_step2_policies.sql  (run right after step1, see below)
 ```
 
 ## 1. Stand up Supabase
@@ -60,18 +61,26 @@ supabase/
    ```
    Studio will be at `http://localhost:8000`, the API at
    `http://localhost:8000` as well (via Kong).
-2. Apply the schema: open the SQL Editor in Studio and run
-   `supabase/migrations/0001_init.sql`, then `0002_roles.sql`, in that
-   order — paste each file's contents and run it. (Or use the Supabase CLI:
-   `supabase db push` against your self-hosted instance.)
+2. Apply the schema: open the SQL Editor in Studio and run each of these
+   **as separate "Run" clicks, in this exact order** — paste one file's
+   contents, click Run, wait for it to finish, then move to the next:
+   1. `supabase/migrations/0001_init.sql`
+   2. `supabase/migrations/0002_roles_step1_enum.sql`
+   3. `supabase/migrations/0002_roles_step2_policies.sql`
+
+   Step 1 and step 2 of the roles migration **must** be separate runs —
+   Postgres won't let a brand-new enum value be used in the same
+   transaction that created it, so pasting both together errors with
+   `unsafe use of new value ... must be committed before they can be used`.
 3. Grab your **API URL** and **anon key** from Studio → Project Settings →
    API.
 
 ### Option B — Supabase Cloud free tier
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor and run `supabase/migrations/0001_init.sql`, then
-   `0002_roles.sql`, in that order.
+2. Open the SQL Editor and run the same three files from Option A above,
+   **one at a time, in order** — the roles migration's two steps can't be
+   combined into a single run (see the note above).
 3. Copy the **Project URL** and **anon public key** from Project Settings →
    API.
 

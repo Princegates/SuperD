@@ -1,22 +1,16 @@
--- SuperD: three-tier roles
+-- SuperD: three-tier roles - STEP 2 of 2.
+--
+-- Run 0002_roles_step1_enum.sql FIRST and let it finish. Then run this
+-- file separately.
 --
 -- Splits the old single "admin" role into two tiers:
 --   dispatcher   - day-to-day operations: creates deliveries, assigns
 --                  drivers, sees everything. (This is what "admin" used
 --                  to mean in 0001_init.sql - existing admin accounts
---                  become dispatchers automatically via the rename below.)
+--                  became dispatchers automatically via step 1's rename.)
 --   super_admin  - everything a dispatcher can do, PLUS managing other
 --                  users' roles (promote/demote) from within the app.
 --   driver       - unchanged: field courier, sees only their own jobs.
---
--- Run this after 0001_init.sql.
-
--- ---------------------------------------------------------------------------
--- Enum: rename the old "admin" value in place (existing rows keep their
--- role, just under the new name) and add the new tier.
--- ---------------------------------------------------------------------------
-alter type public.user_role rename value 'admin' to 'dispatcher';
-alter type public.user_role add value if not exists 'super_admin';
 
 -- ---------------------------------------------------------------------------
 -- Helper functions (replace the old is_admin()).

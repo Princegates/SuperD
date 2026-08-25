@@ -193,6 +193,24 @@ class ProfileRepository {
     }
   }
 
+  /// Fixes a driver's or dispatcher's sign-in email via the
+  /// "admin-update-email" Edge Function. Only a super admin may call this -
+  /// enforced server-side too - since it changes someone else's login
+  /// identity, not just a roster field.
+  Future<void> updateEmail({
+    required String userId,
+    required String newEmail,
+  }) async {
+    try {
+      await _client.functions.invoke(
+        'admin-update-email',
+        body: {'userId': userId, 'newEmail': newEmail},
+      );
+    } on FunctionException catch (e) {
+      throw StaffManagementException(_messageFrom(e));
+    }
+  }
+
   String _messageFrom(FunctionException e) {
     final details = e.details;
     if (details is Map && details['error'] is String) {

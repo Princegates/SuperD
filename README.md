@@ -56,6 +56,7 @@ supabase/
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
+    admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
 ```
 
 ## 1. Stand up Supabase
@@ -187,9 +188,9 @@ edit.
 Creating or deleting a login needs Supabase's admin API, which requires the
 project's service-role key. That key must never be embedded in the app
 (anyone could pull it out of the APK and get full database access), so
-those two actions go through a pair of Edge Functions instead — the
+those actions go through a trio of Edge Functions instead — the
 service-role key lives only on Supabase's servers, never on a device. The
-same two functions handle both drivers and dispatchers.
+same functions handle both drivers and dispatchers.
 
 ### Supabase Cloud
 
@@ -200,6 +201,7 @@ supabase login
 supabase link --project-ref your-project-ref
 supabase functions deploy admin-create-driver
 supabase functions deploy admin-delete-driver
+supabase functions deploy admin-update-email
 ```
 
 ### Self-hosted
@@ -248,18 +250,25 @@ signing in with the temporary password immediately opens a mandatory
 the rest of the app until it's done, even by force-quitting or navigating
 back).
 
-**Edit** is a plain profile update — no Edge Function needed. Email can't
-be changed from this form, since it's tied to the login itself.
+**Edit** is a plain profile update, with one exception: the email field is
+locked unless the signed-in user is a super admin. A super admin editing
+any driver or dispatcher can fix a wrong email right there — it goes
+through the `admin-update-email` Edge Function (changing someone else's
+login identity needs the admin API, same reason as create/delete) and
+takes effect immediately, no confirmation email required. A dispatcher
+editing a driver still can't touch email.
 
 **Remove** deletes the account's login entirely (their profile row goes
 with it automatically). A dispatcher can only remove drivers; removing a
 dispatcher requires a super admin, checked server-side inside the Edge
 Function, not just hidden in the UI. Removing a super admin isn't wired up
-here at all, since that's a bigger decision than a roster edit.
+here at all, since that's a bigger decision than a roster edit. Editing a
+super admin's own email isn't wired up here either, for the same reason.
 
 If you skip deploying the functions, everything else in the app still
-works — "Add" and "Remove" will just show an error until they're deployed.
-Editing existing accounts and self-signup are unaffected.
+works — "Add", "Remove", and a super admin's email fix will just show an
+error until they're deployed. Editing other fields and self-signup are
+unaffected.
 
 ## How the data model works
 

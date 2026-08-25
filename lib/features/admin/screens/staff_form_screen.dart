@@ -13,8 +13,9 @@ import '../providers/admin_providers.dart';
 
 /// Add-or-edit form for a driver's or dispatcher's roster details. In add
 /// mode this also creates the login (via an Edge Function, since that needs
-/// the service-role key). In edit mode it's a plain profile update - email
-/// can't be changed here, since that's tied to the login, not just this row.
+/// the service-role key). In edit mode it's a plain profile update - except
+/// email, which is tied to the login itself: only a super admin editing an
+/// existing account can fix it, via a separate Edge Function.
 class StaffFormScreen extends ConsumerStatefulWidget {
   const StaffFormScreen({
     super.key,
@@ -66,6 +67,9 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
   String? _errorMessage;
 
   bool get _isDriver => widget.role == UserRole.driver;
+
+  bool get _callerIsSuperAdmin =>
+      ref.read(currentProfileProvider).valueOrNull?.role == UserRole.superAdmin;
 
   static String _formatDate(DateTime? date) =>
       date == null ? '' : DateFormat('dd MMM yyyy').format(date);
@@ -122,6 +126,15 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
           dateOfBirth: _isDriver ? null : _dateOfBirth,
           residentialAddress: _emptyToNull(_residentialAddressController.text),
         );
+
+        final newEmail = _emailController.text.trim();
+        if (_callerIsSuperAdmin && newEmail != widget.existing!.email) {
+          await repo.updateEmail(
+            userId: widget.existing!.id,
+            newEmail: newEmail,
+          );
+        }
+
         ref
           ..invalidate(allProfilesProvider)
           ..invalidate(driversListProvider);
@@ -243,6 +256,10 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
   @override
   Widget build(BuildContext context) {
     final roleLabel = widget.role.label.toLowerCase();
+    final callerIsSuperAdmin =
+        ref.watch(currentProfileProvider).valueOrNull?.role ==
+        UserRole.superAdmin;
+    final emailEditable = !widget.isEditing || callerIsSuperAdmin;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.isEditing ? 'Edit $roleLabel' : 'Add $roleLabel'),
@@ -264,13 +281,15 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _emailController,
-                  enabled: !widget.isEditing,
+                  enabled: emailEditable,
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
                     labelText: 'Email',
-                    helperText: widget.isEditing
-                        ? "Email can't be changed here"
-                        : null,
+                    helperText: !widget.isEditing
+                        ? null
+                        : emailEditable
+                        ? 'Changes their sign-in email immediately'
+                        : "Only a super admin can change this",
                   ),
                   validator: (v) => (v == null || !v.contains('@'))
                       ? 'Enter a valid email'

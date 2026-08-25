@@ -76,6 +76,11 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     }
   }
 
+  Future<void> _cancel() async {
+    await ref.read(authRepositoryProvider).signOut();
+    if (mounted) context.go('/login');
+  }
+
   Future<void> _showSuccessDialog() {
     return showDialog(
       context: context,
@@ -184,6 +189,13 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                                   )
                                 : const Text('Update password'),
                           ),
+                          if (isMandatory) ...[
+                            const SizedBox(height: 12),
+                            TextButton(
+                              onPressed: _isSubmitting ? null : _cancel,
+                              child: const Text('Cancel and sign out'),
+                            ),
+                          ],
                         ],
                       ),
                     ),

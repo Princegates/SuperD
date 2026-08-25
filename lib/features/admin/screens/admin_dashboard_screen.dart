@@ -33,9 +33,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
         title: const Text('Dispatch'),
         actions: [
           IconButton(
-            tooltip: 'Drivers',
+            tooltip: 'Team',
             icon: const Icon(Icons.groups_outlined),
-            onPressed: () => context.push('/admin/drivers'),
+            onPressed: () => context.push('/admin/team'),
           ),
           const AccountMenuButton(
             changePasswordRoute: '/admin/change-password',

@@ -97,7 +97,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                         const SizedBox(height: 16),
                         Text(
                           'New accounts are created with the Driver role. Ask a '
-                          'dispatcher to promote you if you need admin access.',
+                          'super admin to promote you if you need dispatcher '
+                          'or admin access.',
                           style: TextStyle(
                             color: Colors.grey.shade600,
                             fontSize: 13,

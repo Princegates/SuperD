@@ -5,8 +5,17 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../models/user_role.dart';
 import '../../../shared/widgets/fade_slide_in.dart';
 import '../../../shared/widgets/shake_x.dart';
+
+/// Labels shown on the login tabs. Kept separate from [UserRole.label]
+/// since "Admin" reads better here than "Super Admin" for a compact tab.
+const _loginTabLabels = {
+  UserRole.driver: 'Driver',
+  UserRole.dispatcher: 'Dispatcher',
+  UserRole.superAdmin: 'Admin',
+};
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -22,6 +31,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   bool _isSubmitting = false;
   String? _errorMessage;
+  UserRole _selectedTab = UserRole.driver;
 
   @override
   void dispose() {
@@ -84,11 +94,28 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Sign in to SuperD',
+                          'Sign in to SuperD as a ${_loginTabLabels[_selectedTab]}',
                           textAlign: TextAlign.center,
                           style: TextStyle(color: Colors.grey.shade600),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 20),
+                        SegmentedButton<UserRole>(
+                          segments: [
+                            for (final entry in _loginTabLabels.entries)
+                              ButtonSegment(
+                                value: entry.key,
+                                label: Text(entry.value),
+                              ),
+                          ],
+                          selected: {_selectedTab},
+                          onSelectionChanged: (selection) =>
+                              setState(() => _selectedTab = selection.first),
+                          style: SegmentedButton.styleFrom(
+                            selectedBackgroundColor: AppTheme.primary,
+                            selectedForegroundColor: Colors.white,
+                          ),
+                        ),
+                        const SizedBox(height: 24),
                         TextFormField(
                           controller: _emailController,
                           keyboardType: TextInputType.emailAddress,

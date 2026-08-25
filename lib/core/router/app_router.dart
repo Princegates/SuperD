@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/create_delivery_screen.dart';
 import '../../features/admin/screens/delivery_detail_admin_screen.dart';
-import '../../features/admin/screens/drivers_screen.dart';
+import '../../features/admin/screens/team_screen.dart';
 import '../../features/auth/screens/change_password_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
@@ -45,8 +45,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
-      // Logged in from here on.
-      final home = role == UserRole.admin ? '/admin' : '/driver';
+      // Logged in from here on. Dispatchers and super admins share the
+      // '/admin' operations area; only drivers get '/driver'.
+      final home = role == UserRole.driver ? '/driver' : '/admin';
 
       if (loc == '/splash' ||
           loc == '/login' ||
@@ -55,7 +56,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           loc == '/reset-password') {
         return home;
       }
-      if (role == UserRole.admin && !loc.startsWith('/admin')) return home;
+      if (role != UserRole.driver && !loc.startsWith('/admin')) return home;
       if (role == UserRole.driver && !loc.startsWith('/driver')) return home;
       return null;
     },
@@ -105,9 +106,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: 'drivers',
+            path: 'team',
             pageBuilder: (context, state) =>
-                fadeSlidePage(key: state.pageKey, child: const DriversScreen()),
+                fadeSlidePage(key: state.pageKey, child: const TeamScreen()),
           ),
           GoRoute(
             path: 'delivery/:id',

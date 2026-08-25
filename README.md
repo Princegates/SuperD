@@ -3,15 +3,20 @@
 A free, open-source courier delivery management app for Android and iOS,
 built with Flutter and a self-hostable Supabase backend.
 
-Two roles, one app:
+Three roles, one app:
 
+- **Super Admin** — everything a dispatcher can do, plus managing everyone
+  else's role (promote/demote drivers, dispatchers, and other super admins)
+  right from the app.
 - **Dispatcher** — creates deliveries, assigns them to drivers, tracks every
   job on a live board.
 - **Driver** — sees their assigned deliveries, gets one tap to navigate,
   updates status as the job moves (picked up → in transit → delivered), and
   captures a proof-of-delivery photo.
 
-Everything updates in real time between dispatcher and driver devices.
+Dispatchers and super admins share the same operations dashboard; only role
+management is exclusive to super admins. Everything updates in real time
+across all devices.
 
 ## Why this stack
 
@@ -33,11 +38,13 @@ lib/
   data/repositories/  all Supabase queries live here, nowhere else
   features/
     auth/          login / signup / splash
-    admin/         dispatcher dashboard, create delivery, driver list
+    admin/         dispatcher/super-admin dashboard, create delivery, team
     driver/        driver dashboard, delivery detail + status updates
   shared/          widgets and utilities used by more than one feature
 supabase/
-  migrations/0001_init.sql   full schema, RLS policies, storage bucket
+  migrations/
+    0001_init.sql   full schema, RLS policies, storage bucket
+    0002_roles.sql  splits the old "admin" role into dispatcher + super_admin
 ```
 
 ## 1. Stand up Supabase
@@ -53,32 +60,36 @@ supabase/
    ```
    Studio will be at `http://localhost:8000`, the API at
    `http://localhost:8000` as well (via Kong).
-2. Apply the schema in `supabase/migrations/0001_init.sql`: open the SQL
-   Editor in Studio, paste the file's contents, and run it. (Or use the
-   Supabase CLI: `supabase db push` against your self-hosted instance.)
+2. Apply the schema: open the SQL Editor in Studio and run
+   `supabase/migrations/0001_init.sql`, then `0002_roles.sql`, in that
+   order — paste each file's contents and run it. (Or use the Supabase CLI:
+   `supabase db push` against your self-hosted instance.)
 3. Grab your **API URL** and **anon key** from Studio → Project Settings →
    API.
 
 ### Option B — Supabase Cloud free tier
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor, paste in `supabase/migrations/0001_init.sql`, run it.
+2. Open the SQL Editor and run `supabase/migrations/0001_init.sql`, then
+   `0002_roles.sql`, in that order.
 3. Copy the **Project URL** and **anon public key** from Project Settings →
    API.
 
-### Promote your first dispatcher
+### Promote your first super admin
 
 Every new sign-up becomes a `driver` by default (see the schema — this is a
-deliberate safety default). To make yourself an admin/dispatcher, sign up
+deliberate safety default). To bootstrap your first super admin, sign up
 once through the app, then run this in the SQL Editor:
 
 ```sql
-update public.profiles set role = 'admin' where email = 'you@example.com';
+update public.profiles set role = 'super_admin' where email = 'you@example.com';
 ```
 
-Admins can't yet be created from within the app on purpose — role escalation
-always goes through the database, so a driver can never grant themselves
-dispatcher access.
+From then on, that account can promote/demote anyone else (to `driver`,
+`dispatcher`, or `super_admin`) right from the app's Team screen — no more
+SQL needed except for this one bootstrap step. Roles can't be changed from
+within the app by anyone but a super admin; a database trigger enforces
+this even if a client is compromised or modified.
 
 ### Enable "Forgot password?"
 
@@ -132,7 +143,8 @@ screen instead of crashing.
 
 ## How the data model works
 
-- `profiles` — one row per user, holds `role` (`admin` or `driver`).
+- `profiles` — one row per user, holds `role` (`driver`, `dispatcher`, or
+  `super_admin`).
 - `deliveries` — one row per parcel job: pickup/drop-off address +
   coordinates, customer info, status, assigned driver, timestamps.
 - `delivery_status_history` — an automatic audit trail of every status
@@ -142,11 +154,14 @@ screen instead of crashing.
 Row Level Security enforces the roles at the database level, not just in
 the app:
 
-- Dispatchers (`admin` role) can see and edit everything.
+- Dispatchers and super admins can see and edit all deliveries.
 - Drivers can only see deliveries assigned to them, and can only change
   `status`, `notes`, and the proof-of-delivery photo — a database trigger
   silently reverts any other field a driver's update tries to touch, so a
   compromised or modified client can't reassign jobs or edit customer data.
+- Only super admins can change a `profiles.role` value — a separate trigger
+  reverts any role change attempted by a dispatcher, driver, or a
+  compromised client.
 
 ## Testing
 

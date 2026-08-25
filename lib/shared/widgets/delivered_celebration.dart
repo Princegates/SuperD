@@ -10,7 +10,8 @@ void showDeliveredCelebration(BuildContext context) {
   final overlay = Overlay.of(context);
   late OverlayEntry entry;
   entry = OverlayEntry(
-    builder: (context) => _DeliveredCelebrationOverlay(onDone: () => entry.remove()),
+    builder: (context) =>
+        _DeliveredCelebrationOverlay(onDone: () => entry.remove()),
   );
   overlay.insert(entry);
 }
@@ -32,7 +33,8 @@ class _DeliveredCelebrationOverlay extends StatefulWidget {
       _DeliveredCelebrationOverlayState();
 }
 
-class _DeliveredCelebrationOverlayState extends State<_DeliveredCelebrationOverlay>
+class _DeliveredCelebrationOverlayState
+    extends State<_DeliveredCelebrationOverlay>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -43,8 +45,17 @@ class _DeliveredCelebrationOverlayState extends State<_DeliveredCelebrationOverl
     final random = Random();
     final angle = (i / 14) * 2 * pi + random.nextDouble() * 0.3;
     final distance = 90 + random.nextDouble() * 50;
-    const colors = [AppTheme.accent, AppTheme.primary, Colors.white, AppTheme.success];
-    return _Particle(angle: angle, distance: distance, color: colors[i % colors.length]);
+    const colors = [
+      AppTheme.accent,
+      AppTheme.primary,
+      Colors.white,
+      AppTheme.success,
+    ];
+    return _Particle(
+      angle: angle,
+      distance: distance,
+      color: colors[i % colors.length],
+    );
   });
 
   @override
@@ -67,8 +78,9 @@ class _DeliveredCelebrationOverlayState extends State<_DeliveredCelebrationOverl
         builder: (context, _) {
           final t = _controller.value;
 
-          final badgeScale =
-              t < 0.3 ? Curves.elasticOut.transform(t / 0.3) : 1.0;
+          final badgeScale = t < 0.3
+              ? Curves.elasticOut.transform(t / 0.3)
+              : 1.0;
           final fadeOutStart = t > 0.8 ? (t - 0.8) / 0.2 : 0.0;
           final badgeOpacity = (1 - fadeOutStart).clamp(0.0, 1.0);
 
@@ -124,7 +136,9 @@ class _DeliveredCelebrationOverlayState extends State<_DeliveredCelebrationOverl
                               shape: BoxShape.circle,
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppTheme.success.withValues(alpha: 0.4),
+                                  color: AppTheme.success.withValues(
+                                    alpha: 0.4,
+                                  ),
                                   blurRadius: 24,
                                   spreadRadius: 4,
                                 ),

@@ -9,6 +9,7 @@ class Profile {
   final String? vehicleNumber;
   final UserRole role;
   final bool isActive;
+  final bool mustChangePassword;
 
   const Profile({
     required this.id,
@@ -19,6 +20,7 @@ class Profile {
     this.ghanaCardNumber,
     this.vehicleNumber,
     this.isActive = true,
+    this.mustChangePassword = false,
   });
 
   factory Profile.fromMap(Map<String, dynamic> map) {
@@ -31,6 +33,7 @@ class Profile {
       vehicleNumber: map['vehicle_number'] as String?,
       role: UserRole.fromString(map['role'] as String? ?? 'driver'),
       isActive: map['is_active'] as bool? ?? true,
+      mustChangePassword: map['must_change_password'] as bool? ?? false,
     );
   }
 

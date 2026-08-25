@@ -90,9 +90,10 @@ class ProfileRepository {
 
   /// Creates a driver's login and profile via the "admin-create-driver"
   /// Edge Function (needs the service-role key, which never ships in the
-  /// app). Returns a one-time temporary password to hand to the driver -
-  /// they should change it after their first sign-in.
-  Future<String> createDriver({
+  /// app). The driver is emailed their temporary password directly and
+  /// must set their own on first sign-in; [tempPassword] is still returned
+  /// as a fallback the dispatcher can share by hand if [emailSent] is false.
+  Future<({String tempPassword, bool emailSent})> createDriver({
     required String email,
     required String fullName,
     String? phone,
@@ -111,10 +112,22 @@ class ProfileRepository {
         },
       );
       final data = response.data as Map<String, dynamic>;
-      return data['tempPassword'] as String;
+      return (
+        tempPassword: data['tempPassword'] as String,
+        emailSent: data['emailSent'] as bool? ?? false,
+      );
     } on FunctionException catch (e) {
       throw DriverManagementException(_messageFrom(e));
     }
+  }
+
+  /// Clears the "must change password" flag once the driver has set their
+  /// own password after first sign-in.
+  Future<void> clearMustChangePassword(String userId) async {
+    await _client
+        .from('profiles')
+        .update({'must_change_password': false})
+        .eq('id', userId);
   }
 
   /// Deletes a driver's login (and their profile row, via cascade) through

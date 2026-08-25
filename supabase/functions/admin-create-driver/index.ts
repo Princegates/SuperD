@@ -11,6 +11,50 @@ function randomPassword(): string {
     .slice(0, 12);
 }
 
+// Emails the driver their sign-in details via Resend's HTTP API (the same
+// account already used for Supabase Auth's SMTP - see README). Returns
+// false (never throws) if it's not configured or the send fails, so
+// account creation still succeeds and the dispatcher can share the
+// password another way.
+async function sendWelcomeEmail(
+  email: string,
+  fullName: string,
+  tempPassword: string,
+): Promise<boolean> {
+  const apiKey = Deno.env.get("RESEND_API_KEY");
+  if (!apiKey) return false;
+  const fromEmail =
+    Deno.env.get("RESEND_FROM_EMAIL") ?? "SuperD <noreply@superd.anknovate.com>";
+
+  try {
+    const res = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: fromEmail,
+        to: email,
+        subject: "Your SuperD driver account",
+        html: `
+          <p>Hi ${fullName},</p>
+          <p>A dispatcher created a SuperD driver account for you.</p>
+          <p>
+            <strong>Email:</strong> ${email}<br>
+            <strong>Temporary password:</strong> ${tempPassword}
+          </p>
+          <p>Sign in with these details in the SuperD app. You'll be asked
+          to set your own password before you can do anything else.</p>
+        `,
+      }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -68,6 +112,7 @@ Deno.serve(async (req) => {
           phone,
           ghana_card_number: ghanaCardNumber,
           vehicle_number: vehicleNumber,
+          must_change_password: true,
         },
       });
 
@@ -75,9 +120,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: createError.message }, 400);
     }
 
+    const emailSent = await sendWelcomeEmail(email, fullName, tempPassword);
+
     return jsonResponse({
       userId: created.user?.id,
       tempPassword,
+      emailSent,
     });
   } catch (e) {
     return jsonResponse({ error: e instanceof Error ? e.message : String(e) }, 500);

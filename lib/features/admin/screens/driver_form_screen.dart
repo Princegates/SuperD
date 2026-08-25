@@ -78,7 +78,7 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
           ..invalidate(driversListProvider);
         if (mounted) context.pop();
       } else {
-        final tempPassword = await repo.createDriver(
+        final result = await repo.createDriver(
           email: _emailController.text.trim(),
           fullName: _nameController.text.trim(),
           phone: _emptyToNull(_phoneController.text),
@@ -88,7 +88,13 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
         ref
           ..invalidate(allProfilesProvider)
           ..invalidate(driversListProvider);
-        if (mounted) await _showTempPasswordDialog(tempPassword);
+        if (mounted) {
+          await _showAccountCreatedDialog(
+            email: _emailController.text.trim(),
+            tempPassword: result.tempPassword,
+            emailSent: result.emailSent,
+          );
+        }
         if (mounted) context.pop();
       }
     } on DriverManagementException catch (e) {
@@ -105,7 +111,11 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
   String? _emptyToNull(String value) =>
       value.trim().isEmpty ? null : value.trim();
 
-  Future<void> _showTempPasswordDialog(String tempPassword) {
+  Future<void> _showAccountCreatedDialog({
+    required String email,
+    required String tempPassword,
+    required bool emailSent,
+  }) {
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -115,18 +125,19 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Share this one-time password with the driver so they can '
-              'sign in. They should change it right away from Account > '
-              'Change password.',
+            Text(
+              emailSent
+                  ? "We've emailed $email their sign-in details. They'll be "
+                        'asked to set their own password on first sign-in. '
+                        "If the email doesn't arrive, here's a fallback:"
+                  : "Couldn't email $email automatically - share this "
+                        'one-time password with them directly. They\'ll be '
+                        'asked to set their own password on first sign-in.',
             ),
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: AppTheme.primary.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(10),
@@ -206,9 +217,7 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone number',
-                  ),
+                  decoration: const InputDecoration(labelText: 'Phone number'),
                 ),
                 const SizedBox(height: 14),
                 TextFormField(

@@ -48,6 +48,7 @@ supabase/
     0002_roles_step2_policies.sql  (run right after step1, see below)
     0003_payments.sql              payments table (records fees, doesn't charge)
     0004_driver_details.sql        Ghana card/vehicle number fields, driver delete policy
+    0005_driver_password_reset.sql force a password change on a driver's first sign-in
   functions/
     admin-create-driver/           Edge Function: creates a driver's login
     admin-delete-driver/           Edge Function: deletes a driver's login
@@ -74,6 +75,7 @@ supabase/
    3. `supabase/migrations/0002_roles_step2_policies.sql`
    4. `supabase/migrations/0003_payments.sql`
    5. `supabase/migrations/0004_driver_details.sql`
+   6. `supabase/migrations/0005_driver_password_reset.sql`
 
    Step 1 and step 2 of the roles migration **must** be separate runs —
    Postgres won't let a brand-new enum value be used in the same
@@ -87,7 +89,7 @@ supabase/
 ### Option B — Supabase Cloud free tier
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor and run the same five files from Option A above,
+2. Open the SQL Editor and run the same six files from Option A above,
    **one at a time, in order** — the roles migration's two steps can't be
    combined into a single run (see the note above).
 3. Copy the **Project URL** and **anon public key** from Project Settings →
@@ -197,14 +199,38 @@ cp -r supabase/functions/* /path/to/supabase/docker/volumes/functions/
 docker compose restart functions
 ```
 
-Either way, no extra environment variables to set — `SUPABASE_URL` and
-`SUPABASE_SERVICE_ROLE_KEY` are provided automatically inside every Edge
-Function.
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically
+inside every Edge Function — no need to set those yourself.
 
-**Add driver** generates a random temporary password, shown once in a
-dialog for the dispatcher to hand to the driver (WhatsApp, SMS, in person —
-however you'd normally share it). The driver should sign in and change it
-right away from Account → Change password.
+### Emailing the driver their password
+
+**Add driver** generates a random temporary password and emails it straight
+to the driver, using the same [Resend](https://resend.com) account you set
+up for password-reset emails (see **Enable "Forgot password?"** below —
+skip ahead if you haven't set that up yet). Give the Edge Function that same
+Resend API key as a secret:
+
+```bash
+supabase secrets set RESEND_API_KEY=re_your_resend_api_key
+```
+
+(Self-hosted: add `RESEND_API_KEY=re_your_resend_api_key` to the `functions`
+container's environment in your `docker-compose.yml`/`.env` and restart it.)
+
+If you'd rather send from a different address than
+`noreply@superd.anknovate.com`, also set `RESEND_FROM_EMAIL` (e.g.
+`"SuperD <noreply@yourdomain.com>"`) — it must be on a domain you've
+verified with Resend.
+
+If `RESEND_API_KEY` isn't set, or the send fails for any reason, account
+creation still succeeds — the app shows the temporary password in a dialog
+as a fallback so the dispatcher can share it another way.
+
+Either way, **the driver must set their own password on first sign-in**:
+signing in with the temporary password immediately opens a mandatory
+"Change password" screen (enforced by the router — there's no way to reach
+the rest of the app until it's done, even by force-quitting or navigating
+back).
 
 **Edit driver** is a plain profile update — no Edge Function needed. Email
 can't be changed from this form, since it's tied to the login itself.
@@ -222,7 +248,9 @@ they're deployed. Editing existing drivers and self-signup are unaffected.
 
 - `profiles` — one row per user: `role` (`driver`, `dispatcher`, or
   `super_admin`), plus `full_name`, `phone`, `ghana_card_number`, and
-  `vehicle_number` (the last two are mainly filled in for drivers).
+  `vehicle_number` (the last two are mainly filled in for drivers), and
+  `must_change_password` (forces the mandatory password screen described
+  above for drivers added by a dispatcher).
 - `deliveries` — one row per parcel job: pickup/drop-off address +
   coordinates, customer info, status, assigned driver, timestamps.
 - `delivery_status_history` — an automatic audit trail of every status

@@ -50,6 +50,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // Logged in from here on. Dispatchers and super admins share the
       // '/admin' operations area; only drivers get '/driver'.
       final home = role == UserRole.driver ? '/driver' : '/admin';
+      final changePasswordPath = '$home/change-password';
 
       if (loc == '/splash' ||
           loc == '/login' ||
@@ -60,6 +61,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       if (role != UserRole.driver && !loc.startsWith('/admin')) return home;
       if (role == UserRole.driver && !loc.startsWith('/driver')) return home;
+
+      // A driver created by a dispatcher must set their own password before
+      // touching anything else in the app.
+      if ((profileState.valueOrNull?.mustChangePassword ?? false) &&
+          loc != changePasswordPath) {
+        return changePasswordPath;
+      }
       return null;
     },
     routes: [

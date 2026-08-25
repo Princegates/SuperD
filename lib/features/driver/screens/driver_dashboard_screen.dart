@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
+import '../../../shared/widgets/account_menu_button.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivery_card.dart';
 import '../providers/driver_providers.dart';
@@ -20,12 +21,8 @@ class DriverDashboardScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: Text(profile != null ? 'Hi, ${profile.displayName}' : 'My deliveries'),
-        actions: [
-          IconButton(
-            tooltip: 'Sign out',
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(authRepositoryProvider).signOut(),
-          ),
+        actions: const [
+          AccountMenuButton(changePasswordRoute: '/driver/change-password'),
         ],
       ),
       body: AsyncValueView<List<Delivery>>(

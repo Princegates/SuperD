@@ -52,4 +52,19 @@ class AuthRepository {
     );
     await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
+
+  /// Changes the signed-in user's password, re-verifying [currentPassword]
+  /// first so a device left unlocked can't have its password swapped out
+  /// by anyone who picks it up.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    final email = currentUser?.email;
+    if (email == null) {
+      throw StateError('No signed-in user to change the password for.');
+    }
+    await _client.auth.signInWithPassword(email: email, password: currentPassword);
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
 }

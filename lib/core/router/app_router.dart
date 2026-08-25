@@ -5,6 +5,7 @@ import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/create_delivery_screen.dart';
 import '../../features/admin/screens/delivery_detail_admin_screen.dart';
 import '../../features/admin/screens/drivers_screen.dart';
+import '../../features/auth/screens/change_password_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
@@ -87,6 +88,10 @@ final routerProvider = Provider<GoRouter>((ref) {
               deliveryId: state.pathParameters['id']!,
             ),
           ),
+          GoRoute(
+            path: 'change-password',
+            builder: (context, state) => const ChangePasswordScreen(),
+          ),
         ],
       ),
 
@@ -99,6 +104,10 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => DeliveryDetailDriverScreen(
               deliveryId: state.pathParameters['id']!,
             ),
+          ),
+          GoRoute(
+            path: 'change-password',
+            builder: (context, state) => const ChangePasswordScreen(),
           ),
         ],
       ),

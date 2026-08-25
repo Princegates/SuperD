@@ -30,4 +30,26 @@ class AuthRepository {
   }
 
   Future<void> signOut() => _client.auth.signOut();
+
+  /// Sends a password-recovery email containing a one-time code. The
+  /// Supabase project's "Reset Password" email template must include
+  /// `{{ .Token }}` for the code to appear (see README).
+  Future<void> sendPasswordResetCode(String email) async {
+    await _client.auth.resetPasswordForEmail(email);
+  }
+
+  /// Verifies the code from the recovery email, establishing a session,
+  /// then sets [newPassword] on the account.
+  Future<void> resetPassword({
+    required String email,
+    required String code,
+    required String newPassword,
+  }) async {
+    await _client.auth.verifyOTP(
+      email: email,
+      token: code,
+      type: OtpType.recovery,
+    );
+    await _client.auth.updateUser(UserAttributes(password: newPassword));
+  }
 }

@@ -80,6 +80,20 @@ Admins can't yet be created from within the app on purpose — role escalation
 always goes through the database, so a driver can never grant themselves
 dispatcher access.
 
+### Enable "Forgot password?"
+
+The app's password reset uses a one-time code emailed to the user, not a
+deep link — simpler and more reliable on mobile. For the code to actually
+appear in the email, update the template once:
+
+Supabase dashboard → **Authentication → Email Templates → Reset Password**,
+and make sure the body includes `{{ .Token }}` (the default template only
+has a link). A minimal working body is just:
+
+```
+Your SuperD password reset code is: {{ .Token }}
+```
+
 ## 2. Configure the app
 
 Copy the example config and fill in the values from step 1:

@@ -6,17 +6,16 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 
-class LoginScreen extends ConsumerStatefulWidget {
-  const LoginScreen({super.key});
+class ForgotPasswordScreen extends ConsumerStatefulWidget {
+  const ForgotPasswordScreen({super.key});
 
   @override
-  ConsumerState<LoginScreen> createState() => _LoginScreenState();
+  ConsumerState<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
-class _LoginScreenState extends ConsumerState<LoginScreen> {
+class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
 
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -24,7 +23,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   void dispose() {
     _emailController.dispose();
-    _passwordController.dispose();
     super.dispose();
   }
 
@@ -36,16 +34,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _errorMessage = null;
     });
 
+    final email = _emailController.text.trim();
+
     try {
-      await ref.read(authRepositoryProvider).signIn(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
-      // go_router redirect handles navigation once the auth state updates.
+      await ref.read(authRepositoryProvider).sendPasswordResetCode(email);
+      if (mounted) context.push('/reset-password', extra: email);
     } on AuthException catch (e) {
       setState(() => _errorMessage = e.message);
     } catch (e) {
-      setState(() => _errorMessage = 'Could not sign in. Please try again.');
+      setState(() => _errorMessage = 'Could not send reset code. Please try again.');
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -54,6 +51,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(title: const Text('Reset password')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -65,25 +63,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Icon(Icons.local_shipping_rounded,
-                        size: 48, color: AppTheme.primary),
+                    const Icon(Icons.lock_reset_outlined, size: 48, color: AppTheme.primary),
                     const SizedBox(height: 12),
-                    const Text(
-                      'Welcome back',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 4),
                     Text(
-                      'Sign in to SuperD',
+                      "Enter your account's email and we'll send you a "
+                      'code to reset your password.',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
                     TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
                       decoration: const InputDecoration(
                         labelText: 'Email',
                         prefixIcon: Icon(Icons.email_outlined),
@@ -91,27 +82,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       validator: (value) => (value == null || !value.contains('@'))
                           ? 'Enter a valid email'
                           : null,
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      autofillHints: const [AutofillHints.password],
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: Icon(Icons.lock_outline),
-                      ),
-                      validator: (value) => (value == null || value.length < 6)
-                          ? 'Password must be at least 6 characters'
-                          : null,
                       onFieldSubmitted: (_) => _submit(),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => context.push('/forgot-password'),
-                        child: const Text('Forgot password?'),
-                      ),
                     ),
                     if (_errorMessage != null) ...[
                       const SizedBox(height: 14),
@@ -121,7 +92,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         textAlign: TextAlign.center,
                       ),
                     ],
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 24),
                     ElevatedButton(
                       onPressed: _isSubmitting ? null : _submit,
                       child: _isSubmitting
@@ -133,12 +104,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 color: Colors.white,
                               ),
                             )
-                          : const Text('Sign in'),
+                          : const Text('Send reset code'),
                     ),
                     const SizedBox(height: 16),
                     TextButton(
-                      onPressed: () => context.go('/signup'),
-                      child: const Text('New driver? Create an account'),
+                      onPressed: () => context.pop(),
+                      child: const Text('Back to sign in'),
                     ),
                   ],
                 ),

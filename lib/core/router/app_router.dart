@@ -5,7 +5,9 @@ import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/create_delivery_screen.dart';
 import '../../features/admin/screens/delivery_detail_admin_screen.dart';
 import '../../features/admin/screens/drivers_screen.dart';
+import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/auth/screens/signup_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/driver/screens/delivery_detail_driver_screen.dart';
@@ -32,14 +34,22 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (!hasSession) {
-        if (loc == '/login' || loc == '/signup') return null;
+        const publicRoutes = {'/login', '/signup', '/forgot-password'};
+        if (publicRoutes.contains(loc)) return null;
+        if (loc == '/reset-password') {
+          return state.extra is String ? null : '/forgot-password';
+        }
         return '/login';
       }
 
       // Logged in from here on.
       final home = role == UserRole.admin ? '/admin' : '/driver';
 
-      if (loc == '/splash' || loc == '/login' || loc == '/signup') {
+      if (loc == '/splash' ||
+          loc == '/login' ||
+          loc == '/signup' ||
+          loc == '/forgot-password' ||
+          loc == '/reset-password') {
         return home;
       }
       if (role == UserRole.admin && !loc.startsWith('/admin')) return home;
@@ -50,6 +60,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
       GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
       GoRoute(path: '/signup', builder: (context, state) => const SignupScreen()),
+      GoRoute(
+        path: '/forgot-password',
+        builder: (context, state) => const ForgotPasswordScreen(),
+      ),
+      GoRoute(
+        path: '/reset-password',
+        builder: (context, state) => ResetPasswordScreen(email: state.extra as String),
+      ),
 
       GoRoute(
         path: '/admin',

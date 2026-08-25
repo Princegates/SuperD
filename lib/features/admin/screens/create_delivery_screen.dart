@@ -165,9 +165,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
           .read(deliveryRepositoryProvider)
           .createDelivery(
             customerName: _customerNameController.text.trim(),
-            customerPhone: _customerPhoneController.text.trim().isEmpty
-                ? null
-                : _customerPhoneController.text.trim(),
+            customerPhone: _customerPhoneController.text.trim(),
             pickupAddress: _pickupController.text.trim(),
             pickupLat: _pickupLat,
             pickupLng: _pickupLng,
@@ -231,8 +229,10 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                   controller: _customerPhoneController,
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(
-                    labelText: 'Customer phone (optional)',
+                    labelText: 'Customer phone',
                   ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Pickup'),

@@ -47,6 +47,10 @@ supabase/
     0002_roles_step1_enum.sql      splits "admin" into dispatcher + super_admin
     0002_roles_step2_policies.sql  (run right after step1, see below)
     0003_payments.sql              payments table (records fees, doesn't charge)
+    0004_driver_details.sql        Ghana card/vehicle number fields, driver delete policy
+  functions/
+    admin-create-driver/           Edge Function: creates a driver's login
+    admin-delete-driver/           Edge Function: deletes a driver's login
 ```
 
 ## 1. Stand up Supabase
@@ -69,6 +73,7 @@ supabase/
    2. `supabase/migrations/0002_roles_step1_enum.sql`
    3. `supabase/migrations/0002_roles_step2_policies.sql`
    4. `supabase/migrations/0003_payments.sql`
+   5. `supabase/migrations/0004_driver_details.sql`
 
    Step 1 and step 2 of the roles migration **must** be separate runs —
    Postgres won't let a brand-new enum value be used in the same
@@ -76,15 +81,19 @@ supabase/
    `unsafe use of new value ... must be committed before they can be used`.
 3. Grab your **API URL** and **anon key** from Studio → Project Settings →
    API.
+4. Deploy the two driver-management Edge Functions (needed for the "Add
+   driver" / "Remove driver" buttons — see **Driver management** below).
 
 ### Option B — Supabase Cloud free tier
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor and run the same four files from Option A above,
+2. Open the SQL Editor and run the same five files from Option A above,
    **one at a time, in order** — the roles migration's two steps can't be
    combined into a single run (see the note above).
 3. Copy the **Project URL** and **anon public key** from Project Settings →
    API.
+4. Deploy the two driver-management Edge Functions (see **Driver
+   management** below).
 
 ### Promote your first super admin
 
@@ -152,10 +161,68 @@ flutter build ios --dart-define-from-file=env.json
 If you forget `env.json`, the app shows a friendly "not configured yet"
 screen instead of crashing.
 
+## Driver management
+
+Dispatchers and super admins can add, edit, and remove drivers straight from
+the Team screen — Full name, email, phone number, Ghana card number, and
+vehicle number.
+
+Creating or deleting a driver's *login* needs Supabase's admin API, which
+requires the project's service-role key. That key must never be embedded in
+the app (anyone could pull it out of the APK and get full database access),
+so those two actions go through a pair of Edge Functions instead — the
+service-role key lives only on Supabase's servers, never on a device.
+
+### Supabase Cloud
+
+Deploy them once, with the [Supabase CLI](https://supabase.com/docs/guides/cli):
+
+```bash
+supabase login
+supabase link --project-ref your-project-ref
+supabase functions deploy admin-create-driver
+supabase functions deploy admin-delete-driver
+```
+
+### Self-hosted
+
+The Docker Compose setup already runs a `functions` container (Deno's
+edge runtime) that serves whatever is in its `volumes/functions` folder —
+copy this repo's `supabase/functions` folder in there (so you end up with
+`volumes/functions/admin-create-driver`, `volumes/functions/_shared`, etc.)
+and restart that one container:
+
+```bash
+cp -r supabase/functions/* /path/to/supabase/docker/volumes/functions/
+docker compose restart functions
+```
+
+Either way, no extra environment variables to set — `SUPABASE_URL` and
+`SUPABASE_SERVICE_ROLE_KEY` are provided automatically inside every Edge
+Function.
+
+**Add driver** generates a random temporary password, shown once in a
+dialog for the dispatcher to hand to the driver (WhatsApp, SMS, in person —
+however you'd normally share it). The driver should sign in and change it
+right away from Account → Change password.
+
+**Edit driver** is a plain profile update — no Edge Function needed. Email
+can't be changed from this form, since it's tied to the login itself.
+
+**Remove driver** deletes the driver's login entirely (their profile row
+goes with it automatically). This only works on `driver`-role accounts —
+removing a dispatcher or super admin isn't wired up here, since that's a
+bigger decision than a roster edit.
+
+If you skip deploying the functions, everything else in the app still
+works — "Add driver" and "Remove driver" will just show an error until
+they're deployed. Editing existing drivers and self-signup are unaffected.
+
 ## How the data model works
 
-- `profiles` — one row per user, holds `role` (`driver`, `dispatcher`, or
-  `super_admin`).
+- `profiles` — one row per user: `role` (`driver`, `dispatcher`, or
+  `super_admin`), plus `full_name`, `phone`, `ghana_card_number`, and
+  `vehicle_number` (the last two are mainly filled in for drivers).
 - `deliveries` — one row per parcel job: pickup/drop-off address +
   coordinates, customer info, status, assigned driver, timestamps.
 - `delivery_status_history` — an automatic audit trail of every status

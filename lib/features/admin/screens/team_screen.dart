@@ -1,17 +1,70 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/repositories/profile_repository.dart';
 import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../providers/admin_providers.dart';
 
-/// Dispatchers see a read-only driver directory. Super admins see everyone
-/// and can change roles right here instead of needing SQL.
+/// Dispatchers see the driver roster and can add/edit/delete drivers. Super
+/// admins see everyone and can also change roles right here instead of
+/// needing SQL.
 class TeamScreen extends ConsumerWidget {
   const TeamScreen({super.key});
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    Profile driver,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove driver?'),
+        content: Text(
+          "This deletes ${driver.displayName}'s account. They won't be able "
+          'to sign in anymore.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Remove',
+              style: TextStyle(color: AppTheme.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(profileRepositoryProvider).deleteDriver(driver.id);
+      ref
+        ..invalidate(allProfilesProvider)
+        ..invalidate(driversListProvider);
+    } on DriverManagementException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not remove this driver')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -24,6 +77,11 @@ class TeamScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(isSuperAdmin ? 'Team' : 'Drivers')),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () => context.push('/admin/team/new'),
+        icon: const Icon(Icons.person_add_alt_1),
+        label: const Text('Add driver'),
+      ),
       body: AsyncValueView<List<Profile>>(
         value: peopleAsync,
         data: (items) {
@@ -32,8 +90,8 @@ class TeamScreen extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'No drivers yet. Ask them to create an account from the app '
-                  '– they will appear here automatically.',
+                  'No drivers yet. Tap "Add driver" below, or ask them to '
+                  'create an account from the app themselves.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey.shade600),
                 ),
@@ -62,9 +120,33 @@ class TeamScreen extends ConsumerWidget {
                         ? '${person.email} · ${person.phone}'
                         : person.email,
                   ),
-                  trailing: isSuperAdmin
-                      ? _RoleControl(person: person, enabled: !isMe)
-                      : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (person.role == UserRole.driver) ...[
+                        IconButton(
+                          tooltip: 'Edit driver',
+                          icon: const Icon(Icons.edit_outlined, size: 20),
+                          onPressed: () => context.push(
+                            '/admin/team/edit',
+                            extra: person,
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Remove driver',
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: AppTheme.danger,
+                          ),
+                          onPressed: () =>
+                              _confirmDelete(context, ref, person),
+                        ),
+                      ],
+                      if (isSuperAdmin)
+                        _RoleControl(person: person, enabled: !isMe),
+                    ],
+                  ),
                 ),
               );
             },

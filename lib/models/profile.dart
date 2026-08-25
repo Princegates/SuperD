@@ -5,6 +5,8 @@ class Profile {
   final String email;
   final String fullName;
   final String? phone;
+  final String? ghanaCardNumber;
+  final String? vehicleNumber;
   final UserRole role;
   final bool isActive;
 
@@ -14,6 +16,8 @@ class Profile {
     required this.fullName,
     required this.role,
     this.phone,
+    this.ghanaCardNumber,
+    this.vehicleNumber,
     this.isActive = true,
   });
 
@@ -23,6 +27,8 @@ class Profile {
       email: map['email'] as String? ?? '',
       fullName: map['full_name'] as String? ?? '',
       phone: map['phone'] as String?,
+      ghanaCardNumber: map['ghana_card_number'] as String?,
+      vehicleNumber: map['vehicle_number'] as String?,
       role: UserRole.fromString(map['role'] as String? ?? 'driver'),
       isActive: map['is_active'] as bool? ?? true,
     );

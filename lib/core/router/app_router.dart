@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import '../../features/admin/screens/admin_dashboard_screen.dart';
 import '../../features/admin/screens/create_delivery_screen.dart';
 import '../../features/admin/screens/delivery_detail_admin_screen.dart';
+import '../../features/admin/screens/driver_form_screen.dart';
 import '../../features/admin/screens/team_screen.dart';
+import '../../models/profile.dart';
 import '../../features/auth/screens/change_password_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
@@ -109,6 +111,22 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'team',
             pageBuilder: (context, state) =>
                 fadeSlidePage(key: state.pageKey, child: const TeamScreen()),
+            routes: [
+              GoRoute(
+                path: 'new',
+                pageBuilder: (context, state) => fadeSlidePage(
+                  key: state.pageKey,
+                  child: const DriverFormScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'edit',
+                pageBuilder: (context, state) => fadeSlidePage(
+                  key: state.pageKey,
+                  child: DriverFormScreen(existing: state.extra as Profile),
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: 'delivery/:id',

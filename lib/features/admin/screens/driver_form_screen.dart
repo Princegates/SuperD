@@ -1,0 +1,256 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/providers/core_providers.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../data/repositories/profile_repository.dart';
+import '../../../models/profile.dart';
+import '../providers/admin_providers.dart';
+
+/// Add-or-edit form for a driver's roster details. In add mode this also
+/// creates the driver's login (via an Edge Function, since that needs the
+/// service-role key). In edit mode it's a plain profile update - email
+/// can't be changed here, since that's tied to the login, not just this row.
+class DriverFormScreen extends ConsumerStatefulWidget {
+  const DriverFormScreen({super.key, this.existing});
+
+  final Profile? existing;
+
+  bool get isEditing => existing != null;
+
+  @override
+  ConsumerState<DriverFormScreen> createState() => _DriverFormScreenState();
+}
+
+class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
+  final _formKey = GlobalKey<FormState>();
+  late final _nameController = TextEditingController(
+    text: widget.existing?.fullName,
+  );
+  late final _emailController = TextEditingController(
+    text: widget.existing?.email,
+  );
+  late final _phoneController = TextEditingController(
+    text: widget.existing?.phone,
+  );
+  late final _ghanaCardController = TextEditingController(
+    text: widget.existing?.ghanaCardNumber,
+  );
+  late final _vehicleController = TextEditingController(
+    text: widget.existing?.vehicleNumber,
+  );
+
+  bool _isSubmitting = false;
+  String? _errorMessage;
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _ghanaCardController.dispose();
+    _vehicleController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final repo = ref.read(profileRepositoryProvider);
+      if (widget.isEditing) {
+        await repo.updateDriverDetails(
+          userId: widget.existing!.id,
+          fullName: _nameController.text.trim(),
+          phone: _emptyToNull(_phoneController.text),
+          ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
+          vehicleNumber: _emptyToNull(_vehicleController.text),
+        );
+        ref
+          ..invalidate(allProfilesProvider)
+          ..invalidate(driversListProvider);
+        if (mounted) context.pop();
+      } else {
+        final tempPassword = await repo.createDriver(
+          email: _emailController.text.trim(),
+          fullName: _nameController.text.trim(),
+          phone: _emptyToNull(_phoneController.text),
+          ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
+          vehicleNumber: _emptyToNull(_vehicleController.text),
+        );
+        ref
+          ..invalidate(allProfilesProvider)
+          ..invalidate(driversListProvider);
+        if (mounted) await _showTempPasswordDialog(tempPassword);
+        if (mounted) context.pop();
+      }
+    } on DriverManagementException catch (e) {
+      setState(() => _errorMessage = e.message);
+    } catch (e) {
+      setState(
+        () => _errorMessage = 'Could not save this driver. Please try again.',
+      );
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  String? _emptyToNull(String value) =>
+      value.trim().isEmpty ? null : value.trim();
+
+  Future<void> _showTempPasswordDialog(String tempPassword) {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Driver account created'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Share this one-time password with the driver so they can '
+              'sign in. They should change it right away from Account > '
+              'Change password.',
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      tempPassword,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Copy',
+                    icon: const Icon(Icons.copy, size: 18),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: tempPassword));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Copied to clipboard')),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(widget.isEditing ? 'Edit driver' : 'Add driver'),
+      ),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  decoration: const InputDecoration(labelText: 'Full name'),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _emailController,
+                  enabled: !widget.isEditing,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    helperText: widget.isEditing
+                        ? "Email can't be changed here"
+                        : null,
+                  ),
+                  validator: (v) => (v == null || !v.contains('@'))
+                      ? 'Enter a valid email'
+                      : null,
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone number',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _ghanaCardController,
+                  decoration: const InputDecoration(
+                    labelText: 'Ghana card number',
+                  ),
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _vehicleController,
+                  decoration: const InputDecoration(
+                    labelText: 'Vehicle number',
+                  ),
+                ),
+                if (_errorMessage != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: AppTheme.danger),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+                const SizedBox(height: 24),
+                ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submit,
+                  child: _isSubmitting
+                      ? const SizedBox(
+                          height: 22,
+                          width: 22,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.4,
+                            color: Colors.white,
+                          ),
+                        )
+                      : Text(widget.isEditing ? 'Save changes' : 'Add driver'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}

@@ -8,6 +8,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/payment_method.dart';
 import '../../../shared/screens/location_picker_screen.dart';
+import '../../../shared/utils/reverse_geocode.dart';
 import '../providers/admin_providers.dart';
 
 class CreateDeliveryScreen extends ConsumerStatefulWidget {
@@ -37,6 +38,8 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   PaymentMethod _paymentMethod = PaymentMethod.cash;
   bool _isSubmitting = false;
   bool _isLocating = false;
+  bool _isGeocodingPickup = false;
+  bool _isGeocodingDropoff = false;
   String? _errorMessage;
 
   @override
@@ -64,14 +67,16 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition();
+      final point = LatLng(position.latitude, position.longitude);
       setState(() {
-        _pickupLat = position.latitude;
-        _pickupLng = position.longitude;
-        if (_pickupController.text.trim().isEmpty) {
-          _pickupController.text =
-              '${position.latitude.toStringAsFixed(5)}, ${position.longitude.toStringAsFixed(5)}';
-        }
+        _pickupLat = point.latitude;
+        _pickupLng = point.longitude;
       });
+
+      final address = await reverseGeocode(point.latitude, point.longitude);
+      if (mounted) {
+        setState(() => _pickupController.text = address ?? _coordsLabel(point));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -95,10 +100,19 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
         ),
       ),
     );
-    if (picked != null) {
+    if (picked == null) return;
+
+    setState(() {
+      _dropoffLat = picked.latitude;
+      _dropoffLng = picked.longitude;
+      _isGeocodingDropoff = true;
+    });
+
+    final address = await reverseGeocode(picked.latitude, picked.longitude);
+    if (mounted) {
       setState(() {
-        _dropoffLat = picked.latitude;
-        _dropoffLng = picked.longitude;
+        _dropoffController.text = address ?? _coordsLabel(picked);
+        _isGeocodingDropoff = false;
       });
     }
   }
@@ -115,13 +129,25 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
         ),
       ),
     );
-    if (picked != null) {
+    if (picked == null) return;
+
+    setState(() {
+      _pickupLat = picked.latitude;
+      _pickupLng = picked.longitude;
+      _isGeocodingPickup = true;
+    });
+
+    final address = await reverseGeocode(picked.latitude, picked.longitude);
+    if (mounted) {
       setState(() {
-        _pickupLat = picked.latitude;
-        _pickupLng = picked.longitude;
+        _pickupController.text = address ?? _coordsLabel(picked);
+        _isGeocodingPickup = false;
       });
     }
   }
+
+  String _coordsLabel(LatLng point) =>
+      '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}';
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
@@ -242,8 +268,14 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
-                    onPressed: _pickPickupLocation,
-                    icon: const Icon(Icons.map_outlined, size: 18),
+                    onPressed: _isGeocodingPickup ? null : _pickPickupLocation,
+                    icon: _isGeocodingPickup
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.map_outlined, size: 18),
                     label: const Text('Or set pickup location on map'),
                   ),
                 ),
@@ -261,13 +293,17 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
-                    onPressed: _pickCustomerLocation,
-                    icon: const Icon(Icons.map_outlined, size: 18),
-                    label: Text(
-                      _dropoffLat != null
-                          ? 'Customer location set'
-                          : "Set customer's location on map",
-                    ),
+                    onPressed: _isGeocodingDropoff
+                        ? null
+                        : _pickCustomerLocation,
+                    icon: _isGeocodingDropoff
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.map_outlined, size: 18),
+                    label: const Text("Set customer's location on map"),
                   ),
                 ),
                 const SizedBox(height: 12),

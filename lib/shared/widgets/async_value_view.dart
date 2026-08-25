@@ -23,10 +23,12 @@ class AsyncValueView<T> extends StatelessWidget {
       data: data,
       loading: () =>
           loading?.call(context) ??
-          const Center(child: Padding(
-            padding: EdgeInsets.all(32),
-            child: CircularProgressIndicator(),
-          )),
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(32),
+              child: CircularProgressIndicator(),
+            ),
+          ),
       error: (err, stack) =>
           error?.call(err) ??
           Center(

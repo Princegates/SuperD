@@ -82,12 +82,15 @@ class DeliveryRepository {
     required String deliveryId,
     required String? driverId,
   }) async {
-    await _client.from(_table).update({
-      'assigned_driver_id': driverId,
-      'status': driverId == null
-          ? DeliveryStatus.pending.wireValue
-          : DeliveryStatus.assigned.wireValue,
-    }).eq('id', deliveryId);
+    await _client
+        .from(_table)
+        .update({
+          'assigned_driver_id': driverId,
+          'status': driverId == null
+              ? DeliveryStatus.pending.wireValue
+              : DeliveryStatus.assigned.wireValue,
+        })
+        .eq('id', deliveryId);
   }
 
   Future<void> updateStatus({
@@ -96,13 +99,12 @@ class DeliveryRepository {
   }) async {
     await _client
         .from(_table)
-        .update({'status': status.wireValue}).eq('id', deliveryId);
+        .update({'status': status.wireValue})
+        .eq('id', deliveryId);
   }
 
-  Future<void> cancel(String deliveryId) => updateStatus(
-        deliveryId: deliveryId,
-        status: DeliveryStatus.cancelled,
-      );
+  Future<void> cancel(String deliveryId) =>
+      updateStatus(deliveryId: deliveryId, status: DeliveryStatus.cancelled);
 
   Future<void> setNotes({
     required String deliveryId,
@@ -118,26 +120,25 @@ class DeliveryRepository {
     required File file,
   }) async {
     final ext = file.path.split('.').last;
-    final path =
-        '$deliveryId/${DateTime.now().millisecondsSinceEpoch}.$ext';
+    final path = '$deliveryId/${DateTime.now().millisecondsSinceEpoch}.$ext';
 
-    await _client.storage.from(_podBucket).upload(
-          path,
-          file,
-          fileOptions: const FileOptions(upsert: true),
-        );
+    await _client.storage
+        .from(_podBucket)
+        .upload(path, file, fileOptions: const FileOptions(upsert: true));
 
     final publicUrl = _client.storage.from(_podBucket).getPublicUrl(path);
 
     await _client
         .from(_table)
-        .update({'proof_of_delivery_url': publicUrl}).eq('id', deliveryId);
+        .update({'proof_of_delivery_url': publicUrl})
+        .eq('id', deliveryId);
 
     return publicUrl;
   }
 
   Future<List<Map<String, dynamic>>> fetchStatusHistory(
-      String deliveryId) async {
+    String deliveryId,
+  ) async {
     return _client
         .from('delivery_status_history')
         .select()

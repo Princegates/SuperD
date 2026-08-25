@@ -8,6 +8,7 @@ import '../../../models/delivery_status.dart';
 import '../../../shared/widgets/account_menu_button.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivery_card.dart';
+import '../../../shared/widgets/staggered_list_item.dart';
 import '../providers/driver_providers.dart';
 
 class DriverDashboardScreen extends ConsumerWidget {
@@ -20,7 +21,9 @@ class DriverDashboardScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(profile != null ? 'Hi, ${profile.displayName}' : 'My deliveries'),
+        title: Text(
+          profile != null ? 'Hi, ${profile.displayName}' : 'My deliveries',
+        ),
         actions: const [
           AccountMenuButton(changePasswordRoute: '/driver/change-password'),
         ],
@@ -41,12 +44,18 @@ class DriverDashboardScreen extends ConsumerWidget {
           }
 
           final active = items
-              .where((d) =>
-                  d.status != DeliveryStatus.delivered && d.status != DeliveryStatus.cancelled)
+              .where(
+                (d) =>
+                    d.status != DeliveryStatus.delivered &&
+                    d.status != DeliveryStatus.cancelled,
+              )
               .toList();
           final finished = items
-              .where((d) =>
-                  d.status == DeliveryStatus.delivered || d.status == DeliveryStatus.cancelled)
+              .where(
+                (d) =>
+                    d.status == DeliveryStatus.delivered ||
+                    d.status == DeliveryStatus.cancelled,
+              )
               .toList();
 
           return RefreshIndicator(
@@ -56,10 +65,14 @@ class DriverDashboardScreen extends ConsumerWidget {
               children: [
                 if (active.isNotEmpty) ...[
                   _SectionHeader('Active (${active.length})'),
-                  for (final delivery in active) ...[
-                    DeliveryCard(
-                      delivery: delivery,
-                      onTap: () => context.push('/driver/delivery/${delivery.id}'),
+                  for (final (index, delivery) in active.indexed) ...[
+                    StaggeredListItem(
+                      index: index,
+                      child: DeliveryCard(
+                        delivery: delivery,
+                        onTap: () =>
+                            context.push('/driver/delivery/${delivery.id}'),
+                      ),
                     ),
                     const SizedBox(height: 10),
                   ],
@@ -67,10 +80,14 @@ class DriverDashboardScreen extends ConsumerWidget {
                 if (finished.isNotEmpty) ...[
                   const SizedBox(height: 12),
                   _SectionHeader('Completed'),
-                  for (final delivery in finished) ...[
-                    DeliveryCard(
-                      delivery: delivery,
-                      onTap: () => context.push('/driver/delivery/${delivery.id}'),
+                  for (final (index, delivery) in finished.indexed) ...[
+                    StaggeredListItem(
+                      index: active.length + index,
+                      child: DeliveryCard(
+                        delivery: delivery,
+                        onTap: () =>
+                            context.push('/driver/delivery/${delivery.id}'),
+                      ),
                     ),
                     const SizedBox(height: 10),
                   ],

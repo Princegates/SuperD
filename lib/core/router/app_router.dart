@@ -15,13 +15,15 @@ import '../../features/driver/screens/delivery_detail_driver_screen.dart';
 import '../../features/driver/screens/driver_dashboard_screen.dart';
 import '../../models/user_role.dart';
 import '../providers/core_providers.dart';
+import 'fade_slide_page.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
   final authState = ref.watch(authStateProvider);
   final profileState = ref.watch(currentProfileProvider);
 
   final hasSession = authState.valueOrNull?.session != null;
-  final isLoading = authState.isLoading ||
+  final isLoading =
+      authState.isLoading ||
       (hasSession && profileState.isLoading && !profileState.hasValue);
   final role = profileState.valueOrNull?.role;
 
@@ -58,56 +60,96 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
-      GoRoute(path: '/login', builder: (context, state) => const LoginScreen()),
-      GoRoute(path: '/signup', builder: (context, state) => const SignupScreen()),
+      GoRoute(
+        path: '/splash',
+        pageBuilder: (context, state) =>
+            fadeSlidePage(key: state.pageKey, child: const SplashScreen()),
+      ),
+      GoRoute(
+        path: '/login',
+        pageBuilder: (context, state) =>
+            fadeSlidePage(key: state.pageKey, child: const LoginScreen()),
+      ),
+      GoRoute(
+        path: '/signup',
+        pageBuilder: (context, state) =>
+            fadeSlidePage(key: state.pageKey, child: const SignupScreen()),
+      ),
       GoRoute(
         path: '/forgot-password',
-        builder: (context, state) => const ForgotPasswordScreen(),
+        pageBuilder: (context, state) => fadeSlidePage(
+          key: state.pageKey,
+          child: const ForgotPasswordScreen(),
+        ),
       ),
       GoRoute(
         path: '/reset-password',
-        builder: (context, state) => ResetPasswordScreen(email: state.extra as String),
+        pageBuilder: (context, state) => fadeSlidePage(
+          key: state.pageKey,
+          child: ResetPasswordScreen(email: state.extra as String),
+        ),
       ),
 
       GoRoute(
         path: '/admin',
-        builder: (context, state) => const AdminDashboardScreen(),
+        pageBuilder: (context, state) => fadeSlidePage(
+          key: state.pageKey,
+          child: const AdminDashboardScreen(),
+        ),
         routes: [
           GoRoute(
             path: 'new',
-            builder: (context, state) => const CreateDeliveryScreen(),
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: const CreateDeliveryScreen(),
+            ),
           ),
           GoRoute(
             path: 'drivers',
-            builder: (context, state) => const DriversScreen(),
+            pageBuilder: (context, state) =>
+                fadeSlidePage(key: state.pageKey, child: const DriversScreen()),
           ),
           GoRoute(
             path: 'delivery/:id',
-            builder: (context, state) => DeliveryDetailAdminScreen(
-              deliveryId: state.pathParameters['id']!,
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: DeliveryDetailAdminScreen(
+                deliveryId: state.pathParameters['id']!,
+              ),
             ),
           ),
           GoRoute(
             path: 'change-password',
-            builder: (context, state) => const ChangePasswordScreen(),
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: const ChangePasswordScreen(),
+            ),
           ),
         ],
       ),
 
       GoRoute(
         path: '/driver',
-        builder: (context, state) => const DriverDashboardScreen(),
+        pageBuilder: (context, state) => fadeSlidePage(
+          key: state.pageKey,
+          child: const DriverDashboardScreen(),
+        ),
         routes: [
           GoRoute(
             path: 'delivery/:id',
-            builder: (context, state) => DeliveryDetailDriverScreen(
-              deliveryId: state.pathParameters['id']!,
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: DeliveryDetailDriverScreen(
+                deliveryId: state.pathParameters['id']!,
+              ),
             ),
           ),
           GoRoute(
             path: 'change-password',
-            builder: (context, state) => const ChangePasswordScreen(),
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: const ChangePasswordScreen(),
+            ),
           ),
         ],
       ),

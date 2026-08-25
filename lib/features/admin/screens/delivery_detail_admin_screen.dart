@@ -59,8 +59,10 @@ class _DetailBody extends ConsumerWidget {
       children: [
         Row(
           children: [
-            Text('#${delivery.trackingCode}',
-                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+            Text(
+              '#${delivery.trackingCode}',
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            ),
             const Spacer(),
             StatusBadge(status: delivery.status),
           ],
@@ -76,7 +78,11 @@ class _DetailBody extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _InfoRow(icon: Icons.person_outline, label: 'Customer', value: delivery.customerName),
+                _InfoRow(
+                  icon: Icons.person_outline,
+                  label: 'Customer',
+                  value: delivery.customerName,
+                ),
                 if (delivery.customerPhone?.isNotEmpty == true)
                   _InfoRow(
                     icon: Icons.phone_outlined,
@@ -84,12 +90,28 @@ class _DetailBody extends ConsumerWidget {
                     value: delivery.customerPhone!,
                     onTap: () => launchPhoneCall(delivery.customerPhone!),
                   ),
-                _InfoRow(icon: Icons.trip_origin, label: 'Pickup', value: delivery.pickupAddress),
-                _InfoRow(icon: Icons.place_outlined, label: 'Drop-off', value: delivery.dropoffAddress),
+                _InfoRow(
+                  icon: Icons.trip_origin,
+                  label: 'Pickup',
+                  value: delivery.pickupAddress,
+                ),
+                _InfoRow(
+                  icon: Icons.place_outlined,
+                  label: 'Drop-off',
+                  value: delivery.dropoffAddress,
+                ),
                 if (delivery.packageDescription?.isNotEmpty == true)
-                  _InfoRow(icon: Icons.inventory_2_outlined, label: 'Package', value: delivery.packageDescription!),
+                  _InfoRow(
+                    icon: Icons.inventory_2_outlined,
+                    label: 'Package',
+                    value: delivery.packageDescription!,
+                  ),
                 if (delivery.notes?.isNotEmpty == true)
-                  _InfoRow(icon: Icons.notes_outlined, label: 'Notes', value: delivery.notes!),
+                  _InfoRow(
+                    icon: Icons.notes_outlined,
+                    label: 'Notes',
+                    value: delivery.notes!,
+                  ),
               ],
             ),
           ),
@@ -101,23 +123,36 @@ class _DetailBody extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Assigned driver',
-                    style: TextStyle(fontWeight: FontWeight.w700, color: Colors.grey.shade700)),
+                Text(
+                  'Assigned driver',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String?>(
                   initialValue: delivery.assignedDriverId,
                   decoration: const InputDecoration(labelText: 'Driver'),
                   items: [
-                    const DropdownMenuItem<String?>(value: null, child: Text('Unassigned')),
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Unassigned'),
+                    ),
                     for (final driver in drivers)
-                      DropdownMenuItem<String?>(value: driver.id, child: Text(driver.displayName)),
+                      DropdownMenuItem<String?>(
+                        value: driver.id,
+                        child: Text(driver.displayName),
+                      ),
                   ],
                   onChanged: delivery.status == DeliveryStatus.cancelled
                       ? null
-                      : (value) => ref.read(deliveryRepositoryProvider).assignDriver(
-                            deliveryId: delivery.id,
-                            driverId: value,
-                          ),
+                      : (value) => ref
+                            .read(deliveryRepositoryProvider)
+                            .assignDriver(
+                              deliveryId: delivery.id,
+                              driverId: value,
+                            ),
                 ),
               ],
             ),
@@ -125,15 +160,25 @@ class _DetailBody extends ConsumerWidget {
         ),
         if (delivery.proofOfDeliveryUrl != null) ...[
           const SizedBox(height: 16),
-          Text('Proof of delivery', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.grey.shade700)),
+          Text(
+            'Proof of delivery',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              color: Colors.grey.shade700,
+            ),
+          ),
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: Image.network(delivery.proofOfDeliveryUrl!, fit: BoxFit.cover),
+            child: Image.network(
+              delivery.proofOfDeliveryUrl!,
+              fit: BoxFit.cover,
+            ),
           ),
         ],
         const SizedBox(height: 24),
-        if (delivery.status != DeliveryStatus.cancelled && delivery.status != DeliveryStatus.delivered)
+        if (delivery.status != DeliveryStatus.cancelled &&
+            delivery.status != DeliveryStatus.delivered)
           OutlinedButton.icon(
             style: OutlinedButton.styleFrom(foregroundColor: AppTheme.danger),
             onPressed: () async {
@@ -143,8 +188,14 @@ class _DetailBody extends ConsumerWidget {
                   title: const Text('Cancel delivery?'),
                   content: const Text('This cannot be undone.'),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
-                    TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Yes, cancel')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('No'),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Yes, cancel'),
+                    ),
                   ],
                 ),
               );
@@ -161,7 +212,12 @@ class _DetailBody extends ConsumerWidget {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, required this.value, this.onTap});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -181,7 +237,10 @@ class _InfoRow extends StatelessWidget {
             const SizedBox(width: 10),
             SizedBox(
               width: 72,
-              child: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+              ),
             ),
             Expanded(
               child: Text(

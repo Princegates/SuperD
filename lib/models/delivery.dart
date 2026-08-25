@@ -54,7 +54,8 @@ class Delivery {
   });
 
   factory Delivery.fromMap(Map<String, dynamic> map) {
-    DateTime? parseDate(dynamic v) => v == null ? null : DateTime.parse(v as String);
+    DateTime? parseDate(dynamic v) =>
+        v == null ? null : DateTime.parse(v as String);
 
     return Delivery(
       id: map['id'] as String,

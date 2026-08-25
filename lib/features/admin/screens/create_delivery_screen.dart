@@ -11,7 +11,8 @@ class CreateDeliveryScreen extends ConsumerStatefulWidget {
   const CreateDeliveryScreen({super.key});
 
   @override
-  ConsumerState<CreateDeliveryScreen> createState() => _CreateDeliveryScreenState();
+  ConsumerState<CreateDeliveryScreen> createState() =>
+      _CreateDeliveryScreenState();
 }
 
 class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
@@ -86,7 +87,9 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
     });
 
     try {
-      await ref.read(deliveryRepositoryProvider).createDelivery(
+      await ref
+          .read(deliveryRepositoryProvider)
+          .createDelivery(
             customerName: _customerNameController.text.trim(),
             customerPhone: _customerPhoneController.text.trim().isEmpty
                 ? null
@@ -106,7 +109,9 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
           );
       if (mounted) context.pop();
     } catch (e) {
-      setState(() => _errorMessage = 'Could not create delivery. Please try again.');
+      setState(
+        () => _errorMessage = 'Could not create delivery. Please try again.',
+      );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
@@ -130,61 +135,81 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                 TextFormField(
                   controller: _customerNameController,
                   decoration: const InputDecoration(labelText: 'Customer name'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _customerPhoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(labelText: 'Customer phone (optional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Customer phone (optional)',
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Pickup'),
                 TextFormField(
                   controller: _pickupController,
-                  decoration: const InputDecoration(labelText: 'Pickup address'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Pickup address',
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TextButton.icon(
-                    onPressed: _isLocating ? null : _useCurrentLocationForPickup,
+                    onPressed: _isLocating
+                        ? null
+                        : _useCurrentLocationForPickup,
                     icon: _isLocating
                         ? const SizedBox(
                             height: 16,
                             width: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2))
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
                         : const Icon(Icons.my_location, size: 18),
-                    label: Text(_pickupLat != null
-                        ? 'Pickup location captured'
-                        : 'Use current location for pickup'),
+                    label: Text(
+                      _pickupLat != null
+                          ? 'Pickup location captured'
+                          : 'Use current location for pickup',
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 const _SectionLabel('Drop-off'),
                 TextFormField(
                   controller: _dropoffController,
-                  decoration: const InputDecoration(labelText: 'Drop-off address'),
-                  validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  decoration: const InputDecoration(
+                    labelText: 'Drop-off address',
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Package'),
                 TextFormField(
                   controller: _packageController,
-                  decoration: const InputDecoration(labelText: 'Description (optional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Description (optional)',
+                  ),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(
                   controller: _notesController,
                   maxLines: 3,
-                  decoration: const InputDecoration(labelText: 'Notes (optional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Notes (optional)',
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Assign driver'),
                 DropdownButtonFormField<String?>(
                   initialValue: _assignedDriverId,
-                  decoration: const InputDecoration(labelText: 'Driver (optional)'),
+                  decoration: const InputDecoration(
+                    labelText: 'Driver (optional)',
+                  ),
                   items: [
                     const DropdownMenuItem<String?>(
                       value: null,
@@ -196,13 +221,16 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                         child: Text(driver.displayName),
                       ),
                   ],
-                  onChanged: (value) => setState(() => _assignedDriverId = value),
+                  onChanged: (value) =>
+                      setState(() => _assignedDriverId = value),
                 ),
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
-                  Text(_errorMessage!,
-                      style: const TextStyle(color: AppTheme.danger),
-                      textAlign: TextAlign.center),
+                  Text(
+                    _errorMessage!,
+                    style: const TextStyle(color: AppTheme.danger),
+                    textAlign: TextAlign.center,
+                  ),
                 ],
                 const SizedBox(height: 28),
                 ElevatedButton(
@@ -212,7 +240,10 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                           height: 22,
                           width: 22,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2.4, color: Colors.white))
+                            strokeWidth: 2.4,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Text('Create delivery'),
                 ),
               ],

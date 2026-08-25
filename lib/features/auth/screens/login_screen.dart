@@ -5,6 +5,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/widgets/fade_slide_in.dart';
+import '../../../shared/widgets/shake_x.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -37,7 +39,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     try {
-      await ref.read(authRepositoryProvider).signIn(
+      await ref
+          .read(authRepositoryProvider)
+          .signIn(
             email: _emailController.text.trim(),
             password: _passwordController.text,
           );
@@ -60,87 +64,96 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             padding: const EdgeInsets.all(24),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 400),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const Icon(Icons.local_shipping_rounded,
-                        size: 48, color: AppTheme.primary),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Welcome back',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800),
+              child: FadeSlideIn(
+                child: ShakeX(
+                  trigger: _errorMessage,
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Image.asset('assets/icon/icon.png', height: 68),
+                        const SizedBox(height: 12),
+                        const Text(
+                          'Welcome back',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Sign in to SuperD',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.grey.shade600),
+                        ),
+                        const SizedBox(height: 32),
+                        TextFormField(
+                          controller: _emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          autofillHints: const [AutofillHints.email],
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            prefixIcon: Icon(Icons.email_outlined),
+                          ),
+                          validator: (value) =>
+                              (value == null || !value.contains('@'))
+                              ? 'Enter a valid email'
+                              : null,
+                        ),
+                        const SizedBox(height: 14),
+                        TextFormField(
+                          controller: _passwordController,
+                          obscureText: true,
+                          autofillHints: const [AutofillHints.password],
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: Icon(Icons.lock_outline),
+                          ),
+                          validator: (value) =>
+                              (value == null || value.length < 6)
+                              ? 'Password must be at least 6 characters'
+                              : null,
+                          onFieldSubmitted: (_) => _submit(),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => context.push('/forgot-password'),
+                            child: const Text('Forgot password?'),
+                          ),
+                        ),
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 14),
+                          Text(
+                            _errorMessage!,
+                            style: const TextStyle(color: AppTheme.danger),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                        const SizedBox(height: 8),
+                        ElevatedButton(
+                          onPressed: _isSubmitting ? null : _submit,
+                          child: _isSubmitting
+                              ? const SizedBox(
+                                  height: 22,
+                                  width: 22,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2.4,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Sign in'),
+                        ),
+                        const SizedBox(height: 16),
+                        TextButton(
+                          onPressed: () => context.go('/signup'),
+                          child: const Text('New driver? Create an account'),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Sign in to SuperD',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade600),
-                    ),
-                    const SizedBox(height: 32),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      autofillHints: const [AutofillHints.email],
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email_outlined),
-                      ),
-                      validator: (value) => (value == null || !value.contains('@'))
-                          ? 'Enter a valid email'
-                          : null,
-                    ),
-                    const SizedBox(height: 14),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      autofillHints: const [AutofillHints.password],
-                      decoration: const InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: Icon(Icons.lock_outline),
-                      ),
-                      validator: (value) => (value == null || value.length < 6)
-                          ? 'Password must be at least 6 characters'
-                          : null,
-                      onFieldSubmitted: (_) => _submit(),
-                    ),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: TextButton(
-                        onPressed: () => context.push('/forgot-password'),
-                        child: const Text('Forgot password?'),
-                      ),
-                    ),
-                    if (_errorMessage != null) ...[
-                      const SizedBox(height: 14),
-                      Text(
-                        _errorMessage!,
-                        style: const TextStyle(color: AppTheme.danger),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                    const SizedBox(height: 8),
-                    ElevatedButton(
-                      onPressed: _isSubmitting ? null : _submit,
-                      child: _isSubmitting
-                          ? const SizedBox(
-                              height: 22,
-                              width: 22,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2.4,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text('Sign in'),
-                    ),
-                    const SizedBox(height: 16),
-                    TextButton(
-                      onPressed: () => context.go('/signup'),
-                      child: const Text('New driver? Create an account'),
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),

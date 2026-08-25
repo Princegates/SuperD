@@ -8,13 +8,15 @@ import '../../../models/delivery_status.dart';
 import '../../../shared/widgets/account_menu_button.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivery_card.dart';
+import '../../../shared/widgets/staggered_list_item.dart';
 import '../providers/admin_providers.dart';
 
 class AdminDashboardScreen extends ConsumerStatefulWidget {
   const AdminDashboardScreen({super.key});
 
   @override
-  ConsumerState<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+  ConsumerState<AdminDashboardScreen> createState() =>
+      _AdminDashboardScreenState();
 }
 
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
@@ -35,7 +37,9 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             icon: const Icon(Icons.groups_outlined),
             onPressed: () => context.push('/admin/drivers'),
           ),
-          const AccountMenuButton(changePasswordRoute: '/admin/change-password'),
+          const AccountMenuButton(
+            changePasswordRoute: '/admin/change-password',
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -57,33 +61,46 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                     ? all
                     : all.where((d) => d.status == _filter).toList();
 
-                if (items.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No deliveries yet',
-                      style: TextStyle(color: Colors.grey.shade500),
-                    ),
-                  );
-                }
-
-                return RefreshIndicator(
-                  onRefresh: () async => ref.invalidate(allDeliveriesProvider),
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-                    itemCount: items.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final delivery = items[index];
-                      final driverLabel = delivery.assignedDriverId == null
-                          ? 'Unassigned'
-                          : (driverNames[delivery.assignedDriverId] ?? 'Driver assigned');
-                      return DeliveryCard(
-                        delivery: delivery,
-                        subtitle: '${delivery.customerName} · $driverLabel',
-                        onTap: () => context.push('/admin/delivery/${delivery.id}'),
-                      );
-                    },
-                  ),
+                return AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: items.isEmpty
+                      ? Center(
+                          key: const ValueKey('empty'),
+                          child: Text(
+                            'No deliveries yet',
+                            style: TextStyle(color: Colors.grey.shade500),
+                          ),
+                        )
+                      : RefreshIndicator(
+                          key: ValueKey(_filter),
+                          onRefresh: () async =>
+                              ref.invalidate(allDeliveriesProvider),
+                          child: ListView.separated(
+                            padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+                            itemCount: items.length,
+                            separatorBuilder: (_, _) =>
+                                const SizedBox(height: 10),
+                            itemBuilder: (context, index) {
+                              final delivery = items[index];
+                              final driverLabel =
+                                  delivery.assignedDriverId == null
+                                  ? 'Unassigned'
+                                  : (driverNames[delivery.assignedDriverId] ??
+                                        'Driver assigned');
+                              return StaggeredListItem(
+                                index: index,
+                                child: DeliveryCard(
+                                  delivery: delivery,
+                                  subtitle:
+                                      '${delivery.customerName} · $driverLabel',
+                                  onTap: () => context.push(
+                                    '/admin/delivery/${delivery.id}',
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
                 );
               },
             ),
@@ -108,7 +125,12 @@ class _StatusFilterBar extends StatelessWidget {
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         children: [
-          _chip(context, label: 'All', selected: value == null, onTap: () => onChanged(null)),
+          _chip(
+            context,
+            label: 'All',
+            selected: value == null,
+            onTap: () => onChanged(null),
+          ),
           for (final status in DeliveryStatus.values)
             _chip(
               context,
@@ -121,8 +143,12 @@ class _StatusFilterBar extends StatelessWidget {
     );
   }
 
-  Widget _chip(BuildContext context,
-      {required String label, required bool selected, required VoidCallback onTap}) {
+  Widget _chip(
+    BuildContext context, {
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
     return Padding(
       padding: const EdgeInsets.only(right: 8),
       child: ChoiceChip(
@@ -134,7 +160,9 @@ class _StatusFilterBar extends StatelessWidget {
           color: selected ? AppTheme.primary : Colors.black87,
           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         ),
-        side: BorderSide(color: selected ? AppTheme.primary : const Color(0xFFE0E4E9)),
+        side: BorderSide(
+          color: selected ? AppTheme.primary : const Color(0xFFE0E4E9),
+        ),
       ),
     );
   }

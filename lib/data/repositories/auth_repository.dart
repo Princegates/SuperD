@@ -64,7 +64,10 @@ class AuthRepository {
     if (email == null) {
       throw StateError('No signed-in user to change the password for.');
     }
-    await _client.auth.signInWithPassword(email: email, password: currentPassword);
+    await _client.auth.signInWithPassword(
+      email: email,
+      password: currentPassword,
+    );
     await _client.auth.updateUser(UserAttributes(password: newPassword));
   }
 }

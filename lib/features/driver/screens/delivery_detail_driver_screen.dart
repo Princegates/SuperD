@@ -12,6 +12,7 @@ import '../../../models/delivery_status.dart';
 import '../../../shared/providers/delivery_detail_providers.dart';
 import '../../../shared/utils/navigation_launcher.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/delivered_celebration.dart';
 import '../../../shared/widgets/map_preview.dart';
 import '../../../shared/widgets/status_badge.dart';
 
@@ -55,10 +56,12 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
   Future<void> _advanceStatus(DeliveryStatus next) async {
     setState(() => _isUpdatingStatus = true);
     try {
-      await ref.read(deliveryRepositoryProvider).updateStatus(
-            deliveryId: widget.delivery.id,
-            status: next,
-          );
+      await ref
+          .read(deliveryRepositoryProvider)
+          .updateStatus(deliveryId: widget.delivery.id, status: next);
+      if (mounted && next == DeliveryStatus.delivered) {
+        showDeliveredCelebration(context);
+      }
     } finally {
       if (mounted) setState(() => _isUpdatingStatus = false);
     }
@@ -66,19 +69,25 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
 
   Future<void> _capturePhoto() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.camera, imageQuality: 80);
+    final picked = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+    );
     if (picked == null) return;
 
     setState(() => _isUploadingPhoto = true);
     try {
-      await ref.read(deliveryRepositoryProvider).uploadProofOfDelivery(
+      await ref
+          .read(deliveryRepositoryProvider)
+          .uploadProofOfDelivery(
             deliveryId: widget.delivery.id,
             file: File(picked.path),
           );
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Could not upload photo')));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Could not upload photo')));
       }
     } finally {
       if (mounted) setState(() => _isUploadingPhoto = false);
@@ -95,7 +104,9 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
         ? LatLng(delivery.dropoffLat!, delivery.dropoffLng!)
         : null;
 
-    final navigateTarget = delivery.status == DeliveryStatus.assigned ? pickup : dropoff;
+    final navigateTarget = delivery.status == DeliveryStatus.assigned
+        ? pickup
+        : dropoff;
     final nextStatus = delivery.status.nextForDriver;
 
     return Column(
@@ -106,8 +117,13 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
             children: [
               Row(
                 children: [
-                  Text('#${delivery.trackingCode}',
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                  Text(
+                    '#${delivery.trackingCode}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w800,
+                      fontSize: 18,
+                    ),
+                  ),
                   const Spacer(),
                   StatusBadge(status: delivery.status),
                 ],
@@ -123,7 +139,11 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _InfoRow(icon: Icons.person_outline, label: 'Customer', value: delivery.customerName),
+                      _InfoRow(
+                        icon: Icons.person_outline,
+                        label: 'Customer',
+                        value: delivery.customerName,
+                      ),
                       if (delivery.customerPhone?.isNotEmpty == true)
                         _InfoRow(
                           icon: Icons.phone_outlined,
@@ -131,15 +151,28 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                           value: delivery.customerPhone!,
                           onTap: () => launchPhoneCall(delivery.customerPhone!),
                         ),
-                      _InfoRow(icon: Icons.trip_origin, label: 'Pickup', value: delivery.pickupAddress),
-                      _InfoRow(icon: Icons.place_outlined, label: 'Drop-off', value: delivery.dropoffAddress),
+                      _InfoRow(
+                        icon: Icons.trip_origin,
+                        label: 'Pickup',
+                        value: delivery.pickupAddress,
+                      ),
+                      _InfoRow(
+                        icon: Icons.place_outlined,
+                        label: 'Drop-off',
+                        value: delivery.dropoffAddress,
+                      ),
                       if (delivery.packageDescription?.isNotEmpty == true)
                         _InfoRow(
-                            icon: Icons.inventory_2_outlined,
-                            label: 'Package',
-                            value: delivery.packageDescription!),
+                          icon: Icons.inventory_2_outlined,
+                          label: 'Package',
+                          value: delivery.packageDescription!,
+                        ),
                       if (delivery.notes?.isNotEmpty == true)
-                        _InfoRow(icon: Icons.notes_outlined, label: 'Notes', value: delivery.notes!),
+                        _InfoRow(
+                          icon: Icons.notes_outlined,
+                          label: 'Notes',
+                          value: delivery.notes!,
+                        ),
                     ],
                   ),
                 ),
@@ -151,22 +184,39 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Proof of delivery',
-                          style: TextStyle(fontWeight: FontWeight.w700, color: Colors.grey.shade700)),
+                      Text(
+                        'Proof of delivery',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
                       const SizedBox(height: 10),
                       if (delivery.proofOfDeliveryUrl != null)
                         ClipRRect(
                           borderRadius: BorderRadius.circular(12),
-                          child: Image.network(delivery.proofOfDeliveryUrl!, fit: BoxFit.cover),
+                          child: Image.network(
+                            delivery.proofOfDeliveryUrl!,
+                            fit: BoxFit.cover,
+                          ),
                         ),
                       const SizedBox(height: 10),
                       OutlinedButton.icon(
                         onPressed: _isUploadingPhoto ? null : _capturePhoto,
                         icon: _isUploadingPhoto
                             ? const SizedBox(
-                                height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                height: 16,
+                                width: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
                             : const Icon(Icons.camera_alt_outlined),
-                        label: Text(delivery.proofOfDeliveryUrl != null ? 'Retake photo' : 'Take photo'),
+                        label: Text(
+                          delivery.proofOfDeliveryUrl != null
+                              ? 'Retake photo'
+                              : 'Take photo',
+                        ),
                       ),
                     ],
                   ),
@@ -198,12 +248,18 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                   Expanded(
                     flex: 2,
                     child: ElevatedButton.icon(
-                      onPressed: _isUpdatingStatus ? null : () => _advanceStatus(nextStatus),
+                      onPressed: _isUpdatingStatus
+                          ? null
+                          : () => _advanceStatus(nextStatus),
                       icon: _isUpdatingStatus
                           ? const SizedBox(
                               height: 18,
                               width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
                           : Icon(nextStatus.icon),
                       label: Text('Mark ${nextStatus.label}'),
                     ),
@@ -218,7 +274,12 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
 }
 
 class _InfoRow extends StatelessWidget {
-  const _InfoRow({required this.icon, required this.label, required this.value, this.onTap});
+  const _InfoRow({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.onTap,
+  });
 
   final IconData icon;
   final String label;
@@ -238,7 +299,10 @@ class _InfoRow extends StatelessWidget {
             const SizedBox(width: 10),
             SizedBox(
               width: 72,
-              child: Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)),
+              child: Text(
+                label,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+              ),
             ),
             Expanded(
               child: Text(

@@ -12,7 +12,9 @@ Future<void> launchNavigation({
 }) async {
   final uri = (!kIsWeb && Platform.isIOS)
       ? Uri.parse('https://maps.apple.com/?daddr=$lat,$lng')
-      : Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+      : Uri.parse(
+          'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng',
+        );
 
   await launchUrl(uri, mode: LaunchMode.externalApplication);
 }

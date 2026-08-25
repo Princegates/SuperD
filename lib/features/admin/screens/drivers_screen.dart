@@ -45,9 +45,11 @@ class DriversScreen extends ConsumerWidget {
                     ),
                   ),
                   title: Text(driver.displayName),
-                  subtitle: Text(driver.phone?.isNotEmpty == true
-                      ? '${driver.email} · ${driver.phone}'
-                      : driver.email),
+                  subtitle: Text(
+                    driver.phone?.isNotEmpty == true
+                        ? '${driver.email} · ${driver.phone}'
+                        : driver.email,
+                  ),
                 ),
               );
             },

@@ -33,7 +33,8 @@ final authStateProvider = StreamProvider<AuthState>((ref) {
 /// change by an admin is picked up without a restart.
 final currentProfileProvider = StreamProvider<Profile?>((ref) {
   final authState = ref.watch(authStateProvider).valueOrNull;
-  final userId = authState?.session?.user.id ??
+  final userId =
+      authState?.session?.user.id ??
       ref.watch(supabaseClientProvider).auth.currentUser?.id;
 
   if (userId == null) {

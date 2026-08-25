@@ -7,12 +7,7 @@ import '../../core/theme/app_theme.dart';
 /// A small, non-interactive OpenStreetMap preview showing pickup and/or
 /// drop-off pins. Uses the public OSM tile server — free, no API key.
 class MapPreview extends StatelessWidget {
-  const MapPreview({
-    super.key,
-    this.pickup,
-    this.dropoff,
-    this.height = 180,
-  });
+  const MapPreview({super.key, this.pickup, this.dropoff, this.height = 180});
 
   final LatLng? pickup;
   final LatLng? dropoff;
@@ -69,14 +64,21 @@ class MapPreview extends StatelessWidget {
                     point: pickup!,
                     width: 34,
                     height: 34,
-                    child: const Icon(Icons.trip_origin, color: AppTheme.primary),
+                    child: const Icon(
+                      Icons.trip_origin,
+                      color: AppTheme.primary,
+                    ),
                   ),
                 if (dropoff != null)
                   Marker(
                     point: dropoff!,
                     width: 34,
                     height: 34,
-                    child: const Icon(Icons.place, color: AppTheme.danger, size: 34),
+                    child: const Icon(
+                      Icons.place,
+                      color: AppTheme.danger,
+                      size: 34,
+                    ),
                   ),
               ],
             ),

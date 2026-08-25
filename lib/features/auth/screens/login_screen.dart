@@ -85,7 +85,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         Image.asset('assets/icon/icon.png', height: 68),
                         const SizedBox(height: 12),
                         const Text(
-                          'Welcome back',
+                          'Welcome',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 24,
@@ -176,7 +176,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         const SizedBox(height: 16),
                         TextButton(
                           onPressed: () => context.go('/signup'),
-                          child: const Text('New driver? Create an account'),
+                          child: const Text('Create account'),
                         ),
                       ],
                     ),

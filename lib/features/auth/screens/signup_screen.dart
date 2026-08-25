@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../models/user_role.dart';
 import '../../../shared/widgets/fade_slide_in.dart';
 import '../../../shared/widgets/shake_x.dart';
 
@@ -25,6 +26,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   bool _isSubmitting = false;
   String? _errorMessage;
   String? _infoMessage;
+  UserRole _selectedRole = UserRole.driver;
 
   @override
   void dispose() {
@@ -73,7 +75,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Create driver account')),
+      appBar: AppBar(title: const Text('Create account')),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -94,94 +96,122 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                             height: 56,
                           ),
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'New accounts are created with the Driver role. Ask a '
-                          'super admin to promote you if you need dispatcher '
-                          'or admin access.',
-                          style: TextStyle(
-                            color: Colors.grey.shade600,
-                            fontSize: 13,
+                        const SizedBox(height: 20),
+                        SegmentedButton<UserRole>(
+                          segments: const [
+                            ButtonSegment(
+                              value: UserRole.driver,
+                              label: Text('Driver'),
+                            ),
+                            ButtonSegment(
+                              value: UserRole.dispatcher,
+                              label: Text('Dispatcher'),
+                            ),
+                          ],
+                          selected: {_selectedRole},
+                          onSelectionChanged: (selection) =>
+                              setState(() => _selectedRole = selection.first),
+                          style: SegmentedButton.styleFrom(
+                            selectedBackgroundColor: AppTheme.primary,
+                            selectedForegroundColor: Colors.white,
                           ),
                         ),
-                        const SizedBox(height: 24),
-                        TextFormField(
-                          controller: _nameController,
-                          decoration: const InputDecoration(
-                            labelText: 'Full name',
-                            prefixIcon: Icon(Icons.person_outline),
+                        const SizedBox(height: 20),
+                        if (_selectedRole == UserRole.dispatcher) ...[
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: AppTheme.warning.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Text(
+                              'Dispatcher accounts are set up by a super '
+                              'admin from the Team screen - this page can '
+                              'only create a driver account. Ask your super '
+                              'admin to add you as a dispatcher, or switch '
+                              'back to "Driver" to sign up now.',
+                              style: TextStyle(fontSize: 13),
+                            ),
                           ),
-                          validator: (value) =>
-                              (value == null || value.trim().isEmpty)
-                              ? 'Required'
-                              : null,
-                        ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(
-                            labelText: 'Email',
-                            prefixIcon: Icon(Icons.email_outlined),
+                        ] else ...[
+                          TextFormField(
+                            controller: _nameController,
+                            decoration: const InputDecoration(
+                              labelText: 'Full name',
+                              prefixIcon: Icon(Icons.person_outline),
+                            ),
+                            validator: (value) =>
+                                (value == null || value.trim().isEmpty)
+                                ? 'Required'
+                                : null,
                           ),
-                          validator: (value) =>
-                              (value == null || !value.contains('@'))
-                              ? 'Enter a valid email'
-                              : null,
-                        ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _phoneController,
-                          keyboardType: TextInputType.phone,
-                          decoration: const InputDecoration(
-                            labelText: 'Phone (optional)',
-                            prefixIcon: Icon(Icons.phone_outlined),
-                          ),
-                        ),
-                        const SizedBox(height: 14),
-                        TextFormField(
-                          controller: _passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'Password',
-                            prefixIcon: Icon(Icons.lock_outline),
-                          ),
-                          validator: (value) =>
-                              (value == null || value.length < 6)
-                              ? 'Password must be at least 6 characters'
-                              : null,
-                          onFieldSubmitted: (_) => _submit(),
-                        ),
-                        if (_errorMessage != null) ...[
                           const SizedBox(height: 14),
-                          Text(
-                            _errorMessage!,
-                            style: const TextStyle(color: AppTheme.danger),
-                            textAlign: TextAlign.center,
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              prefixIcon: Icon(Icons.email_outlined),
+                            ),
+                            validator: (value) =>
+                                (value == null || !value.contains('@'))
+                                ? 'Enter a valid email'
+                                : null,
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _phoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Phone (optional)',
+                              prefixIcon: Icon(Icons.phone_outlined),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Password',
+                              prefixIcon: Icon(Icons.lock_outline),
+                            ),
+                            validator: (value) =>
+                                (value == null || value.length < 6)
+                                ? 'Password must be at least 6 characters'
+                                : null,
+                            onFieldSubmitted: (_) => _submit(),
+                          ),
+                          if (_errorMessage != null) ...[
+                            const SizedBox(height: 14),
+                            Text(
+                              _errorMessage!,
+                              style: const TextStyle(color: AppTheme.danger),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                          if (_infoMessage != null) ...[
+                            const SizedBox(height: 14),
+                            Text(
+                              _infoMessage!,
+                              style: const TextStyle(color: AppTheme.success),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          ElevatedButton(
+                            onPressed: _isSubmitting ? null : _submit,
+                            child: _isSubmitting
+                                ? const SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2.4,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Text('Create account'),
                           ),
                         ],
-                        if (_infoMessage != null) ...[
-                          const SizedBox(height: 14),
-                          Text(
-                            _infoMessage!,
-                            style: const TextStyle(color: AppTheme.success),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _isSubmitting ? null : _submit,
-                          child: _isSubmitting
-                              ? const SizedBox(
-                                  height: 22,
-                                  width: 22,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2.4,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text('Create account'),
-                        ),
                         const SizedBox(height: 16),
                         TextButton(
                           onPressed: () => context.go('/login'),

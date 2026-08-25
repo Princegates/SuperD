@@ -56,8 +56,8 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
             .clearMustChangePassword(profile.id);
       }
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('Password updated')));
+        await _showSuccessDialog();
+        if (!mounted) return;
         if (isMandatory) {
           final home = profile?.role == UserRole.driver ? '/driver' : '/admin';
           context.go(home);
@@ -74,6 +74,23 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<void> _showSuccessDialog() {
+    return showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        icon: const Icon(Icons.check_circle, color: AppTheme.success, size: 40),
+        title: const Text('Password changed successfully'),
+        content: const Text('Use your new password the next time you sign in.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override

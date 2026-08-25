@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -6,7 +7,6 @@ import '../../features/admin/screens/create_delivery_screen.dart';
 import '../../features/admin/screens/delivery_detail_admin_screen.dart';
 import '../../features/admin/screens/staff_form_screen.dart';
 import '../../features/admin/screens/team_screen.dart';
-import '../../models/profile.dart';
 import '../../features/auth/screens/change_password_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
@@ -15,23 +15,59 @@ import '../../features/auth/screens/signup_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/driver/screens/delivery_detail_driver_screen.dart';
 import '../../features/driver/screens/driver_dashboard_screen.dart';
+import '../../models/profile.dart';
 import '../../models/user_role.dart';
 import '../providers/core_providers.dart';
 import 'fade_slide_page.dart';
 
-final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authStateProvider);
-  final profileState = ref.watch(currentProfileProvider);
+/// Bridges Riverpod state changes into go_router's `refreshListenable`, so
+/// the SAME [GoRouter] instance re-runs its `redirect` callback whenever
+/// auth or profile state changes, instead of the app rebuilding a whole new
+/// router object on every change.
+///
+/// That "rebuild a new GoRouter every time" approach (what this file used
+/// to do) has a real bug: Riverpod updating a provider doesn't synchronously
+/// swap the new router into the widget tree - Flutter schedules that for
+/// the next frame. Anything that calls `context.go(...)` right after
+/// triggering a provider update (e.g. clearing "must change password" then
+/// navigating) can still hit the *old* router object, whose `redirect`
+/// closure captured the *old* state - so it makes the old, wrong decision
+/// and bounces the user right back. A single long-lived router whose
+/// `redirect` reads current state fresh via `ref.read` every time it runs
+/// doesn't have this gap.
+class _RouterRefreshNotifier extends ChangeNotifier {
+  _RouterRefreshNotifier(Ref ref) {
+    ref.listen(authStateProvider, (_, _) => notifyListeners());
+    ref.listen(currentProfileProvider, (_, _) => notifyListeners());
+  }
+}
 
-  final hasSession = authState.valueOrNull?.session != null;
-  final isLoading =
-      authState.isLoading ||
-      (hasSession && profileState.isLoading && !profileState.hasValue);
-  final role = profileState.valueOrNull?.role;
+final _routerRefreshProvider = Provider<_RouterRefreshNotifier>((ref) {
+  final notifier = _RouterRefreshNotifier(ref);
+  ref.onDispose(notifier.dispose);
+  return notifier;
+});
+
+final routerProvider = Provider<GoRouter>((ref) {
+  final refresh = ref.watch(_routerRefreshProvider);
 
   return GoRouter(
     initialLocation: '/splash',
+    refreshListenable: refresh,
     redirect: (context, state) {
+      // Read fresh every time this runs (triggered by refreshListenable),
+      // rather than closing over a value captured when the router itself
+      // was built - this router is built once, so a captured value would
+      // go stale immediately.
+      final authState = ref.read(authStateProvider);
+      final profileState = ref.read(currentProfileProvider);
+
+      final hasSession = authState.valueOrNull?.session != null;
+      final isLoading =
+          authState.isLoading ||
+          (hasSession && profileState.isLoading && !profileState.hasValue);
+      final role = profileState.valueOrNull?.role;
+
       final loc = state.matchedLocation;
 
       if (isLoading) {

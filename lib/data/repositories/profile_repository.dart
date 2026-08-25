@@ -170,12 +170,22 @@ class ProfileRepository {
   String? _dateOnly(DateTime? date) => date?.toIso8601String().substring(0, 10);
 
   /// Clears the "must change password" flag once the user has set their
-  /// own password after first sign-in.
+  /// own password after first sign-in. Reads the row back (`.select()`) so
+  /// a silent no-op - e.g. an RLS policy quietly matching zero rows, which
+  /// a plain `.update()` wouldn't otherwise surface as an error - throws
+  /// instead of leaving the caller to loop forever on the mandatory screen.
   Future<void> clearMustChangePassword(String userId) async {
-    await _client
+    final rows = await _client
         .from('profiles')
         .update({'must_change_password': false})
-        .eq('id', userId);
+        .eq('id', userId)
+        .select();
+    if (rows.isEmpty) {
+      throw StateError(
+        "Couldn't confirm the password-change flag was cleared for "
+        '$userId - no row was updated.',
+      );
+    }
   }
 
   /// Deletes a driver's or dispatcher's login (and their profile row, via

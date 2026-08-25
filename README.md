@@ -57,6 +57,7 @@ supabase/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
     admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
+    notify-driver-assigned/        Edge Function: texts the customer when a driver is assigned
 ```
 
 ## 1. Stand up Supabase
@@ -314,6 +315,77 @@ app just tracks that it happened. Wiring an actual gateway (Stripe,
 Paystack, Flutterwave, ...) to charge customers in-app is a bigger,
 separate piece of work — the schema has a `gateway_reference` column ready
 for it whenever you're ready to take that on.
+
+## Customer SMS notifications
+
+The moment a delivery gets a driver assigned - whether that's set right at
+creation or changed later from the delivery detail screen - the customer is
+texted the rider's name and phone number, via
+[Twilio](https://www.twilio.com).
+
+This isn't triggered from the app itself; it's wired up as a **Supabase
+Database Webhook** on the `deliveries` table, so it fires no matter which
+screen or code path changed `assigned_driver_id` - there's nothing to wire
+up per-screen, and nothing extra to remember if this logic changes later.
+
+### 1. Get a Twilio number
+
+Sign up at [twilio.com](https://www.twilio.com) (a trial account works for
+testing), buy/activate a phone number capable of sending SMS, and note down
+from the console:
+
+- **Account SID**
+- **Auth Token**
+- Your **Twilio phone number** (in `+1XXXXXXXXXX` format)
+
+A trial account can only text phone numbers you've manually verified in the
+Twilio console first - fine for testing, but you'll need a paid account
+before real customers can receive these.
+
+### 2. Set the secrets and deploy the function
+
+```bash
+supabase secrets set TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+supabase secrets set TWILIO_AUTH_TOKEN=your_auth_token
+supabase secrets set TWILIO_FROM_NUMBER=+1XXXXXXXXXX
+supabase functions deploy notify-driver-assigned
+```
+
+(Self-hosted: add those three as environment variables on the `functions`
+container instead of `supabase secrets set`, same as `RESEND_API_KEY`
+earlier.)
+
+### 3. Create the Database Webhook
+
+In the Supabase dashboard: **Database → Webhooks → Create a new webhook**.
+
+- **Table**: `deliveries`
+- **Events**: `Insert` and `Update` (a driver can be assigned at creation
+  or later)
+- **Type**: `Supabase Edge Functions` (not "HTTP Request" - this option
+  has Supabase attach the right authorization automatically, so there's
+  nothing else to configure)
+- **Edge Function**: `notify-driver-assigned`
+- **HTTP Method**: `POST`
+
+That's it - no need to enable `pg_net` yourself on Supabase Cloud, it's
+already on for this exact feature. Self-hosted: run
+`create extension if not exists pg_net;` once first if the webhook won't
+save.
+
+### Notes
+
+- **Customer phone numbers should be in international format**
+  (`+233XXXXXXXXX`, not `0XXXXXXXXX`) - Twilio rejects anything else, and
+  the dispatcher's create-delivery form doesn't currently enforce that
+  format for them.
+- The function only trusts the delivery's *id* from the webhook payload -
+  everything else (the driver's real name/phone, the customer's real
+  phone) is re-fetched fresh from the database, so a forged request can't
+  be used to text an arbitrary number with made-up content.
+- If the Twilio secrets aren't set, or the send fails, nothing breaks -
+  the assignment itself still goes through; the failure is only visible in
+  the function's logs (`supabase functions logs notify-driver-assigned`).
 
 ## Testing
 

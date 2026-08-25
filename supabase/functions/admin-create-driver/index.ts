@@ -22,7 +22,10 @@ async function sendWelcomeEmail(
   tempPassword: string,
 ): Promise<boolean> {
   const apiKey = Deno.env.get("RESEND_API_KEY");
-  if (!apiKey) return false;
+  if (!apiKey) {
+    console.error("sendWelcomeEmail: RESEND_API_KEY is not set");
+    return false;
+  }
   const fromEmail =
     Deno.env.get("RESEND_FROM_EMAIL") ?? "SuperD <noreply@superd.anknovate.com>";
 
@@ -49,8 +52,14 @@ async function sendWelcomeEmail(
         `,
       }),
     });
+    if (!res.ok) {
+      console.error(
+        `sendWelcomeEmail: Resend responded ${res.status} - ${await res.text()}`,
+      );
+    }
     return res.ok;
-  } catch {
+  } catch (e) {
+    console.error("sendWelcomeEmail: fetch to Resend failed -", e);
     return false;
   }
 }

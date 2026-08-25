@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/payment_method.dart';
+import '../../../shared/screens/location_picker_screen.dart';
 import '../providers/admin_providers.dart';
 
 class CreateDeliveryScreen extends ConsumerStatefulWidget {
@@ -28,6 +30,8 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
 
   double? _pickupLat;
   double? _pickupLng;
+  double? _dropoffLat;
+  double? _dropoffLng;
 
   String? _assignedDriverId;
   PaymentMethod _paymentMethod = PaymentMethod.cash;
@@ -79,6 +83,26 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
     }
   }
 
+  Future<void> _pickCustomerLocation() async {
+    final initial = (_dropoffLat != null && _dropoffLng != null)
+        ? LatLng(_dropoffLat!, _dropoffLng!)
+        : null;
+    final picked = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(
+        builder: (context) => LocationPickerScreen(
+          title: "Customer's location",
+          initialCenter: initial,
+        ),
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _dropoffLat = picked.latitude;
+        _dropoffLng = picked.longitude;
+      });
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -102,6 +126,8 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
             pickupLat: _pickupLat,
             pickupLng: _pickupLng,
             dropoffAddress: _dropoffController.text.trim(),
+            dropoffLat: _dropoffLat,
+            dropoffLng: _dropoffLng,
             packageDescription: _packageController.text.trim().isEmpty
                 ? null
                 : _packageController.text.trim(),
@@ -203,7 +229,20 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _pickCustomerLocation,
+                    icon: const Icon(Icons.map_outlined, size: 18),
+                    label: Text(
+                      _dropoffLat != null
+                          ? 'Customer location set'
+                          : "Set customer's location on map",
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 const _SectionLabel('Package'),
                 TextFormField(
                   controller: _packageController,

@@ -9,12 +9,13 @@ import '../../../models/user_role.dart';
 import '../../../shared/widgets/fade_slide_in.dart';
 import '../../../shared/widgets/shake_x.dart';
 
-/// Labels shown on the login tabs. Kept separate from [UserRole.label]
-/// since "Admin" reads better here than "Super Admin" for a compact tab.
+/// Labels shown on the login tabs - cosmetic only, the real role always
+/// comes from the database. No "Admin" tab: a super admin still signs in
+/// fine picking either tab, this just keeps the picker to the two roles
+/// someone would actually choose between when signing in.
 const _loginTabLabels = {
   UserRole.driver: 'Driver',
   UserRole.dispatcher: 'Dispatcher',
-  UserRole.superAdmin: 'Admin',
 };
 
 class LoginScreen extends ConsumerStatefulWidget {

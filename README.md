@@ -49,6 +49,7 @@ supabase/
     0003_payments.sql              payments table (records fees, doesn't charge)
     0004_driver_details.sql        Ghana card/vehicle number fields, driver delete policy
     0005_driver_password_reset.sql force a password change on a driver's first sign-in
+    0006_profiles_realtime.sql     live-updates profiles (role changes, password flag)
   functions/
     admin-create-driver/           Edge Function: creates a driver's login
     admin-delete-driver/           Edge Function: deletes a driver's login
@@ -76,6 +77,7 @@ supabase/
    4. `supabase/migrations/0003_payments.sql`
    5. `supabase/migrations/0004_driver_details.sql`
    6. `supabase/migrations/0005_driver_password_reset.sql`
+   7. `supabase/migrations/0006_profiles_realtime.sql`
 
    Step 1 and step 2 of the roles migration **must** be separate runs —
    Postgres won't let a brand-new enum value be used in the same
@@ -89,7 +91,7 @@ supabase/
 ### Option B — Supabase Cloud free tier
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor and run the same six files from Option A above,
+2. Open the SQL Editor and run the same seven files from Option A above,
    **one at a time, in order** — the roles migration's two steps can't be
    combined into a single run (see the note above).
 3. Copy the **Project URL** and **anon public key** from Project Settings →

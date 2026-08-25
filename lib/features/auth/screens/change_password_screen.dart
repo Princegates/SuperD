@@ -54,6 +54,11 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
         await ref
             .read(profileRepositoryProvider)
             .clearMustChangePassword(profile.id);
+        // Don't wait on the profile's realtime stream to notice - refetch
+        // it now so the router's redirect check sees the cleared flag
+        // immediately, even before the app has this migration's realtime
+        // publication change.
+        ref.invalidate(currentProfileProvider);
       }
       if (mounted) {
         await _showSuccessDialog();

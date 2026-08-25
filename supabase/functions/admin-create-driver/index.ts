@@ -1,6 +1,7 @@
-// Creates a driver's login + profile. Runs with the service-role key, which
-// must never be shipped inside the app - this is the one place that key is
-// allowed to live. Deploy with `supabase functions deploy admin-create-driver`.
+// Creates a driver's or dispatcher's login + profile. Runs with the
+// service-role key, which must never be shipped inside the app - this is
+// the one place that key is allowed to live. Deploy with
+// `supabase functions deploy admin-create-driver`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 
@@ -20,6 +21,7 @@ async function sendWelcomeEmail(
   email: string,
   fullName: string,
   tempPassword: string,
+  roleLabel: string,
 ): Promise<boolean> {
   const apiKey = Deno.env.get("RESEND_API_KEY");
   if (!apiKey) {
@@ -39,10 +41,10 @@ async function sendWelcomeEmail(
       body: JSON.stringify({
         from: fromEmail,
         to: email,
-        subject: "Your SuperD driver account",
+        subject: "Your SuperD account",
         html: `
           <p>Hi ${fullName},</p>
-          <p>A dispatcher created a SuperD driver account for you.</p>
+          <p>A SuperD account was created for you as a ${roleLabel}.</p>
           <p>
             <strong>Email:</strong> ${email}<br>
             <strong>Temporary password:</strong> ${tempPassword}
@@ -104,9 +106,19 @@ Deno.serve(async (req) => {
     const phone = (body.phone ?? "").trim() || null;
     const ghanaCardNumber = (body.ghanaCardNumber ?? "").trim() || null;
     const vehicleNumber = (body.vehicleNumber ?? "").trim() || null;
+    const role = body.role === "dispatcher" ? "dispatcher" : "driver";
 
     if (!email || !fullName) {
       return jsonResponse({ error: "email and fullName are required" }, 400);
+    }
+
+    // Only a super admin can add another dispatcher - a plain dispatcher
+    // can still add drivers (checked above).
+    if (role === "dispatcher" && callerProfile.role !== "super_admin") {
+      return jsonResponse(
+        { error: "Only a super admin can add a dispatcher" },
+        403,
+      );
     }
 
     const tempPassword = randomPassword();
@@ -129,7 +141,26 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: createError.message }, 400);
     }
 
-    const emailSent = await sendWelcomeEmail(email, fullName, tempPassword);
+    // New profiles default to "driver" (see handle_new_user()); bump it to
+    // dispatcher here. This update is allowed through by
+    // enforce_profile_role_change()'s service-role bypass - see migration
+    // 0007_dispatcher_management.sql.
+    if (role === "dispatcher") {
+      const { error: roleError } = await admin
+        .from("profiles")
+        .update({ role: "dispatcher" })
+        .eq("id", created.user!.id);
+      if (roleError) {
+        return jsonResponse({ error: roleError.message }, 400);
+      }
+    }
+
+    const emailSent = await sendWelcomeEmail(
+      email,
+      fullName,
+      tempPassword,
+      role === "dispatcher" ? "dispatcher" : "driver",
+    );
 
     return jsonResponse({
       userId: created.user?.id,

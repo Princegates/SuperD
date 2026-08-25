@@ -3,10 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/profile.dart';
 import '../../models/user_role.dart';
 
-/// Thrown when a driver-management Edge Function call fails, with a message
+/// Thrown when a staff-management Edge Function call fails, with a message
 /// safe to show directly to the dispatcher/super admin.
-class DriverManagementException implements Exception {
-  DriverManagementException(this.message);
+class StaffManagementException implements Exception {
+  StaffManagementException(this.message);
   final String message;
 
   @override
@@ -67,9 +67,9 @@ class ProfileRepository {
         .eq('id', userId);
   }
 
-  /// Edits a driver's own details. A dispatcher/super admin may call this
-  /// for anyone; email isn't included - changing a login's email has to go
-  /// through the auth admin API, not a plain table update.
+  /// Edits a driver's or dispatcher's own details. A dispatcher/super admin
+  /// may call this for anyone; email isn't included - changing a login's
+  /// email has to go through the auth admin API, not a plain table update.
   Future<void> updateDriverDetails({
     required String userId,
     required String fullName,
@@ -89,11 +89,42 @@ class ProfileRepository {
   }
 
   /// Creates a driver's login and profile via the "admin-create-driver"
-  /// Edge Function (needs the service-role key, which never ships in the
-  /// app). The driver is emailed their temporary password directly and
-  /// must set their own on first sign-in; [tempPassword] is still returned
-  /// as a fallback the dispatcher can share by hand if [emailSent] is false.
+  /// Edge Function. Callable by a dispatcher or super admin.
   Future<({String tempPassword, bool emailSent})> createDriver({
+    required String email,
+    required String fullName,
+    String? phone,
+    String? ghanaCardNumber,
+    String? vehicleNumber,
+  }) => _createStaffAccount(
+    role: UserRole.driver,
+    email: email,
+    fullName: fullName,
+    phone: phone,
+    ghanaCardNumber: ghanaCardNumber,
+    vehicleNumber: vehicleNumber,
+  );
+
+  /// Creates a dispatcher's login and profile via the same Edge Function.
+  /// Only a super admin may call this - enforced server-side too.
+  Future<({String tempPassword, bool emailSent})> createDispatcher({
+    required String email,
+    required String fullName,
+    String? phone,
+  }) => _createStaffAccount(
+    role: UserRole.dispatcher,
+    email: email,
+    fullName: fullName,
+    phone: phone,
+  );
+
+  /// Creates a login + profile via the "admin-create-driver" Edge Function
+  /// (needs the service-role key, which never ships in the app). The new
+  /// user is emailed their temporary password directly and must set their
+  /// own on first sign-in; [tempPassword] is still returned as a fallback
+  /// to share by hand if [emailSent] is false.
+  Future<({String tempPassword, bool emailSent})> _createStaffAccount({
+    required UserRole role,
     required String email,
     required String fullName,
     String? phone,
@@ -109,6 +140,7 @@ class ProfileRepository {
           'phone': phone,
           'ghanaCardNumber': ghanaCardNumber,
           'vehicleNumber': vehicleNumber,
+          'role': role.wireValue,
         },
       );
       final data = response.data as Map<String, dynamic>;
@@ -117,11 +149,11 @@ class ProfileRepository {
         emailSent: data['emailSent'] as bool? ?? false,
       );
     } on FunctionException catch (e) {
-      throw DriverManagementException(_messageFrom(e));
+      throw StaffManagementException(_messageFrom(e));
     }
   }
 
-  /// Clears the "must change password" flag once the driver has set their
+  /// Clears the "must change password" flag once the user has set their
   /// own password after first sign-in.
   Future<void> clearMustChangePassword(String userId) async {
     await _client
@@ -130,16 +162,18 @@ class ProfileRepository {
         .eq('id', userId);
   }
 
-  /// Deletes a driver's login (and their profile row, via cascade) through
-  /// the "admin-delete-driver" Edge Function.
-  Future<void> deleteDriver(String userId) async {
+  /// Deletes a driver's or dispatcher's login (and their profile row, via
+  /// cascade) through the "admin-delete-driver" Edge Function. Removing a
+  /// dispatcher requires the caller to be a super admin - enforced
+  /// server-side, based on the target's actual role.
+  Future<void> deleteStaffAccount(String userId) async {
     try {
       await _client.functions.invoke(
         'admin-delete-driver',
         body: {'userId': userId},
       );
     } on FunctionException catch (e) {
-      throw DriverManagementException(_messageFrom(e));
+      throw StaffManagementException(_messageFrom(e));
     }
   }
 

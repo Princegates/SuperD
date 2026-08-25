@@ -1,6 +1,6 @@
-// Deletes a driver's login (and, via the profiles FK's "on delete cascade",
-// their profile row too). Runs with the service-role key - see the note in
-// admin-create-driver/index.ts. Deploy with
+// Deletes a driver's or dispatcher's login (and, via the profiles FK's
+// "on delete cascade", their profile row too). Runs with the service-role
+// key - see the note in admin-create-driver/index.ts. Deploy with
 // `supabase functions deploy admin-delete-driver`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
@@ -41,16 +41,22 @@ Deno.serve(async (req) => {
     const userId = body.userId as string | undefined;
     if (!userId) return jsonResponse({ error: "userId is required" }, 400);
 
-    // Only ever delete drivers through this function - removing a
-    // dispatcher/super admin's login is a bigger decision than a driver
-    // roster edit and isn't wired up here.
+    // A dispatcher/super admin can remove a driver. Only a super admin can
+    // remove a dispatcher. A super admin's own account is never removable
+    // through this function - that's a bigger decision than a roster edit.
     const { data: targetProfile } = await admin
       .from("profiles")
       .select("role")
       .eq("id", userId)
       .single();
-    if (!targetProfile || targetProfile.role !== "driver") {
-      return jsonResponse({ error: "That account is not a driver" }, 400);
+    if (!targetProfile || targetProfile.role === "super_admin") {
+      return jsonResponse({ error: "That account can't be removed here" }, 400);
+    }
+    if (targetProfile.role === "dispatcher" && callerProfile.role !== "super_admin") {
+      return jsonResponse(
+        { error: "Only a super admin can remove a dispatcher" },
+        403,
+      );
     }
 
     const { error: deleteError } = await admin.auth.admin.deleteUser(userId);

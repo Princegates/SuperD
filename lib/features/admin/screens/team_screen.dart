@@ -11,22 +11,23 @@ import '../../../shared/widgets/async_value_view.dart';
 import '../providers/admin_providers.dart';
 
 /// Dispatchers see the driver roster and can add/edit/delete drivers. Super
-/// admins see everyone and can also change roles right here instead of
-/// needing SQL.
+/// admins see everyone, can also add/edit/delete dispatchers, and can
+/// change anyone's role right here instead of needing SQL.
 class TeamScreen extends ConsumerWidget {
   const TeamScreen({super.key});
 
   Future<void> _confirmDelete(
     BuildContext context,
     WidgetRef ref,
-    Profile driver,
+    Profile person,
   ) async {
+    final roleLabel = person.role.label.toLowerCase();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Remove driver?'),
+        title: Text('Remove $roleLabel?'),
         content: Text(
-          "This deletes ${driver.displayName}'s account. They won't be able "
+          "This deletes ${person.displayName}'s account. They won't be able "
           'to sign in anymore.',
         ),
         actions: [
@@ -47,22 +48,47 @@ class TeamScreen extends ConsumerWidget {
     if (confirmed != true) return;
 
     try {
-      await ref.read(profileRepositoryProvider).deleteDriver(driver.id);
+      await ref.read(profileRepositoryProvider).deleteStaffAccount(person.id);
       ref
         ..invalidate(allProfilesProvider)
         ..invalidate(driversListProvider);
-    } on DriverManagementException catch (e) {
+    } on StaffManagementException catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not remove this driver')),
+          SnackBar(content: Text('Could not remove this $roleLabel')),
         );
       }
+    }
+  }
+
+  Future<void> _showAddMenu(BuildContext context) async {
+    final role = await showModalBottomSheet<UserRole>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.local_shipping_outlined),
+              title: const Text('Add driver'),
+              onTap: () => Navigator.of(context).pop(UserRole.driver),
+            ),
+            ListTile(
+              leading: const Icon(Icons.support_agent_outlined),
+              title: const Text('Add dispatcher'),
+              onTap: () => Navigator.of(context).pop(UserRole.dispatcher),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (role != null && context.mounted) {
+      context.push('/admin/team/new', extra: role);
     }
   }
 
@@ -77,11 +103,17 @@ class TeamScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(isSuperAdmin ? 'Team' : 'Drivers')),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/admin/team/new'),
-        icon: const Icon(Icons.person_add_alt_1),
-        label: const Text('Add driver'),
-      ),
+      floatingActionButton: isSuperAdmin
+          ? FloatingActionButton.extended(
+              onPressed: () => _showAddMenu(context),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Add'),
+            )
+          : FloatingActionButton.extended(
+              onPressed: () => context.push('/admin/team/new'),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Add driver'),
+            ),
       body: AsyncValueView<List<Profile>>(
         value: peopleAsync,
         data: (items) {
@@ -105,6 +137,7 @@ class TeamScreen extends ConsumerWidget {
             itemBuilder: (context, index) {
               final person = items[index];
               final isMe = person.id == myProfile?.id;
+              final canManage = person.role != UserRole.superAdmin;
               return Card(
                 child: ListTile(
                   leading: CircleAvatar(
@@ -123,24 +156,21 @@ class TeamScreen extends ConsumerWidget {
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      if (person.role == UserRole.driver) ...[
+                      if (canManage) ...[
                         IconButton(
-                          tooltip: 'Edit driver',
+                          tooltip: 'Edit ${person.role.label.toLowerCase()}',
                           icon: const Icon(Icons.edit_outlined, size: 20),
-                          onPressed: () => context.push(
-                            '/admin/team/edit',
-                            extra: person,
-                          ),
+                          onPressed: () =>
+                              context.push('/admin/team/edit', extra: person),
                         ),
                         IconButton(
-                          tooltip: 'Remove driver',
+                          tooltip: 'Remove ${person.role.label.toLowerCase()}',
                           icon: const Icon(
                             Icons.delete_outline,
                             size: 20,
                             color: AppTheme.danger,
                           ),
-                          onPressed: () =>
-                              _confirmDelete(context, ref, person),
+                          onPressed: () => _confirmDelete(context, ref, person),
                         ),
                       ],
                       if (isSuperAdmin)

@@ -50,9 +50,10 @@ supabase/
     0004_driver_details.sql        Ghana card/vehicle number fields, driver delete policy
     0005_driver_password_reset.sql force a password change on a driver's first sign-in
     0006_profiles_realtime.sql     live-updates profiles (role changes, password flag)
+    0007_dispatcher_management.sql lets a super admin add/edit/remove dispatchers too
   functions/
-    admin-create-driver/           Edge Function: creates a driver's login
-    admin-delete-driver/           Edge Function: deletes a driver's login
+    admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
+    admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
 ```
 
 ## 1. Stand up Supabase
@@ -78,6 +79,7 @@ supabase/
    5. `supabase/migrations/0004_driver_details.sql`
    6. `supabase/migrations/0005_driver_password_reset.sql`
    7. `supabase/migrations/0006_profiles_realtime.sql`
+   8. `supabase/migrations/0007_dispatcher_management.sql`
 
    Step 1 and step 2 of the roles migration **must** be separate runs —
    Postgres won't let a brand-new enum value be used in the same
@@ -91,7 +93,7 @@ supabase/
 ### Option B — Supabase Cloud free tier
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor and run the same seven files from Option A above,
+2. Open the SQL Editor and run the same eight files from Option A above,
    **one at a time, in order** — the roles migration's two steps can't be
    combined into a single run (see the note above).
 3. Copy the **Project URL** and **anon public key** from Project Settings →
@@ -165,17 +167,22 @@ flutter build ios --dart-define-from-file=env.json
 If you forget `env.json`, the app shows a friendly "not configured yet"
 screen instead of crashing.
 
-## Driver management
+## Staff management
 
 Dispatchers and super admins can add, edit, and remove drivers straight from
 the Team screen — Full name, email, phone number, Ghana card number, and
-vehicle number.
+vehicle number. Super admins can also add, edit, and remove **dispatchers**
+the same way (Full name, email, phone number) — that part is exclusive to
+the super admin role, since dispatchers managing other dispatchers would be
+a peer managing peers. A super admin's own account can't be removed from
+this screen either way; that's not a roster edit.
 
-Creating or deleting a driver's *login* needs Supabase's admin API, which
-requires the project's service-role key. That key must never be embedded in
-the app (anyone could pull it out of the APK and get full database access),
-so those two actions go through a pair of Edge Functions instead — the
-service-role key lives only on Supabase's servers, never on a device.
+Creating or deleting a login needs Supabase's admin API, which requires the
+project's service-role key. That key must never be embedded in the app
+(anyone could pull it out of the APK and get full database access), so
+those two actions go through a pair of Edge Functions instead — the
+service-role key lives only on Supabase's servers, never on a device. The
+same two functions handle both drivers and dispatchers.
 
 ### Supabase Cloud
 
@@ -204,13 +211,13 @@ docker compose restart functions
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically
 inside every Edge Function — no need to set those yourself.
 
-### Emailing the driver their password
+### Emailing the new account its password
 
-**Add driver** generates a random temporary password and emails it straight
-to the driver, using the same [Resend](https://resend.com) account you set
-up for password-reset emails (see **Enable "Forgot password?"** below —
-skip ahead if you haven't set that up yet). Give the Edge Function that same
-Resend API key as a secret:
+**Add driver**/**Add dispatcher** generate a random temporary password and
+email it straight to the new hire, using the same
+[Resend](https://resend.com) account you set up for password-reset emails
+(see **Enable "Forgot password?"** below — skip ahead if you haven't set
+that up yet). Give the Edge Function that same Resend API key as a secret:
 
 ```bash
 supabase secrets set RESEND_API_KEY=re_your_resend_api_key
@@ -226,25 +233,26 @@ verified with Resend.
 
 If `RESEND_API_KEY` isn't set, or the send fails for any reason, account
 creation still succeeds — the app shows the temporary password in a dialog
-as a fallback so the dispatcher can share it another way.
+as a fallback so the person adding them can share it another way.
 
-Either way, **the driver must set their own password on first sign-in**:
+Either way, **the new hire must set their own password on first sign-in**:
 signing in with the temporary password immediately opens a mandatory
 "Change password" screen (enforced by the router — there's no way to reach
 the rest of the app until it's done, even by force-quitting or navigating
 back).
 
-**Edit driver** is a plain profile update — no Edge Function needed. Email
-can't be changed from this form, since it's tied to the login itself.
+**Edit** is a plain profile update — no Edge Function needed. Email can't
+be changed from this form, since it's tied to the login itself.
 
-**Remove driver** deletes the driver's login entirely (their profile row
-goes with it automatically). This only works on `driver`-role accounts —
-removing a dispatcher or super admin isn't wired up here, since that's a
-bigger decision than a roster edit.
+**Remove** deletes the account's login entirely (their profile row goes
+with it automatically). A dispatcher can only remove drivers; removing a
+dispatcher requires a super admin, checked server-side inside the Edge
+Function, not just hidden in the UI. Removing a super admin isn't wired up
+here at all, since that's a bigger decision than a roster edit.
 
 If you skip deploying the functions, everything else in the app still
-works — "Add driver" and "Remove driver" will just show an error until
-they're deployed. Editing existing drivers and self-signup are unaffected.
+works — "Add" and "Remove" will just show an error until they're deployed.
+Editing existing accounts and self-signup are unaffected.
 
 ## How the data model works
 

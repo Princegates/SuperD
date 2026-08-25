@@ -7,24 +7,36 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../models/profile.dart';
+import '../../../models/user_role.dart';
 import '../providers/admin_providers.dart';
 
-/// Add-or-edit form for a driver's roster details. In add mode this also
-/// creates the driver's login (via an Edge Function, since that needs the
-/// service-role key). In edit mode it's a plain profile update - email
+/// Add-or-edit form for a driver's or dispatcher's roster details. In add
+/// mode this also creates the login (via an Edge Function, since that needs
+/// the service-role key). In edit mode it's a plain profile update - email
 /// can't be changed here, since that's tied to the login, not just this row.
-class DriverFormScreen extends ConsumerStatefulWidget {
-  const DriverFormScreen({super.key, this.existing});
+class StaffFormScreen extends ConsumerStatefulWidget {
+  const StaffFormScreen({
+    super.key,
+    this.existing,
+    this.roleToCreate = UserRole.driver,
+  });
 
   final Profile? existing;
 
+  /// Which role to create when [existing] is null. Ignored when editing -
+  /// the role shown is then whatever [existing] already is (roles are
+  /// changed from the Team screen's role control, not this form).
+  final UserRole roleToCreate;
+
   bool get isEditing => existing != null;
 
+  UserRole get role => existing?.role ?? roleToCreate;
+
   @override
-  ConsumerState<DriverFormScreen> createState() => _DriverFormScreenState();
+  ConsumerState<StaffFormScreen> createState() => _StaffFormScreenState();
 }
 
-class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
+class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
   final _formKey = GlobalKey<FormState>();
   late final _nameController = TextEditingController(
     text: widget.existing?.fullName,
@@ -44,6 +56,8 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
 
   bool _isSubmitting = false;
   String? _errorMessage;
+
+  bool get _isDriver => widget.role == UserRole.driver;
 
   @override
   void dispose() {
@@ -70,21 +84,31 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
           userId: widget.existing!.id,
           fullName: _nameController.text.trim(),
           phone: _emptyToNull(_phoneController.text),
-          ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
-          vehicleNumber: _emptyToNull(_vehicleController.text),
+          ghanaCardNumber: _isDriver
+              ? _emptyToNull(_ghanaCardController.text)
+              : null,
+          vehicleNumber: _isDriver
+              ? _emptyToNull(_vehicleController.text)
+              : null,
         );
         ref
           ..invalidate(allProfilesProvider)
           ..invalidate(driversListProvider);
         if (mounted) context.pop();
       } else {
-        final result = await repo.createDriver(
-          email: _emailController.text.trim(),
-          fullName: _nameController.text.trim(),
-          phone: _emptyToNull(_phoneController.text),
-          ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
-          vehicleNumber: _emptyToNull(_vehicleController.text),
-        );
+        final result = _isDriver
+            ? await repo.createDriver(
+                email: _emailController.text.trim(),
+                fullName: _nameController.text.trim(),
+                phone: _emptyToNull(_phoneController.text),
+                ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
+                vehicleNumber: _emptyToNull(_vehicleController.text),
+              )
+            : await repo.createDispatcher(
+                email: _emailController.text.trim(),
+                fullName: _nameController.text.trim(),
+                phone: _emptyToNull(_phoneController.text),
+              );
         ref
           ..invalidate(allProfilesProvider)
           ..invalidate(driversListProvider);
@@ -97,11 +121,13 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
         }
         if (mounted) context.pop();
       }
-    } on DriverManagementException catch (e) {
+    } on StaffManagementException catch (e) {
       setState(() => _errorMessage = e.message);
     } catch (e) {
       setState(
-        () => _errorMessage = 'Could not save this driver. Please try again.',
+        () => _errorMessage =
+            'Could not save this ${widget.role.label.toLowerCase()}. '
+            'Please try again.',
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -120,7 +146,7 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        title: const Text('Driver account created'),
+        title: Text('${widget.role.label} account created'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,9 +206,10 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final roleLabel = widget.role.label.toLowerCase();
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.isEditing ? 'Edit driver' : 'Add driver'),
+        title: Text(widget.isEditing ? 'Edit $roleLabel' : 'Add $roleLabel'),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -219,20 +246,22 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
                   keyboardType: TextInputType.phone,
                   decoration: const InputDecoration(labelText: 'Phone number'),
                 ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _ghanaCardController,
-                  decoration: const InputDecoration(
-                    labelText: 'Ghana card number',
+                if (_isDriver) ...[
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _ghanaCardController,
+                    decoration: const InputDecoration(
+                      labelText: 'Ghana card number',
+                    ),
                   ),
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _vehicleController,
-                  decoration: const InputDecoration(
-                    labelText: 'Vehicle number',
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _vehicleController,
+                    decoration: const InputDecoration(
+                      labelText: 'Vehicle number',
+                    ),
                   ),
-                ),
+                ],
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -253,7 +282,9 @@ class _DriverFormScreenState extends ConsumerState<DriverFormScreen> {
                             color: Colors.white,
                           ),
                         )
-                      : Text(widget.isEditing ? 'Save changes' : 'Add driver'),
+                      : Text(
+                          widget.isEditing ? 'Save changes' : 'Add $roleLabel',
+                        ),
                 ),
               ],
             ),

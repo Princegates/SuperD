@@ -103,6 +103,26 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
     }
   }
 
+  Future<void> _pickPickupLocation() async {
+    final initial = (_pickupLat != null && _pickupLng != null)
+        ? LatLng(_pickupLat!, _pickupLng!)
+        : null;
+    final picked = await Navigator.of(context).push<LatLng>(
+      MaterialPageRoute(
+        builder: (context) => LocationPickerScreen(
+          title: 'Pickup location',
+          initialCenter: initial,
+        ),
+      ),
+    );
+    if (picked != null) {
+      setState(() {
+        _pickupLat = picked.latitude;
+        _pickupLng = picked.longitude;
+      });
+    }
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -217,6 +237,14 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                           ? 'Pickup location captured'
                           : 'Use current location for pickup',
                     ),
+                  ),
+                ),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: _pickPickupLocation,
+                    icon: const Icon(Icons.map_outlined, size: 18),
+                    label: const Text('Or set pickup location on map'),
                   ),
                 ),
                 const SizedBox(height: 12),

@@ -317,7 +317,37 @@ same as the other webhooks in this README.
 time - you'll get `schema "supabase_functions" does not exist` if you try
 the SQL-trigger route below without it), skip the dashboard entirely and
 wire the same thing up with `pg_net` directly - the extension Webhooks
-uses under the hood - from the **SQL Editor**:
+uses under the hood.
+
+This route needs one extra step first: these two functions must be
+deployed with JWT verification off, since they're only ever called by
+this project's own database triggers (never an end-user client), and
+they don't trust the caller's identity anyway - each one re-fetches
+everything it emails fresh from the database by id. `supabase/config.toml`
+in this repo already has that configured:
+
+```toml
+[functions.notify-driver-application]
+verify_jwt = false
+
+[functions.notify-driver-approved]
+verify_jwt = false
+```
+
+(The `supabase functions deploy --no-verify-jwt` flag some older docs
+mention has been dropped from current CLI versions in favor of this
+config file - deploying without it present, or with an out-of-date CLI
+that ignores it, is what produces `UNAUTHORIZED_INVALID_JWT_FORMAT` or
+`UNAUTHORIZED_NO_AUTH_HEADER` from `net._http_response` below.)
+
+Redeploy both once `config.toml` is in place:
+
+```bash
+supabase functions deploy notify-driver-application
+supabase functions deploy notify-driver-approved
+```
+
+Then, from the **SQL Editor**:
 
 ```sql
 create extension if not exists pg_net;
@@ -329,7 +359,7 @@ as $$
 begin
   perform net.http_post(
     url := 'https://your-project-ref.supabase.co/functions/v1/notify-driver-application',
-    headers := '{"Content-type": "application/json", "Authorization": "Bearer your-anon-key"}'::jsonb,
+    headers := '{"Content-type": "application/json"}'::jsonb,
     body := jsonb_build_object('record', row_to_json(new))
   );
   return new;
@@ -349,7 +379,7 @@ as $$
 begin
   perform net.http_post(
     url := 'https://your-project-ref.supabase.co/functions/v1/notify-driver-approved',
-    headers := '{"Content-type": "application/json", "Authorization": "Bearer your-anon-key"}'::jsonb,
+    headers := '{"Content-type": "application/json"}'::jsonb,
     body := jsonb_build_object('record', row_to_json(new), 'old_record', row_to_json(old))
   );
   return new;
@@ -362,6 +392,25 @@ after update on public.profiles
 for each row
 execute function public.trigger_notify_driver_approved();
 ```
+
+No `Authorization` header needed at all with `verify_jwt = false` - one
+less place for a long token to get mangled by a copy-paste.
+
+**Debugging a webhook that isn't firing**: `pg_net` sends its HTTP
+requests asynchronously, so the trigger itself won't show an error even
+if the call fails. Check what actually happened with:
+
+```sql
+select id, status_code, content, error_msg, created
+from net._http_response
+order by created desc
+limit 5;
+```
+
+A `404` means the function name in the URL doesn't match anything
+deployed (`supabase functions list` shows the real slugs); a `401` means
+an auth problem (should no longer happen with `verify_jwt = false` set
+correctly - redeploy if you still see one).
 
 The `Authorization` header just needs to carry *some* validly-signed
 project JWT to get past the Edge Function platform's own auth check - the

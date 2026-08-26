@@ -1,0 +1,21 @@
+# SuperD: per-function Supabase config. Only these two functions need an
+# entry here - they're only ever called by this project's own database
+# triggers (see 0014_driver_self_signup.sql's webhook setup in the
+# README), never by an end-user client, and they don't trust the caller's
+# identity anyway (each one re-fetches everything it emails fresh from the
+# database by id). Requiring a valid platform JWT on top of that is just
+# friction, not real security, and the fallback pg_net trigger route
+# documented in the README has no clean way to supply one reliably.
+#
+# Every other function (admin-create-driver, admin-delete-driver,
+# admin-update-email, notify-driver-assigned, notify-vendor-registered)
+# keeps the platform default (verify_jwt = true) - those either check the
+# caller's role themselves or are invoked through the dashboard's
+# "Supabase Edge Functions" webhook type, which attaches a valid token
+# automatically.
+
+[functions.notify-driver-application]
+verify_jwt = false
+
+[functions.notify-driver-approved]
+verify_jwt = false

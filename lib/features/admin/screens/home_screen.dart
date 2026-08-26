@@ -199,15 +199,13 @@ class _BrandHeader extends StatelessWidget {
         Container(
           width: 48,
           height: 48,
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: AppTheme.primary,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE7EAEE)),
           ),
-          child: const Icon(
-            Icons.local_shipping_rounded,
-            color: AppTheme.accent,
-            size: 26,
-          ),
+          child: Image.asset('assets/icon/icon.png'),
         ),
         const SizedBox(width: 14),
         Column(

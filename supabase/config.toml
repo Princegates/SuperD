@@ -14,6 +14,8 @@
 # "Supabase Edge Functions" webhook type, which attaches a valid token
 # automatically.
 
+project_id = "atpokstjgdhdcbnwrbrp"
+
 [functions.notify-driver-application]
 verify_jwt = false
 

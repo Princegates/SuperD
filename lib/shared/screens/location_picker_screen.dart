@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:geolocator/geolocator.dart';
-import 'package:latlong2/latlong.dart';
+import 'dart:async';
 
-import '../../core/theme/app_theme.dart';
+import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart' as gmap;
+import 'package:latlong2/latlong.dart';
 
 /// Full-screen map for picking a point that isn't the device's own
 /// location - e.g. a dispatcher marking where a customer actually is.
@@ -23,15 +23,14 @@ class LocationPickerScreen extends StatefulWidget {
 }
 
 class _LocationPickerScreenState extends State<LocationPickerScreen> {
+  final Completer<gmap.GoogleMapController> _controller = Completer();
   LatLng? _picked;
-  LatLng? _initialCenter;
 
   @override
   void initState() {
     super.initState();
     _picked = widget.initialCenter;
-    _initialCenter = widget.initialCenter;
-    if (_initialCenter == null) _centerOnDeviceLocation();
+    if (widget.initialCenter == null) _centerOnDeviceLocation();
   }
 
   Future<void> _centerOnDeviceLocation() async {
@@ -42,11 +41,14 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
         return;
       }
       final position = await Geolocator.getCurrentPosition();
-      if (mounted) {
-        setState(
-          () => _initialCenter = LatLng(position.latitude, position.longitude),
-        );
-      }
+      if (!mounted) return;
+      final controller = await _controller.future;
+      await controller.animateCamera(
+        gmap.CameraUpdate.newLatLngZoom(
+          gmap.LatLng(position.latitude, position.longitude),
+          15,
+        ),
+      );
     } catch (_) {
       // No luck getting a starting point - the dispatcher can just pan/zoom.
     }
@@ -54,6 +56,8 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final initial = widget.initialCenter ?? const LatLng(0, 0);
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.title),
@@ -74,34 +78,25 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       ),
       body: Stack(
         children: [
-          FlutterMap(
-            options: MapOptions(
-              initialCenter: _initialCenter ?? const LatLng(0, 0),
-              initialZoom: _initialCenter != null ? 15 : 2,
-              onTap: (tapPosition, point) => setState(() => _picked = point),
+          gmap.GoogleMap(
+            initialCameraPosition: gmap.CameraPosition(
+              target: gmap.LatLng(initial.latitude, initial.longitude),
+              zoom: widget.initialCenter != null ? 15 : 2,
             ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                userAgentPackageName: 'com.superd.app',
-              ),
+            onMapCreated: (controller) {
+              if (!_controller.isCompleted) _controller.complete(controller);
+            },
+            onTap: (point) =>
+                setState(() => _picked = LatLng(point.latitude, point.longitude)),
+            markers: {
               if (_picked != null)
-                MarkerLayer(
-                  markers: [
-                    Marker(
-                      point: _picked!,
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.topCenter,
-                      child: const Icon(
-                        Icons.location_pin,
-                        color: AppTheme.danger,
-                        size: 44,
-                      ),
-                    ),
-                  ],
+                gmap.Marker(
+                  markerId: const gmap.MarkerId('picked'),
+                  position: gmap.LatLng(_picked!.latitude, _picked!.longitude),
                 ),
-            ],
+            },
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
           ),
           Positioned(
             left: 16,

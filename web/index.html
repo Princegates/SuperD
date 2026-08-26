@@ -31,6 +31,16 @@
 
   <title>superd</title>
   <link rel="manifest" href="manifest.json">
+
+  <!--
+    Google Maps JS API key for the web build's location picker/preview.
+    Replace YOUR_GOOGLE_MAPS_API_KEY_HERE with your own key - see the
+    README's "Google Maps setup" section. This key is expected to be
+    visible in page source on web (that's how the Maps JS API always
+    works); restrict it to your domain via HTTP referrer restrictions in
+    Google Cloud Console rather than trying to hide it.
+  -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY_HERE"></script>
 </head>
 <body>
   <!--

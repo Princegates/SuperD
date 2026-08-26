@@ -24,10 +24,14 @@ across all devices.
 - **Supabase** — open-source Postgres + Auth + Realtime + Storage. Run it
   for free forever by self-hosting with Docker, or use Supabase Cloud's free
   tier if you'd rather not manage a server.
-- **OpenStreetMap** (via `flutter_map`) — free maps, no API key, no billing
-  account required.
+- **Google Maps** (via `google_maps_flutter`) — the location picker and
+  map previews for pickup/drop-off run on Google Maps, on Android, iOS,
+  and web alike. This is the one piece of SuperD that isn't free: it
+  needs a Google Cloud project with billing enabled and an API key you
+  manage yourself (Google's free monthly credit covers normal usage for
+  most deployments). See **Google Maps setup** below.
 
-No paid service is required to run SuperD.
+Everything except Google Maps runs with no paid service required.
 
 ## Project layout
 
@@ -171,6 +175,64 @@ cp env.json.example env.json
 `env.json` is gitignored — your keys never get committed. The app reads it
 at build/run time via `--dart-define-from-file`, so there's no secret baked
 into the app bundle as a plain asset file.
+
+### Google Maps setup
+
+The location picker (pickup/drop-off pin-dropping) and the small map
+previews on delivery detail screens run on Google Maps. Unlike the rest
+of this README, this one piece needs a paid Google Cloud account (a free
+monthly credit covers normal usage) and a key you manage - there's no way
+around that; it's a Google requirement, not something baked into the app.
+
+**1. Get an API key.** [Google Cloud Console](https://console.cloud.google.com/)
+→ create a project (or reuse one) → enable **billing** on it → **APIs &
+Services → Library** → enable:
+- **Maps SDK for Android**
+- **Maps SDK for iOS**
+- **Maps JavaScript API** (only if you're building the web dashboard)
+
+Then **APIs & Services → Credentials → Create Credentials → API key**.
+Restrict it (strongly recommended, since an unrestricted key can be used
+by anyone who finds it):
+- Android: restrict to your app's package name (`com.superd.superd`) and
+  SHA-1 signing fingerprint (`keytool -list -v -keystore <path-to-your-keystore>`).
+- iOS: restrict to your app's bundle ID.
+- Web: restrict to your actual hosting domain (HTTP referrers) - this key
+  is visible in page source no matter what, so referrer restriction is the
+  real protection, not secrecy.
+
+You can create one key per platform with its own restriction, or one
+unrestricted key for local testing and tighter ones for production - your
+call.
+
+**2. Android** - add the key to `android/local.properties` (gitignored,
+created automatically when you first open/build the project):
+```
+mapsApiKey=YOUR_ANDROID_KEY_HERE
+```
+`android/app/build.gradle.kts` reads it from there and injects it into
+the manifest at build time - nothing to touch in the manifest itself.
+
+**3. iOS** - copy the template and fill in your key:
+```bash
+cp ios/Flutter/ApiKeys.xcconfig.example ios/Flutter/ApiKeys.xcconfig
+```
+```
+GOOGLE_MAPS_API_KEY = YOUR_IOS_KEY_HERE
+```
+(`ApiKeys.xcconfig` is gitignored.) This needs a Mac with Xcode to take
+effect - run `pod install` in `ios/` afterward so CocoaPods pulls in the
+Google Maps SDK that `google_maps_flutter_ios` depends on.
+
+**4. Web** - edit `web/index.html` directly and replace
+`YOUR_GOOGLE_MAPS_API_KEY_HERE` in the `<script src="https://maps.googleapis.com/maps/api/js?key=...">`
+tag with your web key. This one isn't gitignored - a Maps JavaScript API
+key is meant to be visible in page source; restrict it by HTTP referrer
+in Cloud Console instead of trying to hide it.
+
+Without a key configured for a given platform, the map screens still
+build and open, they just won't render any tiles - a good way to confirm
+everything else in the app still works before chasing down a key.
 
 ## 3. Run it
 

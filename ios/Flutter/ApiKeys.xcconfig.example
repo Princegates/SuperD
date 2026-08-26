@@ -1,0 +1,3 @@
+// Copy this file to ApiKeys.xcconfig (gitignored, never committed) and
+// fill in your real key. See the README's "Google Maps setup" section.
+GOOGLE_MAPS_API_KEY = YOUR_KEY_HERE

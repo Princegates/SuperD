@@ -50,8 +50,13 @@ dependencies:
   # Navigation
   go_router: ^14.8.1
 
-  # Maps - OpenStreetMap tiles via flutter_map, no API key / no cost
-  flutter_map: ^7.0.2
+  # Maps - Google Maps on Android/iOS/web. Needs a Google Cloud project
+  # with billing enabled and an API key you provide yourself - see the
+  # README's "Google Maps setup" section. latlong2 stays as the plain
+  # LatLng value type used everywhere else in the app (models, providers,
+  # repositories); only the two map-rendering widgets talk to
+  # google_maps_flutter directly.
+  google_maps_flutter: ^2.18.0
   latlong2: ^0.9.1
 
   # Device location for drivers
@@ -67,7 +72,8 @@ dependencies:
   intl: ^0.19.0
 
   # Reverse geocoding (coordinates -> a readable address) via OpenStreetMap's
-  # free Nominatim service - no API key, matches the rest of the map stack.
+  # free Nominatim service - no API key, and independent of which map
+  # widget is showing the pin.
   http: ^1.2.0
 
 dev_dependencies:

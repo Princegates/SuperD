@@ -1,8 +1,22 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+// Google Maps API key: read from local.properties (gitignored, never
+// committed) rather than hardcoded here or in AndroidManifest.xml. Add a
+// line like `mapsApiKey=AIza...` to android/local.properties - see the
+// README's "Google Maps setup" section. Falls back to an empty string so
+// a build without it still succeeds (the map just won't load tiles until
+// it's set).
+val localProperties = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) file.inputStream().use { load(it) }
+}
+val mapsApiKey: String = localProperties.getProperty("mapsApiKey", "")
 
 android {
     namespace = "com.superd.superd"
@@ -27,6 +41,8 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
 
     buildTypes {

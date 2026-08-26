@@ -1,6 +1,8 @@
 # Environment secrets
 env.json
 .env.local
+android/local.properties
+ios/Flutter/ApiKeys.xcconfig
 # Miscellaneous
 *.class
 *.log

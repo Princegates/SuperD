@@ -108,15 +108,20 @@ class VendorsScreen extends ConsumerWidget {
           value: vendorsState,
           data: (vendors) {
             if (vendors.isEmpty) {
+              final base = publicBaseUrl();
               return ListView(
                 children: [
                   SizedBox(
                     height: 400,
                     child: Center(
                       child: Text(
-                        'No vendors yet. Tap "Add vendor" to register one, or '
-                        'share the self-signup link: ${Uri.base.origin}'
-                        '/vendor-signup',
+                        base.isEmpty
+                            ? 'No vendors yet. Tap "Add vendor" to register '
+                                  'one, or share the self-signup link from '
+                                  'the web build: /vendor-signup'
+                            : 'No vendors yet. Tap "Add vendor" to register '
+                                  'one, or share the self-signup link: '
+                                  '$base/vendor-signup',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.grey.shade600),
                       ),

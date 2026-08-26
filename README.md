@@ -424,6 +424,27 @@ each one is scoped strictly to the single vendor matched by the code it's
 given, and there's no direct table access for `anon` at all, so there's no
 way to enumerate or read another vendor's data through it.
 
+### Getting the link's domain right
+
+The vendor's link needs a real `http(s)://` address in front of it. When
+you're running/managing SuperD as a **web build**, this is automatic - it
+uses the page's own address. When staff manage vendors from a **non-web
+build** (the Android/iOS/desktop app), there's no page address to read, so
+set `APP_BASE_URL` in your `env.json` to wherever the web build is actually
+hosted:
+
+```json
+{
+  "SUPABASE_URL": "...",
+  "SUPABASE_ANON_KEY": "...",
+  "APP_BASE_URL": "https://your-app-domain.example"
+}
+```
+
+Leave it out entirely for a web-only deployment. Without it, on a non-web
+build, vendor links fall back to a bare `/v/<code>` path - accurate, but
+not something you can actually hand a customer.
+
 To register as a vendor yourself, visit `/vendor-signup` - no dispatcher
 needed. To register one on a vendor's behalf instead, use **Vendors** (the
 shop icon on the dispatch screen's app bar) → **Add vendor**.

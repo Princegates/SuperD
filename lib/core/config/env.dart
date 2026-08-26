@@ -14,6 +14,14 @@ class Env {
     'SUPABASE_ANON_KEY',
   );
 
+  /// Optional: the URL this instance's *web* build is actually hosted at
+  /// (e.g. `https://superd.example.com`), used to build vendor/customer
+  /// links. Leave unset when running as a Flutter web build - it falls
+  /// back to the browser's own address automatically. Set it when staff
+  /// manage vendors from a non-web build (Android/iOS/desktop), since
+  /// there the app has no real web address of its own to fall back to.
+  static const String appBaseUrl = String.fromEnvironment('APP_BASE_URL');
+
   static bool get isConfigured =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 }

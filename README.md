@@ -86,6 +86,8 @@ supabase/
    8. `supabase/migrations/0007_dispatcher_management.sql`
    9. `supabase/migrations/0008_role_change_bootstrap.sql`
    10. `supabase/migrations/0009_staff_profile_fields.sql`
+   11. `supabase/migrations/0010_vendors_zones.sql`
+   12. `supabase/migrations/0011_audit_log.sql`
 
    Step 1 and step 2 of the roles migration **must** be separate runs —
    Postgres won't let a brand-new enum value be used in the same
@@ -99,7 +101,7 @@ supabase/
 ### Option B — Supabase Cloud free tier
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor and run the same ten files from Option A above,
+2. Open the SQL Editor and run the same twelve files from Option A above,
    **one at a time, in order** — the roles migration's two steps can't be
    combined into a single run (see the note above).
 3. Copy the **Project URL** and **anon public key** from Project Settings →

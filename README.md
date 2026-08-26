@@ -88,6 +88,7 @@ supabase/
    10. `supabase/migrations/0009_staff_profile_fields.sql`
    11. `supabase/migrations/0010_vendors_zones.sql`
    12. `supabase/migrations/0011_audit_log.sql`
+   13. `supabase/migrations/0012_zone_locations.sql`
 
    Step 1 and step 2 of the roles migration **must** be separate runs —
    Postgres won't let a brand-new enum value be used in the same
@@ -101,7 +102,7 @@ supabase/
 ### Option B — Supabase Cloud free tier
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor and run the same twelve files from Option A above,
+2. Open the SQL Editor and run the same thirteen files from Option A above,
    **one at a time, in order** — the roles migration's two steps can't be
    combined into a single run (see the note above).
 3. Copy the **Project URL** and **anon public key** from Project Settings →
@@ -290,6 +291,9 @@ unaffected.
   (pending/paid/failed/refunded).
 - `zones` — the fixed, admin-managed list of named areas drivers and
   vendors are grouped into.
+- `zone_locations` — named places within a zone (e.g. specific landmarks),
+  added by a super admin from the Admin Console to document what a zone
+  actually covers.
 - `vendors` — a business with a unique `code` (its public link), registered
   location, and optional zone; `created_by` is null for a self-registered
   vendor, or the staff account that added them otherwise.
@@ -462,9 +466,19 @@ link.
 **Zones** are a fixed, admin-managed list of named areas (e.g. "East Legon",
 "Osu") used to group both drivers and vendors, so a dispatcher assigning a
 driver can see who's actually nearby, and so pricing can eventually vary by
-area. Add zones from the **Vendors** screen's map icon ("Manage zones");
-assign a driver to one from their edit screen in **Team**, and a vendor to
-one when they're registered.
+area. Assign a driver to one from their edit screen in **Team**, and a
+vendor to one when they're registered.
+
+Only a super admin can create a zone or change what it covers - that
+happens from the **Admin Console**'s **Zones** tab (see below), not from
+the Vendors screen. There, each zone can also be given a list of specific
+named places within it (e.g. the "East Legon" zone might list "American
+House", "Trasacco Valley", ...) - tap a zone to expand it, "Add location"
+to pin one on the map (its name is pre-filled via reverse geocoding, but
+editable), and the × on any location to remove it. Drivers and vendors
+never see these individual locations - they still just pick the zone
+itself by name from a dropdown; the locations are reference data for
+whoever's defining what each zone actually covers.
 
 ### Rider suggestions
 
@@ -485,7 +499,7 @@ directly is redirected back to `/admin`). It's a section of the same app,
 not a separate deployment - it reuses the existing Supabase project, auth,
 and data straight through, so there's nothing extra to host or configure.
 
-It has four tabs:
+It has five tabs:
 
 - **Overview** - reporting/analytics computed live from existing data: total
   deliveries by status, completion/cancellation rate, a top-drivers
@@ -507,6 +521,10 @@ It has four tabs:
   password yet, a vendor with no zone or a deactivated link) with a direct
   link into the existing Team/Vendors edit screens to fix it. It doesn't
   duplicate those forms - just surfaces who needs attention.
+- **Zones** - create zones (the fixed list drivers and vendors pick from
+  elsewhere) and define what each one covers by pinning named locations
+  within it. See **Zones** under **Vendors, zones, and public delivery
+  requests** above for details.
 
 ## Testing
 

@@ -12,91 +12,20 @@ import '../../../shared/widgets/async_value_view.dart';
 import '../providers/admin_providers.dart';
 
 /// Dispatcher/super-admin view of every registered vendor, with a copyable
-/// link for each one and a way to add the fixed list of zones vendors and
-/// drivers get assigned to.
+/// link for each one. Zones themselves (the fixed list vendors and drivers
+/// pick from) are managed from the super-admin Admin Console's Zones tab,
+/// not here - only a super admin can actually create one (RLS on `zones`),
+/// so this screen no longer offers an entry point that would fail for a
+/// dispatcher trying to use it.
 class VendorsScreen extends ConsumerWidget {
   const VendorsScreen({super.key});
-
-  Future<void> _manageZones(BuildContext context, WidgetRef ref) async {
-    final controller = TextEditingController();
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Zones'),
-        content: SizedBox(
-          width: 360,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Consumer(
-                builder: (context, ref, _) {
-                  final zones = ref.watch(zonesProvider).valueOrNull ?? [];
-                  if (zones.isEmpty) {
-                    return const Text('No zones yet.');
-                  }
-                  return Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final zone in zones) Chip(label: Text(zone.name)),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: controller,
-                      decoration: const InputDecoration(
-                        labelText: 'New zone name',
-                        isDense: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: () async {
-                      final name = controller.text.trim();
-                      if (name.isEmpty) return;
-                      await ref.read(vendorRepositoryProvider).createZone(name);
-                      controller.clear();
-                      ref.invalidate(zonesProvider);
-                    },
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Done'),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vendorsState = ref.watch(vendorsProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Vendors'),
-        actions: [
-          IconButton(
-            tooltip: 'Manage zones',
-            icon: const Icon(Icons.map_outlined),
-            onPressed: () => _manageZones(context, ref),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Vendors')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/admin/vendors/new'),
         icon: const Icon(Icons.add_business_outlined),

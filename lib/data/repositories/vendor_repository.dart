@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/vendor.dart';
 import '../../models/zone.dart';
+import '../../models/zone_location.dart';
 
 /// Zones (for grouping drivers/vendors) and vendors (the businesses whose
 /// customers request deliveries through a unique link, with no SuperD
@@ -19,9 +20,41 @@ class VendorRepository {
     return rows.map(Zone.fromMap).toList();
   }
 
-  /// Dispatcher/super-admin only - enforced by RLS on `zones`.
+  /// Super-admin only - enforced by RLS on `zones`.
   Future<void> createZone(String name) async {
     await _client.from('zones').insert({'name': name});
+  }
+
+  /// The named places a super admin has added to [zoneId] - reference
+  /// data for the Console's Zones tab, not something a driver/vendor
+  /// dropdown needs.
+  Future<List<ZoneLocation>> fetchZoneLocations(String zoneId) async {
+    final rows = await _client
+        .from('zone_locations')
+        .select()
+        .eq('zone_id', zoneId)
+        .order('name');
+    return rows.map(ZoneLocation.fromMap).toList();
+  }
+
+  /// Super-admin only - enforced by RLS on `zone_locations`.
+  Future<void> addZoneLocation({
+    required String zoneId,
+    required String name,
+    double? lat,
+    double? lng,
+  }) async {
+    await _client.from('zone_locations').insert({
+      'zone_id': zoneId,
+      'name': name,
+      'lat': lat,
+      'lng': lng,
+    });
+  }
+
+  /// Super-admin only - enforced by RLS on `zone_locations`.
+  Future<void> deleteZoneLocation(String id) async {
+    await _client.from('zone_locations').delete().eq('id', id);
   }
 
   /// Dispatcher/super-admin edit of an existing vendor's details - direct

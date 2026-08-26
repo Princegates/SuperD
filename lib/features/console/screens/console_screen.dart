@@ -4,6 +4,7 @@ import 'console_audit_log_tab.dart';
 import 'console_finance_tab.dart';
 import 'console_onboarding_tab.dart';
 import 'console_overview_tab.dart';
+import 'console_zones_tab.dart';
 
 /// The super-admin back office: reporting, finance, an audit trail, and a
 /// unified view of staff/vendor onboarding - everything that doesn't
@@ -39,6 +40,7 @@ class _ConsoleScreenState extends State<ConsoleScreen> {
       'Onboarding',
       ConsoleOnboardingTab(),
     ),
+    _ConsoleSection(Icons.map_outlined, 'Zones', ConsoleZonesTab()),
   ];
 
   @override

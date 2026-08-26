@@ -6,6 +6,7 @@ import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
 import '../../../models/vendor.dart';
 import '../../../models/zone.dart';
+import '../../../models/zone_location.dart';
 
 final allDeliveriesProvider = StreamProvider<List<Delivery>>((ref) {
   return ref.watch(deliveryRepositoryProvider).watchAllDeliveries();
@@ -27,6 +28,13 @@ final zonesProvider = FutureProvider<List<Zone>>((ref) {
 final vendorsProvider = FutureProvider<List<Vendor>>((ref) {
   return ref.watch(vendorRepositoryProvider).fetchVendors();
 });
+
+/// The named places within one zone - see the Console's Zones tab.
+final zoneLocationsProvider = FutureProvider.family<List<ZoneLocation>, String>(
+  (ref, zoneId) {
+    return ref.watch(vendorRepositoryProvider).fetchZoneLocations(zoneId);
+  },
+);
 
 /// Drivers ordered best-suited-first for a delivery in [targetZoneId]:
 /// same-zone drivers before everyone else, and within each group whoever

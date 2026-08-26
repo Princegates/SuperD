@@ -138,13 +138,28 @@ class VendorsScreen extends ConsumerWidget {
   }
 }
 
-class _VendorCard extends StatelessWidget {
+class _VendorCard extends ConsumerWidget {
   const _VendorCard({required this.vendor});
 
   final Vendor vendor;
 
+  Future<void> _toggleActive(WidgetRef ref, BuildContext context) async {
+    try {
+      await ref
+          .read(vendorRepositoryProvider)
+          .setVendorActive(vendor.id, !vendor.isActive);
+      ref.invalidate(vendorsProvider);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update this vendor')),
+        );
+      }
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final link = vendorLink(vendor.code);
     return Card(
       child: Padding(
@@ -160,6 +175,26 @@ class _VendorCard extends StatelessWidget {
                     style: const TextStyle(fontWeight: FontWeight.w800),
                   ),
                 ),
+                if (!vendor.isActive)
+                  Container(
+                    margin: const EdgeInsets.only(right: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppTheme.danger.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: const Text(
+                      'Inactive',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.danger,
+                      ),
+                    ),
+                  ),
                 if (vendor.zoneName != null)
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -179,6 +214,25 @@ class _VendorCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                IconButton(
+                  tooltip: 'Edit vendor',
+                  icon: const Icon(Icons.edit_outlined, size: 20),
+                  onPressed: () =>
+                      context.push('/admin/vendors/edit', extra: vendor),
+                ),
+                IconButton(
+                  tooltip: vendor.isActive
+                      ? 'Deactivate link'
+                      : 'Activate link',
+                  icon: Icon(
+                    vendor.isActive
+                        ? Icons.toggle_on
+                        : Icons.toggle_off_outlined,
+                    size: 26,
+                    color: vendor.isActive ? AppTheme.success : Colors.black38,
+                  ),
+                  onPressed: () => _toggleActive(ref, context),
+                ),
               ],
             ),
             const SizedBox(height: 4),

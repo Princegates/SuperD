@@ -22,6 +22,7 @@ import '../../features/public/screens/vendor_orders_screen.dart';
 import '../../features/public/screens/vendor_signup_screen.dart';
 import '../../models/profile.dart';
 import '../../models/user_role.dart';
+import '../../models/vendor.dart';
 import '../providers/core_providers.dart';
 import 'fade_slide_page.dart';
 
@@ -228,6 +229,13 @@ final routerProvider = Provider<GoRouter>((ref) {
                 pageBuilder: (context, state) => fadeSlidePage(
                   key: state.pageKey,
                   child: const VendorFormScreen(),
+                ),
+              ),
+              GoRoute(
+                path: 'edit',
+                pageBuilder: (context, state) => fadeSlidePage(
+                  key: state.pageKey,
+                  child: VendorFormScreen(existing: state.extra as Vendor),
                 ),
               ),
             ],

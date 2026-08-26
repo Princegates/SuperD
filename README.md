@@ -423,6 +423,14 @@ To register as a vendor yourself, visit `/vendor-signup` - no dispatcher
 needed. To register one on a vendor's behalf instead, use **Vendors** (the
 shop icon on the dispatch screen's app bar) → **Add vendor**.
 
+From that same **Vendors** screen, a dispatcher/super admin can edit a
+vendor's name, phone, zone, or location at any time (the pencil icon opens
+a full edit form), and can deactivate a vendor's link with the toggle icon
+on its card - an inactive link stops accepting new delivery requests, but
+the vendor's existing orders and tracking page keep working. Deactivating
+never changes the vendor's `code`, so reactivating restores the exact same
+link.
+
 ### Zones
 
 **Zones** are a fixed, admin-managed list of named areas (e.g. "East Legon",

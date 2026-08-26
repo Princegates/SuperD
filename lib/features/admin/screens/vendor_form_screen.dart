@@ -6,17 +6,27 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/utils/vendor_link.dart';
 import '../providers/admin_providers.dart';
 
-/// Dispatcher/super-admin "Add vendor" form - the admin-side counterpart to
-/// the public self-signup page, for businesses that get registered on their
-/// behalf. Same `register_vendor` call under the hood, just with
-/// `createdBy` set to whoever's filling it in.
+/// Dispatcher/super-admin "Add vendor" form when [existing] is null - the
+/// admin-side counterpart to the public self-signup page, for businesses
+/// that get registered on their behalf. Same `register_vendor` call under
+/// the hood, just with `createdBy` set to whoever's filling it in.
+///
+/// When [existing] is set, this becomes the edit form instead: name,
+/// phone, zone, and location can all be changed, and the vendor's link can
+/// be deactivated/reactivated - editing never changes the `code` itself,
+/// since that's the link already shared with the vendor's customers.
 class VendorFormScreen extends ConsumerStatefulWidget {
-  const VendorFormScreen({super.key});
+  const VendorFormScreen({super.key, this.existing});
+
+  final Vendor? existing;
+
+  bool get isEditing => existing != null;
 
   @override
   ConsumerState<VendorFormScreen> createState() => _VendorFormScreenState();
@@ -24,17 +34,33 @@ class VendorFormScreen extends ConsumerStatefulWidget {
 
 class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _nameController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _locationController = TextEditingController();
+  late final _nameController = TextEditingController(
+    text: widget.existing?.vendorName,
+  );
+  late final _phoneController = TextEditingController(
+    text: widget.existing?.phone,
+  );
+  late final _locationController = TextEditingController(
+    text: _initialLocationLabel(),
+  );
 
-  String? _zoneId;
-  double? _lat;
-  double? _lng;
+  late String? _zoneId = widget.existing?.zoneId;
+  late double? _lat = widget.existing?.locationLat;
+  late double? _lng = widget.existing?.locationLng;
+  late bool _isActive = widget.existing?.isActive ?? true;
   bool _isGeocoding = false;
   bool _isSubmitting = false;
   String? _errorMessage;
   String? _resultCode;
+
+  String? _initialLocationLabel() {
+    final vendor = widget.existing;
+    if (vendor?.locationLat == null || vendor?.locationLng == null) {
+      return null;
+    }
+    return '${vendor!.locationLat!.toStringAsFixed(5)}, '
+        '${vendor.locationLng!.toStringAsFixed(5)}';
+  }
 
   @override
   void dispose() {
@@ -82,29 +108,45 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
       return;
     }
 
-    final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
-
     setState(() {
       _isSubmitting = true;
       _errorMessage = null;
     });
     try {
-      final code = await ref
-          .read(vendorRepositoryProvider)
-          .registerVendor(
-            vendorName: _nameController.text.trim(),
-            locationLat: _lat!,
-            locationLng: _lng!,
-            phone: _phoneController.text.trim(),
-            zoneId: _zoneId,
-            createdBy: userId,
-          );
-      ref.invalidate(vendorsProvider);
-      if (mounted) setState(() => _resultCode = code);
+      final repo = ref.read(vendorRepositoryProvider);
+      if (widget.isEditing) {
+        final vendor = widget.existing!;
+        await repo.updateVendor(
+          id: vendor.id,
+          vendorName: _nameController.text.trim(),
+          phone: _phoneController.text.trim(),
+          zoneId: _zoneId,
+          locationLat: _lat,
+          locationLng: _lng,
+        );
+        if (_isActive != vendor.isActive) {
+          await repo.setVendorActive(vendor.id, _isActive);
+        }
+        ref.invalidate(vendorsProvider);
+        if (mounted) context.pop();
+      } else {
+        final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
+        final code = await repo.registerVendor(
+          vendorName: _nameController.text.trim(),
+          locationLat: _lat!,
+          locationLng: _lng!,
+          phone: _phoneController.text.trim(),
+          zoneId: _zoneId,
+          createdBy: userId,
+        );
+        ref.invalidate(vendorsProvider);
+        if (mounted) setState(() => _resultCode = code);
+      }
     } catch (e) {
       setState(
-        () =>
-            _errorMessage = 'Could not register this vendor. Please try again.',
+        () => _errorMessage = widget.isEditing
+            ? 'Could not save changes. Please try again.'
+            : 'Could not register this vendor. Please try again.',
       );
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
@@ -116,7 +158,9 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
     final zones = ref.watch(zonesProvider).valueOrNull ?? [];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Add vendor')),
+      appBar: AppBar(
+        title: Text(widget.isEditing ? 'Edit vendor' : 'Add vendor'),
+      ),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
@@ -192,6 +236,21 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
                           label: const Text('Set location on map'),
                         ),
                       ),
+                      if (widget.isEditing) ...[
+                        const SizedBox(height: 14),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Link active'),
+                          subtitle: Text(
+                            _isActive
+                                ? "Customers can request deliveries from this vendor's link"
+                                : "This vendor's link no longer accepts new requests",
+                          ),
+                          value: _isActive,
+                          onChanged: (value) =>
+                              setState(() => _isActive = value),
+                        ),
+                      ],
                       if (_errorMessage != null) ...[
                         const SizedBox(height: 12),
                         Text(
@@ -212,7 +271,11 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text('Add vendor'),
+                            : Text(
+                                widget.isEditing
+                                    ? 'Save changes'
+                                    : 'Add vendor',
+                              ),
                       ),
                     ],
                   ),

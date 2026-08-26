@@ -24,6 +24,37 @@ class VendorRepository {
     await _client.from('zones').insert({'name': name});
   }
 
+  /// Dispatcher/super-admin edit of an existing vendor's details - direct
+  /// table update (RLS already allows this for `is_dispatcher_or_above()`),
+  /// unlike registration which goes through the `register_vendor` function.
+  Future<void> updateVendor({
+    required String id,
+    required String vendorName,
+    required String phone,
+    String? zoneId,
+    double? locationLat,
+    double? locationLng,
+  }) async {
+    await _client
+        .from('vendors')
+        .update({
+          'vendor_name': vendorName,
+          'phone': phone,
+          'zone_id': zoneId,
+          'location_lat': ?locationLat,
+          'location_lng': ?locationLng,
+        })
+        .eq('id', id);
+  }
+
+  /// Activating/deactivating a vendor's link - an inactive vendor's link
+  /// stops accepting new delivery requests (`submit_delivery_request`
+  /// checks `is_active`), but their existing orders and tracking page keep
+  /// working.
+  Future<void> setVendorActive(String id, bool isActive) async {
+    await _client.from('vendors').update({'is_active': isActive}).eq('id', id);
+  }
+
   /// Every vendor, for the dispatcher/super-admin Vendors screen.
   Future<List<Vendor>> fetchVendors() async {
     final rows = await _client

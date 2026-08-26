@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -115,6 +116,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   @override
   Widget build(BuildContext context) {
     final scaffoldBackground = Theme.of(context).scaffoldBackgroundColor;
+
+    // The router force-signs-out a driver account that tried to sign in
+    // here on web (this dashboard is back-office only) - show why, once.
+    ref.listen<bool>(driverWebBlockedProvider, (previous, blocked) {
+      if (blocked) {
+        setState(
+          () => _errorMessage =
+              "Driver accounts can't sign in from this dashboard. Please "
+              'use the SuperD mobile app instead.',
+        );
+        ref.read(driverWebBlockedProvider.notifier).state = false;
+      }
+    });
+
     return Scaffold(
       body: Stack(
         children: [
@@ -174,28 +189,33 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              'Sign in to SuperD as a ${_loginTabLabels[_selectedTab]}',
+                              kIsWeb
+                                  ? 'Sign in to the SuperD dashboard'
+                                  : 'Sign in to SuperD as a '
+                                        '${_loginTabLabels[_selectedTab]}',
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Colors.grey.shade600),
                             ),
-                            const SizedBox(height: 20),
-                            SegmentedButton<UserRole>(
-                              segments: [
-                                for (final entry in _loginTabLabels.entries)
-                                  ButtonSegment(
-                                    value: entry.key,
-                                    label: Text(entry.value),
-                                  ),
-                              ],
-                              selected: {_selectedTab},
-                              onSelectionChanged: (selection) => setState(
-                                () => _selectedTab = selection.first,
+                            if (!kIsWeb) ...[
+                              const SizedBox(height: 20),
+                              SegmentedButton<UserRole>(
+                                segments: [
+                                  for (final entry in _loginTabLabels.entries)
+                                    ButtonSegment(
+                                      value: entry.key,
+                                      label: Text(entry.value),
+                                    ),
+                                ],
+                                selected: {_selectedTab},
+                                onSelectionChanged: (selection) => setState(
+                                  () => _selectedTab = selection.first,
+                                ),
+                                style: SegmentedButton.styleFrom(
+                                  selectedBackgroundColor: AppTheme.primary,
+                                  selectedForegroundColor: Colors.white,
+                                ),
                               ),
-                              style: SegmentedButton.styleFrom(
-                                selectedBackgroundColor: AppTheme.primary,
-                                selectedForegroundColor: Colors.white,
-                              ),
-                            ),
+                            ],
                             const SizedBox(height: 24),
                             TextFormField(
                               controller: _emailController,
@@ -254,11 +274,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                       ),
                                     )
                                   : const Text('Sign in'),
-                            ),
-                            const SizedBox(height: 16),
-                            TextButton(
-                              onPressed: () => context.go('/signup'),
-                              child: const Text('Create account'),
                             ),
                           ],
                         ),

@@ -13,22 +13,6 @@ class AuthRepository {
     await _client.auth.signInWithPassword(email: email, password: password);
   }
 
-  Future<void> signUp({
-    required String email,
-    required String password,
-    required String fullName,
-    String? phone,
-  }) async {
-    await _client.auth.signUp(
-      email: email,
-      password: password,
-      data: {
-        'full_name': fullName,
-        if (phone != null && phone.isNotEmpty) 'phone': phone,
-      },
-    );
-  }
-
   Future<void> signOut() => _client.auth.signOut();
 
   /// Sends a password-recovery email containing a one-time code. The

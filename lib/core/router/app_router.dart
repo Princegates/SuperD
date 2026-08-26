@@ -13,7 +13,6 @@ import '../../features/auth/screens/change_password_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
-import '../../features/auth/screens/signup_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/console/screens/console_screen.dart';
 import '../../features/driver/screens/delivery_detail_driver_screen.dart';
@@ -88,12 +87,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (!hasSession) {
-        const publicRoutes = {'/login', '/signup', '/forgot-password'};
+        const publicRoutes = {'/login', '/forgot-password'};
         if (publicRoutes.contains(loc)) return null;
         if (loc == '/reset-password') {
           return state.extra is String ? null : '/forgot-password';
         }
         return '/login';
+      }
+
+      // This is a back-office dashboard, not the driver app - a driver
+      // account signing in on web gets signed straight back out. (Kept to
+      // the web build only: driver login still works fine from a native
+      // mobile build, once one exists.)
+      if (kIsWeb && role == UserRole.driver) {
+        Future(() {
+          ref.read(driverWebBlockedProvider.notifier).state = true;
+          ref.read(authRepositoryProvider).signOut();
+        });
+        return loc == '/login' ? null : '/login';
       }
 
       // Logged in from here on. Dispatchers and super admins share the
@@ -103,7 +114,6 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       if (loc == '/splash' ||
           loc == '/login' ||
-          loc == '/signup' ||
           loc == '/forgot-password' ||
           loc == '/reset-password') {
         return home;
@@ -136,11 +146,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/login',
         pageBuilder: (context, state) =>
             fadeSlidePage(key: state.pageKey, child: const LoginScreen()),
-      ),
-      GoRoute(
-        path: '/signup',
-        pageBuilder: (context, state) =>
-            fadeSlidePage(key: state.pageKey, child: const SignupScreen()),
       ),
       GoRoute(
         path: '/forgot-password',

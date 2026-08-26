@@ -114,13 +114,20 @@ supabase/
 
 ### Promote your first super admin
 
-Every new sign-up becomes a `driver` by default (see the schema — this is a
-deliberate safety default). To bootstrap your first super admin, sign up
-once through the app, then run this in the SQL Editor:
+There's no self-signup in the app — every account (driver, dispatcher, or
+super admin) is created deliberately, either from the Team screen by an
+existing super admin, or, for the very first account, straight from
+Supabase:
 
-```sql
-update public.profiles set role = 'super_admin' where email = 'you@example.com';
-```
+1. Supabase dashboard → **Authentication → Users → Add user** (email +
+   password, and toggle **Auto Confirm User** on so it doesn't wait on a
+   confirmation email you haven't set up yet).
+2. This fires the same trigger a normal signup would, creating a matching
+   `profiles` row — defaulted to `driver` (see the schema, a deliberate
+   safety default). Promote it in the SQL Editor:
+   ```sql
+   update public.profiles set role = 'super_admin' where email = 'you@example.com';
+   ```
 
 From then on, that account can promote/demote anyone else (to `driver`,
 `dispatcher`, or `super_admin`) right from the app's Team screen — no more
@@ -224,6 +231,20 @@ links will 404:
 
 Once it's live, set `APP_BASE_URL` to that exact domain (see **Getting the
 link's domain right** below) so vendor links and their emails point at it.
+
+### Web dashboard is back-office only
+
+This is a dashboard for dispatchers and super admins, not a driver app -
+so on **web** specifically, a driver account signing in gets signed
+straight back out, with a message explaining why. Drivers still exist as
+a role (a dispatcher/super admin still creates and manages them from
+Team), they just can't sign in through this particular deployment; a
+native mobile build wouldn't have this restriction, once one exists.
+
+There's also no self-signup ("Create account") at all, on any platform -
+every account is created deliberately, either by a super admin from Team,
+or, for the very first one, straight from Supabase (see **Promote your
+first super admin** above).
 
 ## Staff management
 

@@ -44,6 +44,12 @@ final authStateProvider = StreamProvider<AuthState>((ref) {
   return ref.watch(authRepositoryProvider).onAuthStateChange;
 });
 
+/// Set briefly by the router when it force-signs-out a driver account that
+/// tried to sign in on the web build (this dashboard is back-office only -
+/// drivers use the mobile app). The login screen watches this to show a
+/// one-time explanation, then resets it.
+final driverWebBlockedProvider = StateProvider<bool>((ref) => false);
+
 /// The signed-in user's app profile (role, name, ...), kept live so a role
 /// change by an admin is picked up without a restart.
 final currentProfileProvider = StreamProvider<Profile?>((ref) {

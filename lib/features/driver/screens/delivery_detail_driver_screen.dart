@@ -105,10 +105,17 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
         ? LatLng(delivery.dropoffLat!, delivery.dropoffLng!)
         : null;
 
-    final navigateTarget = delivery.status == DeliveryStatus.assigned
+    // Before the package is collected, a driver navigates to the pickup
+    // point; once it's picked up, the destination switches to drop-off.
+    final navigateTarget =
+        delivery.status == DeliveryStatus.assigned ||
+            delivery.status == DeliveryStatus.inTransit
         ? pickup
         : dropoff;
     final nextStatus = delivery.status.nextForDriver;
+    final actionLabel = delivery.status == DeliveryStatus.assigned
+        ? 'Accept & begin trip'
+        : 'Mark ${nextStatus?.label}';
 
     return Column(
       children: [
@@ -264,7 +271,7 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                               ),
                             )
                           : Icon(nextStatus.icon),
-                      label: Text('Mark ${nextStatus.label}'),
+                      label: Text(actionLabel),
                     ),
                   ),
               ],

@@ -11,8 +11,8 @@ Three roles, one app:
 - **Dispatcher** — creates deliveries, assigns them to drivers, tracks every
   job on a live board.
 - **Driver** — sees their assigned deliveries, gets one tap to navigate,
-  updates status as the job moves (picked up → in transit → delivered), and
-  captures a proof-of-delivery photo.
+  updates status as the job moves (accept & begin trip → in transit → picked
+  up → delivered), and captures a proof-of-delivery photo.
 
 Dispatchers and super admins share the same operations dashboard; only role
 management is exclusive to super admins. Everything updates in real time

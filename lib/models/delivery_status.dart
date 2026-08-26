@@ -5,8 +5,8 @@ import '../core/theme/app_theme.dart';
 enum DeliveryStatus {
   pending,
   assigned,
-  pickedUp,
   inTransit,
+  pickedUp,
   delivered,
   cancelled;
 
@@ -35,8 +35,8 @@ enum DeliveryStatus {
   String get label => switch (this) {
     DeliveryStatus.pending => 'Pending',
     DeliveryStatus.assigned => 'Assigned',
-    DeliveryStatus.pickedUp => 'Picked up',
     DeliveryStatus.inTransit => 'In transit',
+    DeliveryStatus.pickedUp => 'Picked up',
     DeliveryStatus.delivered => 'Delivered',
     DeliveryStatus.cancelled => 'Cancelled',
   };
@@ -44,8 +44,8 @@ enum DeliveryStatus {
   Color get color => switch (this) {
     DeliveryStatus.pending => AppTheme.neutral,
     DeliveryStatus.assigned => AppTheme.warning,
-    DeliveryStatus.pickedUp => AppTheme.primary,
     DeliveryStatus.inTransit => AppTheme.primary,
+    DeliveryStatus.pickedUp => AppTheme.primary,
     DeliveryStatus.delivered => AppTheme.success,
     DeliveryStatus.cancelled => AppTheme.danger,
   };
@@ -53,17 +53,20 @@ enum DeliveryStatus {
   IconData get icon => switch (this) {
     DeliveryStatus.pending => Icons.hourglass_empty,
     DeliveryStatus.assigned => Icons.person_pin_circle_outlined,
-    DeliveryStatus.pickedUp => Icons.inventory_2_outlined,
     DeliveryStatus.inTransit => Icons.local_shipping_outlined,
+    DeliveryStatus.pickedUp => Icons.inventory_2_outlined,
     DeliveryStatus.delivered => Icons.check_circle_outline,
     DeliveryStatus.cancelled => Icons.cancel_outlined,
   };
 
-  /// What a driver is allowed to move this status to next, in order.
+  /// The driver-facing job flow, in order: a dispatcher assigns the
+  /// delivery, the driver accepts it and begins the trip to pickup
+  /// ("in transit"), collects the package on arrival ("picked up"), then
+  /// delivers it.
   DeliveryStatus? get nextForDriver => switch (this) {
-    DeliveryStatus.assigned => DeliveryStatus.pickedUp,
-    DeliveryStatus.pickedUp => DeliveryStatus.inTransit,
-    DeliveryStatus.inTransit => DeliveryStatus.delivered,
+    DeliveryStatus.assigned => DeliveryStatus.inTransit,
+    DeliveryStatus.inTransit => DeliveryStatus.pickedUp,
+    DeliveryStatus.pickedUp => DeliveryStatus.delivered,
     _ => null,
   };
 }

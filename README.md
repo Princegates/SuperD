@@ -53,12 +53,15 @@ supabase/
     0007_dispatcher_management.sql lets a super admin add/edit/remove dispatchers too
     0008_role_change_bootstrap.sql  fixes promoting a super admin via direct SQL
     0009_staff_profile_fields.sql   date of birth + residential address fields
+    0014_driver_self_signup.sql     self-signed-up drivers start pending approval, not active
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
     admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
     notify-driver-assigned/        Edge Function: texts the customer when a driver is assigned
     notify-vendor-registered/      Edge Function: emails a vendor their link when they register
+    notify-driver-application/     Edge Function: emails staff when a driver signs themselves up
+    notify-driver-approved/        Edge Function: emails a driver once their signup is approved
 ```
 
 ## 1. Stand up Supabase
@@ -271,6 +274,52 @@ server-side with the service-role key (by the `admin-create-driver` Edge
 Function, for accounts a dispatcher creates from Team) - never by
 `user_metadata` a signing-up client controls. See
 `supabase/migrations/0014_driver_self_signup.sql`.
+
+### Driver application emails
+
+Two more notifications, on top of the account-created one in **Staff
+management** below - both wired up the same way as the vendor/customer
+ones above: a **Supabase Database Webhook** on the `profiles` table, not
+called from the app itself, so they fire no matter which screen changed
+the row.
+
+- **Application submitted** - the moment a driver self-signs-up, every
+  active dispatcher and super admin is emailed the applicant's name,
+  email, and phone, with a nudge to review them from Team. An
+  admin-created driver never triggers this (they land already active).
+- **Application approved** - the moment a dispatcher/super admin flips a
+  pending driver's toggle to active, that driver is emailed to let them
+  know they can now sign in and start receiving deliveries. Deactivating
+  someone, or any other profile edit, doesn't trigger this - only the
+  pending → active transition does.
+
+**Setup** (reusing the same Resend account and secret as everywhere else
+in this README):
+
+```bash
+supabase functions deploy notify-driver-application
+supabase functions deploy notify-driver-approved
+```
+
+Then, Supabase dashboard → **Database → Webhooks → Create a new webhook**,
+twice:
+
+| | Table | Events | Edge Function |
+|---|---|---|---|
+| Application submitted | `profiles` | `Insert` | `notify-driver-application` |
+| Application approved | `profiles` | `Update` | `notify-driver-approved` |
+
+Both use **Type**: `Supabase Edge Functions` and **HTTP Method**: `POST`,
+same as the other webhooks in this README.
+
+Each function only trusts the profile's *id* (and, for the approval one,
+whether `is_active` changed) from the webhook payload - the actual name/
+email/phone/role sent in the email is always re-fetched fresh from the
+database, so a forged request can't be used to email made-up content
+anywhere. If `RESEND_API_KEY` isn't set or a send fails, nothing breaks -
+the signup or approval itself still goes through; the failure is only
+visible in the function's logs (`supabase functions logs
+notify-driver-application` / `notify-driver-approved`).
 
 ## Staff management
 

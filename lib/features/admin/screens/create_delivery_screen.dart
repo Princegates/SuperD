@@ -8,6 +8,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/payment_method.dart';
 import '../../../shared/screens/location_picker_screen.dart';
+import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/reverse_geocode.dart';
 import '../providers/admin_providers.dart';
 
@@ -181,6 +182,14 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
             createdBy: userId,
             assignedDriverId: _assignedDriverId,
           );
+
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'delivery_created',
+        entityType: 'delivery',
+        entityId: deliveryId,
+        summary: 'Created delivery for ${_customerNameController.text.trim()}',
+      );
 
       final fee = double.tryParse(_feeController.text.trim());
       if (fee != null && fee > 0) {

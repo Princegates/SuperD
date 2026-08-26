@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
+import '../../../shared/utils/audit_log.dart';
 import '../providers/admin_providers.dart';
 
 /// Add-or-edit form for a driver's or dispatcher's roster details. In add
@@ -160,6 +161,14 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                 dateOfBirth: _dateOfBirth!,
                 residentialAddress: _residentialAddressController.text.trim(),
               );
+        await logAuditEvent(
+          ref.read(supabaseClientProvider),
+          action: 'staff_created',
+          entityType: 'profile',
+          summary:
+              'Added ${widget.role.label.toLowerCase()} '
+              '${_nameController.text.trim()}',
+        );
         ref
           ..invalidate(allProfilesProvider)
           ..invalidate(driversListProvider);

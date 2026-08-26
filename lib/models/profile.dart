@@ -13,6 +13,7 @@ class Profile {
   final UserRole role;
   final bool isActive;
   final bool mustChangePassword;
+  final DateTime? createdAt;
 
   const Profile({
     required this.id,
@@ -27,6 +28,7 @@ class Profile {
     this.zoneId,
     this.isActive = true,
     this.mustChangePassword = false,
+    this.createdAt,
   });
 
   factory Profile.fromMap(Map<String, dynamic> map) {
@@ -45,6 +47,9 @@ class Profile {
       role: UserRole.fromString(map['role'] as String? ?? 'driver'),
       isActive: map['is_active'] as bool? ?? true,
       mustChangePassword: map['must_change_password'] as bool? ?? false,
+      createdAt: map['created_at'] == null
+          ? null
+          : DateTime.tryParse(map['created_at'] as String),
     );
   }
 

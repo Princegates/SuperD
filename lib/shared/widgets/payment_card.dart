@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/providers/core_providers.dart';
 import '../../models/payment_status.dart';
 import '../providers/delivery_detail_providers.dart';
+import '../utils/audit_log.dart';
 
 /// Shows the payment recorded for a delivery, if any, with a "Mark as
 /// paid" action for whoever is allowed to record it (the database still
@@ -58,12 +59,23 @@ class PaymentCard extends ConsumerWidget {
             if (canEdit && payment.status != PaymentStatus.paid) ...[
               const SizedBox(height: 12),
               OutlinedButton.icon(
-                onPressed: () => ref
-                    .read(paymentRepositoryProvider)
-                    .updateStatus(
-                      paymentId: payment.id,
-                      status: PaymentStatus.paid,
-                    ),
+                onPressed: () async {
+                  await ref
+                      .read(paymentRepositoryProvider)
+                      .updateStatus(
+                        paymentId: payment.id,
+                        status: PaymentStatus.paid,
+                      );
+                  await logAuditEvent(
+                    ref.read(supabaseClientProvider),
+                    action: 'payment_marked_paid',
+                    entityType: 'payment',
+                    entityId: payment.id,
+                    summary:
+                        'Marked payment of ${payment.currency} '
+                        '${payment.amount.toStringAsFixed(2)} as paid',
+                  );
+                },
                 icon: const Icon(Icons.check_circle_outline),
                 label: const Text('Mark as paid'),
               ),

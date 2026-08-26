@@ -8,6 +8,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
+import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/utils/vendor_link.dart';
 import '../providers/admin_providers.dart';
@@ -127,6 +128,13 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
         if (_isActive != vendor.isActive) {
           await repo.setVendorActive(vendor.id, _isActive);
         }
+        await logAuditEvent(
+          ref.read(supabaseClientProvider),
+          action: 'vendor_updated',
+          entityType: 'vendor',
+          entityId: vendor.id,
+          summary: 'Updated vendor ${_nameController.text.trim()}',
+        );
         ref.invalidate(vendorsProvider);
         if (mounted) context.pop();
       } else {
@@ -138,6 +146,12 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
           phone: _phoneController.text.trim(),
           zoneId: _zoneId,
           createdBy: userId,
+        );
+        await logAuditEvent(
+          ref.read(supabaseClientProvider),
+          action: 'vendor_registered',
+          entityType: 'vendor',
+          summary: 'Registered vendor ${_nameController.text.trim()}',
         );
         ref.invalidate(vendorsProvider);
         if (mounted) setState(() => _resultCode = code);

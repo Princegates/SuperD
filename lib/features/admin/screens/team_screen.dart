@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
+import '../../../shared/utils/audit_log.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../providers/admin_providers.dart';
 
@@ -49,6 +52,15 @@ class TeamScreen extends ConsumerWidget {
 
     try {
       await ref.read(profileRepositoryProvider).deleteStaffAccount(person.id);
+      unawaited(
+        logAuditEvent(
+          ref.read(supabaseClientProvider),
+          action: 'staff_removed',
+          entityType: 'profile',
+          entityId: person.id,
+          summary: 'Removed $roleLabel ${person.displayName}',
+        ),
+      );
       ref
         ..invalidate(allProfilesProvider)
         ..invalidate(driversListProvider);
@@ -237,7 +249,19 @@ class _RoleControl extends ConsumerWidget {
         ref
             .read(profileRepositoryProvider)
             .updateRole(userId: person.id, role: role)
-            .then((_) => ref.invalidate(allProfilesProvider));
+            .then((_) {
+              unawaited(
+                logAuditEvent(
+                  ref.read(supabaseClientProvider),
+                  action: 'role_changed',
+                  entityType: 'profile',
+                  entityId: person.id,
+                  summary:
+                      "Changed ${person.displayName}'s role to ${role.label}",
+                ),
+              );
+              ref.invalidate(allProfilesProvider);
+            });
       },
       itemBuilder: (context) => [
         for (final role in UserRole.values)

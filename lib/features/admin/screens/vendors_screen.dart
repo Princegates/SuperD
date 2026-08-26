@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/vendor.dart';
+import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/vendor_link.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../providers/admin_providers.dart';
@@ -145,9 +146,19 @@ class _VendorCard extends ConsumerWidget {
 
   Future<void> _toggleActive(WidgetRef ref, BuildContext context) async {
     try {
+      final newActive = !vendor.isActive;
       await ref
           .read(vendorRepositoryProvider)
-          .setVendorActive(vendor.id, !vendor.isActive);
+          .setVendorActive(vendor.id, newActive);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: newActive ? 'vendor_activated' : 'vendor_deactivated',
+        entityType: 'vendor',
+        entityId: vendor.id,
+        summary:
+            '${newActive ? 'Activated' : 'Deactivated'} vendor '
+            '${vendor.vendorName}',
+      );
       ref.invalidate(vendorsProvider);
     } catch (_) {
       if (context.mounted) {

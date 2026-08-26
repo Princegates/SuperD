@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
+import '../../../models/user_role.dart';
 import '../../../shared/widgets/account_menu_button.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivery_card.dart';
@@ -27,11 +29,20 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final deliveries = ref.watch(allDeliveriesProvider);
     final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
     final driverNames = {for (final d in drivers) d.id: d.displayName};
+    final isSuperAdmin =
+        ref.watch(currentProfileProvider).valueOrNull?.role ==
+        UserRole.superAdmin;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dispatch'),
         actions: [
+          if (isSuperAdmin)
+            IconButton(
+              tooltip: 'Admin Console',
+              icon: const Icon(Icons.admin_panel_settings_outlined),
+              onPressed: () => context.push('/admin/console'),
+            ),
           IconButton(
             tooltip: 'Vendors',
             icon: const Icon(Icons.storefront_outlined),

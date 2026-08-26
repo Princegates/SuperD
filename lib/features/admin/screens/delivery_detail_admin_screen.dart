@@ -8,6 +8,7 @@ import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
 import '../../../shared/providers/delivery_detail_providers.dart';
+import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/navigation_launcher.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/map_preview.dart';
@@ -155,12 +156,28 @@ class _DetailBody extends ConsumerWidget {
                   ],
                   onChanged: delivery.status == DeliveryStatus.cancelled
                       ? null
-                      : (value) => ref
-                            .read(deliveryRepositoryProvider)
-                            .assignDriver(
-                              deliveryId: delivery.id,
-                              driverId: value,
-                            ),
+                      : (value) {
+                          ref
+                              .read(deliveryRepositoryProvider)
+                              .assignDriver(
+                                deliveryId: delivery.id,
+                                driverId: value,
+                              );
+                          final driverName = value == null
+                              ? 'Unassigned'
+                              : drivers
+                                    .firstWhere((d) => d.id == value)
+                                    .displayName;
+                          logAuditEvent(
+                            ref.read(supabaseClientProvider),
+                            action: 'driver_assigned',
+                            entityType: 'delivery',
+                            entityId: delivery.id,
+                            summary:
+                                'Set driver for delivery '
+                                '#${delivery.trackingCode} to $driverName',
+                          );
+                        },
                 ),
               ],
             ),

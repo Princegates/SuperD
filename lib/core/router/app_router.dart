@@ -15,6 +15,7 @@ import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/auth/screens/signup_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
+import '../../features/console/screens/console_screen.dart';
 import '../../features/driver/screens/delivery_detail_driver_screen.dart';
 import '../../features/driver/screens/driver_dashboard_screen.dart';
 import '../../features/public/screens/customer_request_screen.dart';
@@ -109,6 +110,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
       if (role != UserRole.driver && !loc.startsWith('/admin')) return home;
       if (role == UserRole.driver && !loc.startsWith('/driver')) return home;
+
+      // The Console (reporting/finance/logs/onboarding) is super-admin
+      // only - a dispatcher who somehow navigates there gets bounced back
+      // to the regular dispatch board, not just hidden from its nav entry.
+      if (loc.startsWith('/admin/console') && role != UserRole.superAdmin) {
+        return '/admin';
+      }
 
       // A driver created by a dispatcher must set their own password before
       // touching anything else in the app.
@@ -239,6 +247,11 @@ final routerProvider = Provider<GoRouter>((ref) {
                 ),
               ),
             ],
+          ),
+          GoRoute(
+            path: 'console',
+            pageBuilder: (context, state) =>
+                fadeSlidePage(key: state.pageKey, child: const ConsoleScreen()),
           ),
           GoRoute(
             path: 'change-password',

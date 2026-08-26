@@ -21,6 +21,16 @@ class PaymentRepository {
         .map((rows) => rows.isEmpty ? null : Payment.fromMap(rows.first));
   }
 
+  /// Every payment ever recorded, for the super-admin Console's Finance
+  /// tab - RLS already limits this to dispatchers/super admins.
+  Future<List<Payment>> fetchAll() async {
+    final rows = await _client
+        .from(_table)
+        .select()
+        .order('created_at', ascending: false);
+    return rows.map(Payment.fromMap).toList();
+  }
+
   Future<void> recordPayment({
     required String deliveryId,
     required double amount,

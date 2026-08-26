@@ -291,6 +291,9 @@ unaffected.
 - `vendors` — a business with a unique `code` (its public link), registered
   location, and optional zone; `created_by` is null for a self-registered
   vendor, or the staff account that added them otherwise.
+- `audit_log` — an append-only record of staff/vendor/delivery/payment
+  actions for the Admin Console, writable only through `log_audit_event`
+  and readable only by a super admin.
 - Storage bucket `proof-of-delivery` — photos drivers capture on delivery.
 
 Row Level Security enforces the roles at the database level, not just in
@@ -449,6 +452,38 @@ active jobs. Same-zone matches are labelled "(Suggested)". This is a plain,
 free, instant calculation done entirely on-device - not a call to any
 external AI service - since "suggest the best rider" reduces to exactly
 that: proximity (by zone) and current workload.
+
+## Admin Console
+
+A `super_admin`-only back office, separate from the day-to-day dispatch
+board - open it from the shield icon on the dispatch screen's app bar (it's
+only visible to super admins; a dispatcher who navigates to `/admin/console`
+directly is redirected back to `/admin`). It's a section of the same app,
+not a separate deployment - it reuses the existing Supabase project, auth,
+and data straight through, so there's nothing extra to host or configure.
+
+It has four tabs:
+
+- **Overview** - reporting/analytics computed live from existing data: total
+  deliveries by status, completion/cancellation rate, a top-drivers
+  leaderboard by completed deliveries, zone activity, and top vendors by
+  volume.
+- **Finance** - revenue reconciliation across every payment ever recorded:
+  collected vs outstanding (and failed/refunded, when present) per currency,
+  a breakdown by payment method, and a recent-payments feed.
+- **Audit log** - a chronological record of who did what: role changes,
+  staff added/removed, vendors registered/edited/(de)activated, drivers
+  assigned, deliveries created, and payments marked paid. Entries are
+  written by a `log_audit_event` database function the instant each action
+  succeeds elsewhere in the app, and only a super admin can ever read them
+  back (RLS on `audit_log` has no policy for anyone else, and there's no
+  insert/update/delete policy at all - the log can only grow, through that
+  one function, never be edited after the fact).
+- **Onboarding** - a single triage view of recently added staff and
+  vendors, flagging what's incomplete (a driver who hasn't set their own
+  password yet, a vendor with no zone or a deactivated link) with a direct
+  link into the existing Team/Vendors edit screens to fix it. It doesn't
+  duplicate those forms - just surfaces who needs attention.
 
 ## Testing
 

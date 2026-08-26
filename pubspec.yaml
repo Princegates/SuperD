@@ -31,6 +31,12 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # Path-based URLs on web (superd.example.com/v/CODE instead of
+  # superd.example.com/#/v/CODE) - needed so vendor/customer links are
+  # clean and shareable. Ships with the Flutter SDK, no version to pin.
+  flutter_web_plugins:
+    sdk: flutter
+
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
   cupertino_icons: ^1.0.8

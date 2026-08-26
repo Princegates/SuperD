@@ -178,6 +178,45 @@ flutter build ios --dart-define-from-file=env.json
 If you forget `env.json`, the app shows a friendly "not configured yet"
 screen instead of crashing.
 
+### Hosting the web build
+
+Vendor and customer links (`/vendor-signup`, `/v/<code>`) only make sense
+as a **web** page - that's what you hand a customer, not an app they
+install. Build it with:
+
+```bash
+flutter build web --dart-define-from-file=env.json
+```
+
+This produces a static site in `build/web/` - upload that folder's
+contents to whatever serves your subdomain (a plain web server, Nginx,
+Netlify, Vercel, Firebase Hosting, GitHub Pages, ...).
+
+Two things every host needs to be configured with, or vendor/customer
+links will 404:
+
+1. **HTTPS on that subdomain** - `Vendor.email`'s link and the app's own
+   `Uri.base` check both require `https://` (or `http://` for local
+   testing), not a bare domain.
+2. **SPA fallback**: every path must serve `index.html`, not a real file
+   on disk - `/v/AB12CD34EF` doesn't exist as a file, the app's router
+   handles it client-side once `index.html` loads. Every static host
+   calls this something different:
+   - **Nginx**: `try_files $uri /index.html;`
+   - **Apache**: a `.htaccess` rewrite rule to `index.html`
+   - **Netlify**: a `_redirects` file with `/*  /index.html  200`
+   - **Vercel**: a `rewrites` entry in `vercel.json`
+   - **Firebase Hosting**: `"rewrites": [{"source": "**", "destination": "/index.html"}]`
+     in `firebase.json`
+   - **GitHub Pages**: doesn't support this natively - avoid it for this
+     app, or use a `404.html`-based redirect trick instead
+
+   Without this, `https://your-domain.example/v/AB12CD34EF` 404s instead
+   of opening the request form - only `/` (the bare domain) would work.
+
+Once it's live, set `APP_BASE_URL` to that exact domain (see **Getting the
+link's domain right** below) so vendor links and their emails point at it.
+
 ## Staff management
 
 Dispatchers and super admins can add, edit, and remove drivers straight from

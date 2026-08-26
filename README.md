@@ -561,8 +561,8 @@ failure is only visible in the function's logs
 (`supabase functions logs notify-vendor-registered`).
 
 To register as a vendor yourself, visit `/vendor-signup` - no dispatcher
-needed. To register one on a vendor's behalf instead, use **Vendors** (the
-shop icon on the dispatch screen's app bar) → **Add vendor**.
+needed. To register one on a vendor's behalf instead, open **Vendors**
+from the dashboard's nav → **Add vendor**.
 
 From that same **Vendors** screen, a dispatcher/super admin can edit a
 vendor's name, phone, zone, or location at any time (the pencil icon opens
@@ -581,8 +581,9 @@ area. Assign a driver to one from their edit screen in **Team**, and a
 vendor to one when they're registered.
 
 Only a super admin can create a zone or change what it covers - that
-happens from the **Admin Console**'s **Zones** tab (see below), not from
-the Vendors screen. There, each zone can also be given a list of specific
+happens from **Zones** in the dashboard's nav (a super-admin-only section,
+see **Admin dashboard** below), not from Vendors. There, each zone can
+also be given a list of specific
 named places within it (e.g. the "East Legon" zone might list "American
 House", "Trasacco Valley", ...) - tap a zone to expand it, "Add location"
 to pin one on the map (its name is pre-filled via reverse geocoding, but
@@ -601,41 +602,50 @@ free, instant calculation done entirely on-device - not a call to any
 external AI service - since "suggest the best rider" reduces to exactly
 that: proximity (by zone) and current workload.
 
-## Admin Console
+## Admin dashboard
 
-A `super_admin`-only back office, separate from the day-to-day dispatch
-board - open it from the shield icon on the dispatch screen's app bar (it's
-only visible to super admins; a dispatcher who navigates to `/admin/console`
-directly is redirected back to `/admin`). It's a section of the same app,
-not a separate deployment - it reuses the existing Supabase project, auth,
-and data straight through, so there's nothing extra to host or configure.
+Everything a dispatcher or super admin can do lives behind one persistent
+navigation surface - a sidebar on a wide screen, a hamburger-menu drawer on
+a narrow one - instead of separate full-screen pages you push into and
+back out of. What shows up in the nav is role-based:
 
-It has five tabs:
+- **Every dispatcher and super admin sees**: **Deliveries** (the live job
+  board - filter by status, create one, tap in for details), **Team**
+  (add/edit/remove drivers, and dispatchers if you're a super admin), and
+  **Vendors** (register/edit vendors, copy their links, activate/deactivate).
+- **Super admins additionally see**, grouped under an "Admin Console"
+  header in the nav:
+  - **Overview** - reporting/analytics computed live from existing data:
+    total deliveries by status, completion/cancellation rate, a
+    top-drivers leaderboard by completed deliveries, zone activity, and
+    top vendors by volume.
+  - **Finance** - revenue reconciliation across every payment ever
+    recorded: collected vs outstanding (and failed/refunded, when
+    present) per currency, a breakdown by payment method, and a
+    recent-payments feed.
+  - **Audit log** - a chronological record of who did what: role changes,
+    staff added/removed, vendors registered/edited/(de)activated, drivers
+    assigned, deliveries created, and payments marked paid. Entries are
+    written by a `log_audit_event` database function the instant each
+    action succeeds elsewhere in the app, and only a super admin can ever
+    read them back (RLS on `audit_log` has no policy for anyone else, and
+    there's no insert/update/delete policy at all - the log can only
+    grow, through that one function, never be edited after the fact).
+  - **Onboarding** - a single triage view of recently added staff and
+    vendors, flagging what's incomplete (a driver who hasn't set their
+    own password yet, a vendor with no zone or a deactivated link) with a
+    direct link into the Team/Vendors edit forms to fix it. It doesn't
+    duplicate those forms - just surfaces who needs attention.
+  - **Zones** - create zones (the fixed list drivers and vendors pick
+    from elsewhere) and define what each one covers by pinning named
+    locations within it.
 
-- **Overview** - reporting/analytics computed live from existing data: total
-  deliveries by status, completion/cancellation rate, a top-drivers
-  leaderboard by completed deliveries, zone activity, and top vendors by
-  volume.
-- **Finance** - revenue reconciliation across every payment ever recorded:
-  collected vs outstanding (and failed/refunded, when present) per currency,
-  a breakdown by payment method, and a recent-payments feed.
-- **Audit log** - a chronological record of who did what: role changes,
-  staff added/removed, vendors registered/edited/(de)activated, drivers
-  assigned, deliveries created, and payments marked paid. Entries are
-  written by a `log_audit_event` database function the instant each action
-  succeeds elsewhere in the app, and only a super admin can ever read them
-  back (RLS on `audit_log` has no policy for anyone else, and there's no
-  insert/update/delete policy at all - the log can only grow, through that
-  one function, never be edited after the fact).
-- **Onboarding** - a single triage view of recently added staff and
-  vendors, flagging what's incomplete (a driver who hasn't set their own
-  password yet, a vendor with no zone or a deactivated link) with a direct
-  link into the existing Team/Vendors edit screens to fix it. It doesn't
-  duplicate those forms - just surfaces who needs attention.
-- **Zones** - create zones (the fixed list drivers and vendors pick from
-  elsewhere) and define what each one covers by pinning named locations
-  within it. See **Zones** under **Vendors, zones, and public delivery
-  requests** above for details.
+A dispatcher literally has no way to reach the Admin Console sections -
+they're not just hidden, there's no route for them to type into the
+address bar either, since they live as plain in-app navigation state
+rather than their own URLs. The underlying data is independently
+RLS-protected regardless (e.g. `audit_log`'s select policy is
+`is_super_admin()` only), so it's not relying on the UI alone.
 
 ## Testing
 

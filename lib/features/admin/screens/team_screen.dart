@@ -13,6 +13,7 @@ import '../../../shared/utils/audit_log.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../providers/admin_providers.dart';
 
+/// The "Team" section of the admin dashboard shell ([AdminShellScreen]).
 /// Dispatchers see the driver roster and can add/edit/delete drivers. Super
 /// admins see everyone, can also add/edit/delete dispatchers, and can
 /// change anyone's role right here instead of needing SQL.
@@ -114,7 +115,6 @@ class TeamScreen extends ConsumerWidget {
         : ref.watch(driversListProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(isSuperAdmin ? 'Team' : 'Drivers')),
       floatingActionButton: isSuperAdmin
           ? FloatingActionButton.extended(
               onPressed: () => _showAddMenu(context),

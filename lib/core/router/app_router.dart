@@ -2,19 +2,16 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../features/admin/screens/admin_dashboard_screen.dart';
+import '../../features/admin/screens/admin_shell_screen.dart';
 import '../../features/admin/screens/create_delivery_screen.dart';
 import '../../features/admin/screens/delivery_detail_admin_screen.dart';
 import '../../features/admin/screens/staff_form_screen.dart';
-import '../../features/admin/screens/team_screen.dart';
 import '../../features/admin/screens/vendor_form_screen.dart';
-import '../../features/admin/screens/vendors_screen.dart';
 import '../../features/auth/screens/change_password_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
-import '../../features/console/screens/console_screen.dart';
 import '../../features/driver/screens/delivery_detail_driver_screen.dart';
 import '../../features/driver/screens/driver_dashboard_screen.dart';
 import '../../features/public/screens/customer_request_screen.dart';
@@ -121,13 +118,6 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (role != UserRole.driver && !loc.startsWith('/admin')) return home;
       if (role == UserRole.driver && !loc.startsWith('/driver')) return home;
 
-      // The Console (reporting/finance/logs/onboarding) is super-admin
-      // only - a dispatcher who somehow navigates there gets bounced back
-      // to the regular dispatch board, not just hidden from its nav entry.
-      if (loc.startsWith('/admin/console') && role != UserRole.superAdmin) {
-        return '/admin';
-      }
-
       // A driver created by a dispatcher must set their own password before
       // touching anything else in the app.
       if ((profileState.valueOrNull?.mustChangePassword ?? false) &&
@@ -188,10 +178,8 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       GoRoute(
         path: '/admin',
-        pageBuilder: (context, state) => fadeSlidePage(
-          key: state.pageKey,
-          child: const AdminDashboardScreen(),
-        ),
+        pageBuilder: (context, state) =>
+            fadeSlidePage(key: state.pageKey, child: const AdminShellScreen()),
         routes: [
           GoRoute(
             path: 'new',
@@ -201,27 +189,20 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: 'team',
-            pageBuilder: (context, state) =>
-                fadeSlidePage(key: state.pageKey, child: const TeamScreen()),
-            routes: [
-              GoRoute(
-                path: 'new',
-                pageBuilder: (context, state) => fadeSlidePage(
-                  key: state.pageKey,
-                  child: StaffFormScreen(
-                    roleToCreate: (state.extra as UserRole?) ?? UserRole.driver,
-                  ),
-                ),
+            path: 'team/new',
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: StaffFormScreen(
+                roleToCreate: (state.extra as UserRole?) ?? UserRole.driver,
               ),
-              GoRoute(
-                path: 'edit',
-                pageBuilder: (context, state) => fadeSlidePage(
-                  key: state.pageKey,
-                  child: StaffFormScreen(existing: state.extra as Profile),
-                ),
-              ),
-            ],
+            ),
+          ),
+          GoRoute(
+            path: 'team/edit',
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: StaffFormScreen(existing: state.extra as Profile),
+            ),
           ),
           GoRoute(
             path: 'delivery/:id',
@@ -233,30 +214,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             ),
           ),
           GoRoute(
-            path: 'vendors',
-            pageBuilder: (context, state) =>
-                fadeSlidePage(key: state.pageKey, child: const VendorsScreen()),
-            routes: [
-              GoRoute(
-                path: 'new',
-                pageBuilder: (context, state) => fadeSlidePage(
-                  key: state.pageKey,
-                  child: const VendorFormScreen(),
-                ),
-              ),
-              GoRoute(
-                path: 'edit',
-                pageBuilder: (context, state) => fadeSlidePage(
-                  key: state.pageKey,
-                  child: VendorFormScreen(existing: state.extra as Vendor),
-                ),
-              ),
-            ],
+            path: 'vendors/new',
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: const VendorFormScreen(),
+            ),
           ),
           GoRoute(
-            path: 'console',
-            pageBuilder: (context, state) =>
-                fadeSlidePage(key: state.pageKey, child: const ConsoleScreen()),
+            path: 'vendors/edit',
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: VendorFormScreen(existing: state.extra as Vendor),
+            ),
           ),
           GoRoute(
             path: 'change-password',

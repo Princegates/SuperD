@@ -11,12 +11,12 @@ import '../../../shared/utils/vendor_link.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../providers/admin_providers.dart';
 
-/// Dispatcher/super-admin view of every registered vendor, with a copyable
-/// link for each one. Zones themselves (the fixed list vendors and drivers
-/// pick from) are managed from the super-admin Admin Console's Zones tab,
-/// not here - only a super admin can actually create one (RLS on `zones`),
-/// so this screen no longer offers an entry point that would fail for a
-/// dispatcher trying to use it.
+/// The "Vendors" section of the admin dashboard shell ([AdminShellScreen]) -
+/// every registered vendor, with a copyable link for each one. Zones
+/// themselves (the fixed list vendors and drivers pick from) are managed
+/// from the super-admin Console's Zones section, not here - only a super
+/// admin can actually create one (RLS on `zones`), so this screen no
+/// longer offers an entry point that would fail for a dispatcher.
 class VendorsScreen extends ConsumerWidget {
   const VendorsScreen({super.key});
 
@@ -25,7 +25,6 @@ class VendorsScreen extends ConsumerWidget {
     final vendorsState = ref.watch(vendorsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Vendors')),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/admin/vendors/new'),
         icon: const Icon(Icons.add_business_outlined),

@@ -67,6 +67,7 @@ class VendorRepository {
     String? zoneId,
     double? locationLat,
     double? locationLng,
+    String? email,
   }) async {
     await _client
         .from('vendors')
@@ -74,6 +75,7 @@ class VendorRepository {
           'vendor_name': vendorName,
           'phone': phone,
           'zone_id': zoneId,
+          'email': email,
           'location_lat': ?locationLat,
           'location_lng': ?locationLng,
         })
@@ -102,12 +104,17 @@ class VendorRepository {
   /// both by the dispatcher/super-admin "Add vendor" screen (pass
   /// [createdBy]) and by the public self-service signup form (leave it
   /// null) - same underlying `register_vendor` function either way.
+  ///
+  /// [email], when given, gets the vendor their link by email automatically
+  /// - see `notify-vendor-registered` (a Database Webhook on this table's
+  /// insert, documented in the README).
   Future<String> registerVendor({
     required String vendorName,
     required double locationLat,
     required double locationLng,
     required String phone,
     String? zoneId,
+    String? email,
     String? createdBy,
   }) async {
     final code = await _client.rpc(
@@ -118,6 +125,7 @@ class VendorRepository {
         'location_lat': locationLat,
         'location_lng': locationLng,
         'phone': phone,
+        'email': email,
         'created_by': createdBy,
       },
     );

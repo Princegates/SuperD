@@ -8,6 +8,7 @@ class Vendor {
   final double? locationLat;
   final double? locationLng;
   final String phone;
+  final String? email;
   final bool isActive;
   final DateTime createdAt;
 
@@ -21,6 +22,7 @@ class Vendor {
     this.zoneName,
     this.locationLat,
     this.locationLng,
+    this.email,
     this.isActive = true,
   });
 
@@ -35,6 +37,7 @@ class Vendor {
       locationLat: (map['location_lat'] as num?)?.toDouble(),
       locationLng: (map['location_lng'] as num?)?.toDouble(),
       phone: map['phone'] as String? ?? '',
+      email: map['email'] as String?,
       isActive: map['is_active'] as bool? ?? true,
       createdAt: DateTime.parse(map['created_at'] as String),
     );

@@ -41,6 +41,9 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
   late final _phoneController = TextEditingController(
     text: widget.existing?.phone,
   );
+  late final _emailController = TextEditingController(
+    text: widget.existing?.email,
+  );
   late final _locationController = TextEditingController(
     text: _initialLocationLabel(),
   );
@@ -67,6 +70,7 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _emailController.dispose();
     _locationController.dispose();
     super.dispose();
   }
@@ -121,6 +125,7 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
           id: vendor.id,
           vendorName: _nameController.text.trim(),
           phone: _phoneController.text.trim(),
+          email: _emailController.text.trim(),
           zoneId: _zoneId,
           locationLat: _lat,
           locationLng: _lng,
@@ -144,6 +149,7 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
           locationLat: _lat!,
           locationLng: _lng!,
           phone: _phoneController.text.trim(),
+          email: _emailController.text.trim(),
           zoneId: _zoneId,
           createdBy: userId,
         );
@@ -202,6 +208,19 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
                         ),
                         validator: (v) =>
                             (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      ),
+                      const SizedBox(height: 14),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          helperText:
+                              "Their link is emailed here automatically",
+                        ),
+                        validator: (v) => (v == null || !v.contains('@'))
+                            ? 'Enter a valid email'
+                            : null,
                       ),
                       const SizedBox(height: 14),
                       DropdownButtonFormField<String?>(

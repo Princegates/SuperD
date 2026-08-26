@@ -58,6 +58,7 @@ supabase/
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
     admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
     notify-driver-assigned/        Edge Function: texts the customer when a driver is assigned
+    notify-vendor-registered/      Edge Function: emails a vendor their link when they register
 ```
 
 ## 1. Stand up Supabase
@@ -89,6 +90,7 @@ supabase/
    11. `supabase/migrations/0010_vendors_zones.sql`
    12. `supabase/migrations/0011_audit_log.sql`
    13. `supabase/migrations/0012_zone_locations.sql`
+   14. `supabase/migrations/0013_vendor_email.sql`
 
    Step 1 and step 2 of the roles migration **must** be separate runs —
    Postgres won't let a brand-new enum value be used in the same
@@ -102,7 +104,7 @@ supabase/
 ### Option B — Supabase Cloud free tier
 
 1. Create a free project at [supabase.com](https://supabase.com).
-2. Open the SQL Editor and run the same thirteen files from Option A above,
+2. Open the SQL Editor and run the same fourteen files from Option A above,
    **one at a time, in order** — the roles migration's two steps can't be
    combined into a single run (see the note above).
 3. Copy the **Project URL** and **anon public key** from Project Settings →
@@ -448,6 +450,47 @@ hosted:
 Leave it out entirely for a web-only deployment. Without it, on a non-web
 build, vendor links fall back to a bare `/v/<code>` path - accurate, but
 not something you can actually hand a customer.
+
+### Emailing a vendor their link
+
+A vendor can give an email address when registering (self-signup or the
+"Add vendor" screen). If they do, they're emailed their `/v/<code>` link
+the moment their record is created - one less thing for whoever registered
+them to remember to share. SMS delivery of the same link is planned as a
+follow-up; email comes first.
+
+Like the customer SMS notification above, this is wired up as a
+**Supabase Database Webhook** (not called from the app itself), so it
+fires no matter which screen registered the vendor:
+
+1. **Reuse your existing Resend account** (the same one from **Emailing
+   the new account its password**) - no new signup needed, just deploy the
+   function with that same secret already set:
+   ```bash
+   supabase functions deploy notify-vendor-registered
+   ```
+2. **Set `APP_BASE_URL`** as a secret too, so the function knows what
+   domain to put in front of the vendor's code (Edge Functions can't read
+   this from `env.json` - that's a Flutter build-time value, this is a
+   separate runtime secret for the function itself):
+   ```bash
+   supabase secrets set APP_BASE_URL=https://your-app-domain.example
+   ```
+   (Self-hosted: add it as an environment variable on the `functions`
+   container instead, same as `RESEND_API_KEY`.)
+3. **Create the Database Webhook**: Supabase dashboard →
+   **Database → Webhooks → Create a new webhook**.
+   - **Table**: `vendors`
+   - **Events**: `Insert` only (a vendor's link doesn't change after
+     registration, so there's nothing to re-send on update)
+   - **Type**: `Supabase Edge Functions`
+   - **Edge Function**: `notify-vendor-registered`
+   - **HTTP Method**: `POST`
+
+If a vendor didn't give an email, or `RESEND_API_KEY`/`APP_BASE_URL` isn't
+set, or the send fails, nothing breaks - registration still succeeds; the
+failure is only visible in the function's logs
+(`supabase functions logs notify-vendor-registered`).
 
 To register as a vendor yourself, visit `/vendor-signup` - no dispatcher
 needed. To register one on a vendor's behalf instead, use **Vendors** (the

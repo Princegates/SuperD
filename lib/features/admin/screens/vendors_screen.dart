@@ -181,7 +181,12 @@ class _VendorCard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 4),
-            Text(vendor.phone, style: const TextStyle(color: Colors.black54)),
+            Text(
+              vendor.email?.isNotEmpty == true
+                  ? '${vendor.phone} · ${vendor.email}'
+                  : vendor.phone,
+              style: const TextStyle(color: Colors.black54),
+            ),
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

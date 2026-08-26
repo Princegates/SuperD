@@ -25,6 +25,7 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _locationController = TextEditingController();
 
   String? _zoneId;
@@ -39,6 +40,7 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _emailController.dispose();
     _locationController.dispose();
     super.dispose();
   }
@@ -93,6 +95,7 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
             locationLat: _lat!,
             locationLng: _lng!,
             phone: _phoneController.text.trim(),
+            email: _emailController.text.trim(),
             zoneId: _zoneId,
           );
       if (mounted) setState(() => _resultCode = code);
@@ -147,6 +150,18 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
                             ),
                             validator: (v) => (v == null || v.trim().isEmpty)
                                 ? 'Required'
+                                : null,
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            decoration: const InputDecoration(
+                              labelText: 'Email',
+                              helperText: "We'll send your link here",
+                            ),
+                            validator: (v) => (v == null || !v.contains('@'))
+                                ? 'Enter a valid email'
                                 : null,
                           ),
                           const SizedBox(height: 14),

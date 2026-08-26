@@ -312,6 +312,66 @@ twice:
 Both use **Type**: `Supabase Edge Functions` and **HTTP Method**: `POST`,
 same as the other webhooks in this README.
 
+**If the Webhooks page isn't there** (some projects never provision the
+`supabase_functions` schema it depends on until it's used for the first
+time - you'll get `schema "supabase_functions" does not exist` if you try
+the SQL-trigger route below without it), skip the dashboard entirely and
+wire the same thing up with `pg_net` directly - the extension Webhooks
+uses under the hood - from the **SQL Editor**:
+
+```sql
+create extension if not exists pg_net;
+
+create or replace function public.trigger_notify_driver_application()
+returns trigger
+language plpgsql
+as $$
+begin
+  perform net.http_post(
+    url := 'https://your-project-ref.supabase.co/functions/v1/notify-driver-application',
+    headers := '{"Content-type": "application/json", "Authorization": "Bearer your-anon-key"}'::jsonb,
+    body := jsonb_build_object('record', row_to_json(new))
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists notify_driver_application on public.profiles;
+create trigger notify_driver_application
+after insert on public.profiles
+for each row
+execute function public.trigger_notify_driver_application();
+
+create or replace function public.trigger_notify_driver_approved()
+returns trigger
+language plpgsql
+as $$
+begin
+  perform net.http_post(
+    url := 'https://your-project-ref.supabase.co/functions/v1/notify-driver-approved',
+    headers := '{"Content-type": "application/json", "Authorization": "Bearer your-anon-key"}'::jsonb,
+    body := jsonb_build_object('record', row_to_json(new), 'old_record', row_to_json(old))
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists notify_driver_approved on public.profiles;
+create trigger notify_driver_approved
+after update on public.profiles
+for each row
+execute function public.trigger_notify_driver_approved();
+```
+
+The `Authorization` header just needs to carry *some* validly-signed
+project JWT to get past the Edge Function platform's own auth check - the
+anon key works fine and is already public inside your app bundle anyway,
+so there's nothing more sensitive being exposed by pasting it into a
+trigger definition. This produces the exact same `{record, old_record}`
+payload shape the dashboard's Webhooks feature would have sent, so the
+Edge Functions themselves don't need to know or care which route created
+the trigger.
+
 Each function only trusts the profile's *id* (and, for the approval one,
 whether `is_active` changed) from the webhook payload - the actual name/
 email/phone/role sent in the email is always re-fetched fresh from the

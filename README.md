@@ -277,16 +277,19 @@ Function, for accounts a dispatcher creates from Team) - never by
 
 ### Driver application emails
 
-Two more notifications, on top of the account-created one in **Staff
-management** below - both wired up the same way as the vendor/customer
+Three more notifications, on top of the account-created one in **Staff
+management** below - all wired up the same way as the vendor/customer
 ones above: a **Supabase Database Webhook** on the `profiles` table, not
 called from the app itself, so they fire no matter which screen changed
 the row.
 
-- **Application submitted** - the moment a driver self-signs-up, every
-  active dispatcher and super admin is emailed the applicant's name,
-  email, and phone, with a nudge to review them from Team. An
-  admin-created driver never triggers this (they land already active).
+- **Application submitted** - the moment a driver self-signs-up, two
+  emails go out from the same trigger: every active dispatcher and super
+  admin is emailed the applicant's name, email, and phone with a nudge to
+  review them from Team, and the applicant themselves gets a short
+  receipt ("we've received your application, a dispatcher will review it
+  soon"). An admin-created driver never triggers either (they land
+  already active).
 - **Application approved** - the moment a dispatcher/super admin flips a
   pending driver's toggle to active, that driver is emailed to let them
   know they can now sign in and start receiving deliveries. Deactivating

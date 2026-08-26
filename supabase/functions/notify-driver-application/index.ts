@@ -1,10 +1,11 @@
-// Emails every active dispatcher/super admin the moment a driver signs
-// themselves up (self-signup lands as `is_active = false`, pending
-// approval - see migration 0014_driver_self_signup.sql). Wired up as a
-// Supabase Database Webhook (Database -> Webhooks in the dashboard) on the
-// "profiles" table for INSERT - see the README for the exact setup steps.
-// Runs with the service-role key, same reasoning as the other admin-*/
-// notify-* functions.
+// Emails every active dispatcher/super admin, and the applicant
+// themselves, the moment a driver signs themselves up (self-signup lands
+// as `is_active = false`, pending approval - see migration
+// 0014_driver_self_signup.sql). Wired up as a Supabase Database Webhook
+// (Database -> Webhooks in the dashboard) on the "profiles" table for
+// INSERT - see the README for the exact setup steps. Runs with the
+// service-role key, same reasoning as the other admin-*/notify-*
+// functions.
 // Deploy with `supabase functions deploy notify-driver-application`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
@@ -83,28 +84,40 @@ Deno.serve(async (req) => {
     const staffEmails = (staff ?? [])
       .map((s) => s.email as string)
       .filter((email) => email.length > 0);
-    if (staffEmails.length === 0) {
-      // Nothing to notify - no active staff on file yet.
-      return jsonResponse({ skipped: true });
+
+    let sentToStaff: boolean | undefined;
+    if (staffEmails.length > 0) {
+      sentToStaff = await sendEmail(
+        staffEmails,
+        "New driver application on SuperD",
+        `
+          <p>A new driver has applied to join SuperD:</p>
+          <p>
+            <strong>Name:</strong> ${applicant.full_name}<br>
+            <strong>Email:</strong> ${applicant.email}<br>
+            <strong>Phone:</strong> ${applicant.phone ?? "not provided"}
+          </p>
+          <p>Review and approve them from the Team screen before they can be
+          assigned any deliveries.</p>
+        `,
+      );
     }
 
-    const html = `
-      <p>A new driver has applied to join SuperD:</p>
-      <p>
-        <strong>Name:</strong> ${applicant.full_name}<br>
-        <strong>Email:</strong> ${applicant.email}<br>
-        <strong>Phone:</strong> ${applicant.phone ?? "not provided"}
-      </p>
-      <p>Review and approve them from the Team screen before they can be
-      assigned any deliveries.</p>
-    `;
+    let sentToApplicant: boolean | undefined;
+    if (applicant.email) {
+      sentToApplicant = await sendEmail(
+        [applicant.email as string],
+        "We've received your SuperD driver application",
+        `
+          <p>Hi ${applicant.full_name},</p>
+          <p>Thanks for applying to drive with SuperD. A dispatcher or admin
+          will review your application shortly - we'll email you again once
+          you're approved and ready to start receiving deliveries.</p>
+        `,
+      );
+    }
 
-    const sent = await sendEmail(
-      staffEmails,
-      "New driver application on SuperD",
-      html,
-    );
-    return jsonResponse({ sent });
+    return jsonResponse({ sentToStaff, sentToApplicant });
   } catch (e) {
     return jsonResponse(
       { error: e instanceof Error ? e.message : String(e) },

@@ -79,6 +79,37 @@ class TeamScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _toggleActive(
+    BuildContext context,
+    WidgetRef ref,
+    Profile person,
+  ) async {
+    final newActive = !person.isActive;
+    try {
+      await ref.read(profileRepositoryProvider).setActive(person.id, newActive);
+      unawaited(
+        logAuditEvent(
+          ref.read(supabaseClientProvider),
+          action: newActive ? 'driver_approved' : 'staff_deactivated',
+          entityType: 'profile',
+          entityId: person.id,
+          summary:
+              '${newActive ? 'Approved' : 'Deactivated'} '
+              '${person.role.label.toLowerCase()} ${person.displayName}',
+        ),
+      );
+      ref
+        ..invalidate(allProfilesProvider)
+        ..invalidate(driversListProvider);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update this account')),
+        );
+      }
+    }
+  }
+
   Future<void> _showAddMenu(BuildContext context) async {
     final role = await showModalBottomSheet<UserRole>(
       context: context,
@@ -159,7 +190,32 @@ class TeamScreen extends ConsumerWidget {
                           : '?',
                     ),
                   ),
-                  title: Text(person.displayName),
+                  title: Row(
+                    children: [
+                      Flexible(child: Text(person.displayName)),
+                      if (!person.isActive) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: AppTheme.warning.withValues(alpha: 0.15),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Text(
+                            'Pending approval',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.warning,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                   subtitle: Text(
                     person.phone?.isNotEmpty == true
                         ? '${person.email} · ${person.phone}'
@@ -169,6 +225,21 @@ class TeamScreen extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       if (canManage) ...[
+                        IconButton(
+                          tooltip: person.isActive
+                              ? 'Deactivate ${person.role.label.toLowerCase()}'
+                              : 'Approve ${person.role.label.toLowerCase()}',
+                          icon: Icon(
+                            person.isActive
+                                ? Icons.toggle_on
+                                : Icons.toggle_off_outlined,
+                            size: 26,
+                            color: person.isActive
+                                ? AppTheme.success
+                                : Colors.black38,
+                          ),
+                          onPressed: () => _toggleActive(context, ref, person),
+                        ),
                         IconButton(
                           tooltip: 'Edit ${person.role.label.toLowerCase()}',
                           icon: const Icon(Icons.edit_outlined, size: 20),

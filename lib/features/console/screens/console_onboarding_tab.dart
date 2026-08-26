@@ -44,6 +44,11 @@ class ConsoleOnboardingTab extends ConsumerWidget {
               title: person.displayName,
               subtitle: '${person.role.label} · ${person.email}',
               badges: [
+                if (!person.isActive)
+                  const _Badge(
+                    text: 'Pending approval',
+                    color: AppTheme.warning,
+                  ),
                 if (person.mustChangePassword)
                   const _Badge(
                     text: 'Awaiting password setup',

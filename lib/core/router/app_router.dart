@@ -14,6 +14,8 @@ import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/driver/screens/delivery_detail_driver_screen.dart';
 import '../../features/driver/screens/driver_dashboard_screen.dart';
+import '../../features/driver/screens/driver_signup_screen.dart';
+import '../../features/driver/screens/pending_approval_screen.dart';
 import '../../features/public/screens/customer_request_screen.dart';
 import '../../features/public/screens/vendor_orders_screen.dart';
 import '../../features/public/screens/vendor_signup_screen.dart';
@@ -84,7 +86,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (!hasSession) {
-        const publicRoutes = {'/login', '/forgot-password'};
+        final publicRoutes = {
+          '/login',
+          '/forgot-password',
+          // Driver self-signup is native-app only - the web dashboard is
+          // back-office only, so this stays unreachable there (falls
+          // through to the '/login' redirect below instead).
+          if (!kIsWeb) '/driver-signup',
+        };
         if (publicRoutes.contains(loc)) return null;
         if (loc == '/reset-password') {
           return state.extra is String ? null : '/forgot-password';
@@ -115,14 +124,30 @@ final routerProvider = Provider<GoRouter>((ref) {
           loc == '/reset-password') {
         return home;
       }
-      if (role != UserRole.driver && !loc.startsWith('/admin')) return home;
-      if (role == UserRole.driver && !loc.startsWith('/driver')) return home;
+      // Segment-aware, not a raw prefix check - '/driver-signup' starts
+      // with the literal characters '/driver' but isn't part of that route
+      // tree, so a plain `loc.startsWith('/driver')` would wrongly treat it
+      // as already "home" for a driver and skip the redirect below.
+      final isAdminRoute = loc == '/admin' || loc.startsWith('/admin/');
+      final isDriverRoute = loc == '/driver' || loc.startsWith('/driver/');
+      if (role != UserRole.driver && !isAdminRoute) return home;
+      if (role == UserRole.driver && !isDriverRoute) return home;
 
       // A driver created by a dispatcher must set their own password before
       // touching anything else in the app.
       if ((profileState.valueOrNull?.mustChangePassword ?? false) &&
           loc != changePasswordPath) {
         return changePasswordPath;
+      }
+
+      // A driver who signed themselves up is inactive until a dispatcher
+      // or super admin approves them - see `rankedDriversProvider`, which
+      // also keeps a pending driver out of the assignment picker.
+      const pendingApprovalPath = '/driver/pending-approval';
+      if (role == UserRole.driver &&
+          !(profileState.valueOrNull?.isActive ?? true) &&
+          loc != pendingApprovalPath) {
+        return pendingApprovalPath;
       }
       return null;
     },
@@ -157,6 +182,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => fadeSlidePage(
           key: state.pageKey,
           child: const VendorSignupScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/driver-signup',
+        pageBuilder: (context, state) => fadeSlidePage(
+          key: state.pageKey,
+          child: const DriverSignupScreen(),
         ),
       ),
       GoRoute(
@@ -258,6 +290,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => fadeSlidePage(
               key: state.pageKey,
               child: const ChangePasswordScreen(),
+            ),
+          ),
+          GoRoute(
+            path: 'pending-approval',
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: const PendingApprovalScreen(),
             ),
           ),
         ],

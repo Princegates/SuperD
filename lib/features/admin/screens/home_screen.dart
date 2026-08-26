@@ -43,7 +43,12 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final deliveriesState = ref.watch(allDeliveriesProvider);
-    final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
+    // Only approved drivers count toward the roster here - one still
+    // pending approval can't be assigned work yet (see
+    // rankedDriversProvider), so they shouldn't inflate the denominator.
+    final drivers = (ref.watch(driversListProvider).valueOrNull ?? [])
+        .where((d) => d.isActive)
+        .toList();
     final profile = ref.watch(currentProfileProvider).valueOrNull;
 
     return AsyncValueView<List<Delivery>>(

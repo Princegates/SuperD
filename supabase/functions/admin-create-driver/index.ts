@@ -152,6 +152,13 @@ Deno.serve(async (req) => {
           residential_address: residentialAddress,
           must_change_password: true,
         },
+        // Only settable server-side (never by a signing-up client) - lets
+        // handle_new_user() tell an admin-vetted account apart from a
+        // public driver self-signup, which starts inactive pending
+        // approval. See migration 0014_driver_self_signup.sql.
+        app_metadata: {
+          created_by_admin: true,
+        },
       });
 
     if (createError) {

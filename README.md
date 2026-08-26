@@ -114,10 +114,11 @@ supabase/
 
 ### Promote your first super admin
 
-There's no self-signup in the app — every account (driver, dispatcher, or
-super admin) is created deliberately, either from the Team screen by an
-existing super admin, or, for the very first account, straight from
-Supabase:
+Dispatcher and super admin accounts are always created deliberately, from
+the Team screen by an existing super admin — there's no self-signup for
+either role. (A driver can create their own account from the native app,
+pending approval - see **Driver self-signup** below - but that's the one
+exception.) For the very first account, create it straight from Supabase:
 
 1. Supabase dashboard → **Authentication → Users → Add user** (email +
    password, and toggle **Auto Confirm User** on so it doesn't wait on a
@@ -241,10 +242,35 @@ a role (a dispatcher/super admin still creates and manages them from
 Team), they just can't sign in through this particular deployment; a
 native mobile build wouldn't have this restriction, once one exists.
 
-There's also no self-signup ("Create account") at all, on any platform -
-every account is created deliberately, either by a super admin from Team,
-or, for the very first one, straight from Supabase (see **Promote your
-first super admin** above).
+There's still no self-signup for a **dispatcher** or **super admin**
+account, on any platform - those are always created deliberately, either
+by a super admin from Team, or, for the very first one, straight from
+Supabase (see **Promote your first super admin** above). A **driver**
+account is the one exception - see below.
+
+### Driver self-signup
+
+A driver can create their own account from the login screen's Driver tab
+on the native app only (this route doesn't exist on the web build at all -
+the router keeps it out of reach there, consistent with drivers never
+being able to sign in to the web dashboard either). They pick their own
+password immediately, no temporary one to change later.
+
+That account starts **inactive**, though - pending approval - and can't
+be assigned any deliveries until a dispatcher or super admin approves it
+from the Team screen (the same toggle used to deactivate any existing
+driver later). Until then, signing in shows a "pending approval" screen
+instead of the driver dashboard. Recently self-signed-up drivers also show
+a "Pending approval" badge on the Console's Onboarding tab, alongside the
+existing "Awaiting password setup" one, so a super admin has one place to
+spot new signups needing a look.
+
+This is safe against a spoofed client: what decides whether a new account
+starts active or pending is `raw_app_meta_data`, which can only be set
+server-side with the service-role key (by the `admin-create-driver` Edge
+Function, for accounts a dispatcher creates from Team) - never by
+`user_metadata` a signing-up client controls. See
+`supabase/migrations/0014_driver_self_signup.sql`.
 
 ## Staff management
 
@@ -258,6 +284,11 @@ management is exclusive to the super admin role, since dispatchers managing
 other dispatchers would be a peer managing peers. A super admin's own
 account can't be removed from this screen either way; that's not a roster
 edit.
+
+The same screen has a toggle to approve a driver who signed themselves up
+(see **Driver self-signup** above) or deactivate any existing driver or
+dispatcher - an inactive driver shows a "Pending approval" badge and can't
+be assigned deliveries until switched on.
 
 Creating or deleting a login needs Supabase's admin API, which requires the
 project's service-role key. That key must never be embedded in the app

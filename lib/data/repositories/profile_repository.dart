@@ -67,6 +67,17 @@ class ProfileRepository {
         .eq('id', userId);
   }
 
+  /// Approves a self-signed-up driver (or deactivates any staff member) by
+  /// flipping `is_active`. A driver can't be assigned deliveries while
+  /// inactive - see `rankedDriversProvider` - and the app itself keeps them
+  /// on a "pending approval" screen until this is set to true.
+  Future<void> setActive(String userId, bool isActive) async {
+    await _client
+        .from('profiles')
+        .update({'is_active': isActive})
+        .eq('id', userId);
+  }
+
   /// Edits a driver's or dispatcher's own details. A dispatcher/super admin
   /// may call this for anyone; email isn't included - changing a login's
   /// email has to go through the auth admin API, not a plain table update.

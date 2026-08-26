@@ -11,6 +11,7 @@ import '../../console/screens/console_onboarding_tab.dart';
 import '../../console/screens/console_overview_tab.dart';
 import '../../console/screens/console_zones_tab.dart';
 import 'admin_dashboard_screen.dart';
+import 'home_screen.dart';
 import 'team_screen.dart';
 import 'vendors_screen.dart';
 
@@ -48,7 +49,7 @@ class AdminShellScreen extends StatefulWidget {
 class _AdminShellScreenState extends State<AdminShellScreen> {
   int _index = 0;
 
-  static const _allSections = [
+  static const _restOfSections = [
     _AdminSection(
       Icons.local_shipping_outlined,
       'Deliveries',
@@ -95,9 +96,29 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
         final isSuperAdmin =
             ref.watch(currentProfileProvider).valueOrNull?.role ==
             UserRole.superAdmin;
-        final sections = [
-          for (final section in _allSections)
+        final restOfSections = [
+          for (final section in _restOfSections)
             if (!section.superAdminOnly || isSuperAdmin) section,
+        ];
+
+        void goToLabel(String label) {
+          final i = restOfSections.indexWhere((s) => s.label == label);
+          if (i != -1) setState(() => _index = i + 1);
+        }
+
+        final sections = [
+          _AdminSection(
+            Icons.dashboard_outlined,
+            'Home',
+            HomeScreen(
+              quickLinks: [
+                for (final section in restOfSections)
+                  DashboardQuickLink(section.icon, section.label),
+              ],
+              onNavigate: goToLabel,
+            ),
+          ),
+          ...restOfSections,
         ];
         final index = _index.clamp(0, sections.length - 1);
         final isWide = MediaQuery.sizeOf(context).width >= 900;

@@ -609,12 +609,14 @@ navigation surface - a sidebar on a wide screen, a hamburger-menu drawer on
 a narrow one - instead of separate full-screen pages you push into and
 back out of. What shows up in the nav is role-based:
 
-- **Every dispatcher and super admin sees**: **Deliveries** (a row of
-  quick-glance KPI cards - today's deliveries, pending, in progress,
-  delivered today, active drivers - above the live job board itself:
-  filter by status, create one, tap in for details), **Team** (add/edit/
-  remove drivers, and dispatchers if you're a super admin), and
-  **Vendors** (register/edit vendors, copy their links, activate/deactivate).
+- **Every dispatcher and super admin sees**: **Home** (the landing page,
+  shown before you pick a specific function - a SuperD-branded header, a
+  row of quick-glance KPI cards, all deliveries broken down by status, and
+  one-tap links into every other section this role can reach), **Deliveries**
+  (the live job board: filter by status, create one, tap in for details),
+  **Team** (add/edit/remove drivers, and dispatchers if you're a super
+  admin), and **Vendors** (register/edit vendors, copy their links,
+  activate/deactivate).
 - **Super admins additionally see**, grouped under an "Admin Console"
   header in the nav:
   - **Overview** - reporting/analytics computed live from existing data:
@@ -638,9 +640,10 @@ back out of. What shows up in the nav is role-based:
     own password yet, a vendor with no zone or a deactivated link) with a
     direct link into the Team/Vendors edit forms to fix it. It doesn't
     duplicate those forms - just surfaces who needs attention.
-  - **Zones** - create zones (the fixed list drivers and vendors pick
-    from elsewhere) and define what each one covers by pinning named
-    locations within it.
+  - **Zones** - create, rename, or delete zones (the fixed list drivers
+    and vendors pick from elsewhere), and define what each one covers by
+    pinning named locations within it. Deleting a zone still in use by a
+    vendor, driver, or delivery is rejected (reassign those first).
 
 A dispatcher literally has no way to reach the Admin Console sections -
 they're not just hidden, there's no route for them to type into the

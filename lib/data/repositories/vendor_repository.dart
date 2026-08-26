@@ -25,6 +25,19 @@ class VendorRepository {
     await _client.from('zones').insert({'name': name});
   }
 
+  /// Super-admin only - enforced by RLS on `zones`.
+  Future<void> renameZone(String id, String name) async {
+    await _client.from('zones').update({'name': name}).eq('id', id);
+  }
+
+  /// Super-admin only - enforced by RLS on `zones`. Postgres rejects this
+  /// with a foreign-key-violation if any vendor, driver, or delivery still
+  /// references the zone (no `on delete cascade`) - callers should catch
+  /// that and tell the admin to reassign those first.
+  Future<void> deleteZone(String id) async {
+    await _client.from('zones').delete().eq('id', id);
+  }
+
   /// The named places a super admin has added to [zoneId] - reference
   /// data for the Console's Zones tab, not something a driver/vendor
   /// dropdown needs.

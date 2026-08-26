@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -96,6 +97,99 @@ class _ZoneCard extends ConsumerWidget {
   const _ZoneCard({required this.zone});
 
   final Zone zone;
+
+  Future<void> _renameZone(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController(text: zone.name);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename zone'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: 'Zone name'),
+          onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (name == null || name.isEmpty || name == zone.name) return;
+
+    final oldName = zone.name;
+    await ref.read(vendorRepositoryProvider).renameZone(zone.id, name);
+    await logAuditEvent(
+      ref.read(supabaseClientProvider),
+      action: 'zone_renamed',
+      entityType: 'zone',
+      entityId: zone.id,
+      summary: 'Renamed zone "$oldName" to "$name"',
+    );
+    ref.invalidate(zonesProvider);
+  }
+
+  Future<void> _deleteZone(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete zone?'),
+        content: Text(
+          'This removes "${zone.name}" from the zone list. It can\'t be '
+          'undone, and only works if no vendor, driver, or delivery is '
+          'still assigned to it.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Delete',
+              style: TextStyle(color: AppTheme.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(vendorRepositoryProvider).deleteZone(zone.id);
+    } on PostgrestException catch (e) {
+      if (context.mounted) {
+        final inUse = e.code == '23503';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              inUse
+                  ? '"${zone.name}" is still assigned to a vendor, driver, '
+                        'or delivery - reassign those first'
+                  : 'Could not delete this zone',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    await logAuditEvent(
+      ref.read(supabaseClientProvider),
+      action: 'zone_deleted',
+      entityType: 'zone',
+      entityId: zone.id,
+      summary: 'Deleted zone ${zone.name}',
+    );
+    ref.invalidate(zonesProvider);
+  }
 
   Future<void> _addLocation(BuildContext context, WidgetRef ref) async {
     final picked = await Navigator.of(context).push<LatLng>(
@@ -195,9 +289,41 @@ class _ZoneCard extends ConsumerWidget {
 
     return Card(
       child: ExpansionTile(
-        title: Text(
-          zone.name,
-          style: const TextStyle(fontWeight: FontWeight.w700),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                zone.name,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'Zone options',
+              onSelected: (action) {
+                if (action == 'rename') _renameZone(context, ref);
+                if (action == 'delete') _deleteZone(context, ref);
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'rename',
+                  child: ListTile(
+                    leading: Icon(Icons.edit_outlined),
+                    title: Text('Rename'),
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: Icon(Icons.delete_outline, color: AppTheme.danger),
+                    title: Text(
+                      'Delete',
+                      style: TextStyle(color: AppTheme.danger),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         subtitle: locationsState.valueOrNull != null
             ? Text('${locationsState.valueOrNull!.length} location(s)')

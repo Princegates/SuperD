@@ -29,7 +29,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final deliveriesState = ref.watch(allDeliveriesProvider);
     final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
     final driverNames = {for (final d in drivers) d.id: d.displayName};
-    final deliveries = deliveriesState.valueOrNull ?? [];
 
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
@@ -39,7 +38,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       ),
       body: Column(
         children: [
-          _QuickStatsRow(deliveries: deliveries, driverCount: drivers.length),
           _StatusFilterBar(
             value: _filter,
             onChanged: (status) => setState(() => _filter = status),
@@ -95,141 +93,6 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                 );
               },
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// A quick-glance row of KPI cards above the delivery list - the first
-/// thing anyone (dispatcher or super admin) sees on this screen. Computed
-/// client-side from the same delivery stream the list below already
-/// watches, so there's no extra query.
-class _QuickStatsRow extends StatelessWidget {
-  const _QuickStatsRow({required this.deliveries, required this.driverCount});
-
-  final List<Delivery> deliveries;
-  final int driverCount;
-
-  bool _isToday(DateTime dateTime) {
-    final now = DateTime.now();
-    final local = dateTime.toLocal();
-    return local.year == now.year &&
-        local.month == now.month &&
-        local.day == now.day;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final today = deliveries.where((d) => _isToday(d.createdAt)).length;
-    final pending = deliveries
-        .where((d) => d.status == DeliveryStatus.pending)
-        .length;
-    final inProgress = deliveries
-        .where(
-          (d) =>
-              d.status == DeliveryStatus.assigned ||
-              d.status == DeliveryStatus.pickedUp ||
-              d.status == DeliveryStatus.inTransit,
-        )
-        .length;
-    final deliveredToday = deliveries
-        .where(
-          (d) =>
-              d.status == DeliveryStatus.delivered &&
-              d.deliveredAt != null &&
-              _isToday(d.deliveredAt!),
-        )
-        .length;
-    final activeDrivers = deliveries
-        .where(
-          (d) =>
-              d.assignedDriverId != null &&
-              d.status != DeliveryStatus.delivered &&
-              d.status != DeliveryStatus.cancelled,
-        )
-        .map((d) => d.assignedDriverId)
-        .toSet()
-        .length;
-
-    return SizedBox(
-      height: 104,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-        children: [
-          _StatCard(
-            label: "Today's deliveries",
-            value: '$today',
-            color: AppTheme.primary,
-          ),
-          _StatCard(
-            label: 'Pending',
-            value: '$pending',
-            color: AppTheme.warning,
-          ),
-          _StatCard(
-            label: 'In progress',
-            value: '$inProgress',
-            color: AppTheme.accent,
-          ),
-          _StatCard(
-            label: 'Delivered today',
-            value: '$deliveredToday',
-            color: AppTheme.success,
-          ),
-          _StatCard(
-            label: 'Active drivers',
-            value: '$activeDrivers/$driverCount',
-            color: AppTheme.neutral,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 136,
-      margin: const EdgeInsets.only(right: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE7EAEE)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            maxLines: 2,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 11.5),
           ),
         ],
       ),

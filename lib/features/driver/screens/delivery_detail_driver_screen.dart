@@ -107,11 +107,18 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
 
     // Before the package is collected, a driver navigates to the pickup
     // point; once it's picked up, the destination switches to drop-off.
-    final navigateTarget =
-        delivery.status == DeliveryStatus.assigned ||
-            delivery.status == DeliveryStatus.inTransit
-        ? pickup
-        : dropoff;
+    // Once the job is over (delivered or cancelled) there's nowhere left
+    // to navigate to, so the button goes away entirely rather than
+    // pointing at a stale destination.
+    final isTerminal =
+        delivery.status == DeliveryStatus.delivered ||
+        delivery.status == DeliveryStatus.cancelled;
+    final navigateTarget = isTerminal
+        ? null
+        : (delivery.status == DeliveryStatus.assigned ||
+                  delivery.status == DeliveryStatus.inTransit
+              ? pickup
+              : dropoff);
     final nextStatus = delivery.status.nextForDriver;
     final actionLabel = delivery.status == DeliveryStatus.assigned
         ? 'Accept & begin trip'

@@ -185,8 +185,16 @@ as a **web** page - that's what you hand a customer, not an app they
 install. Build it with:
 
 ```bash
-flutter build web --dart-define-from-file=env.json
+flutter build web --dart-define-from-file=env.json --no-web-resources-cdn
 ```
+
+`--no-web-resources-cdn` matters: without it, Flutter loads its
+CanvasKit renderer from Google's CDN (`gstatic.com`) at runtime instead
+of the copy already bundled in your build - a bad fit for a
+self-hostable app, since it silently breaks the whole page on any
+network that blocks that domain (a corporate firewall, a restrictive
+country, ...). With the flag, everything the page needs ships in
+`build/web/` itself.
 
 This produces a static site in `build/web/` - upload that folder's
 contents to whatever serves your subdomain (a plain web server, Nginx,

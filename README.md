@@ -609,9 +609,11 @@ navigation surface - a sidebar on a wide screen, a hamburger-menu drawer on
 a narrow one - instead of separate full-screen pages you push into and
 back out of. What shows up in the nav is role-based:
 
-- **Every dispatcher and super admin sees**: **Deliveries** (the live job
-  board - filter by status, create one, tap in for details), **Team**
-  (add/edit/remove drivers, and dispatchers if you're a super admin), and
+- **Every dispatcher and super admin sees**: **Deliveries** (a row of
+  quick-glance KPI cards - today's deliveries, pending, in progress,
+  delivered today, active drivers - above the live job board itself:
+  filter by status, create one, tap in for details), **Team** (add/edit/
+  remove drivers, and dispatchers if you're a super admin), and
   **Vendors** (register/edit vendors, copy their links, activate/deactivate).
 - **Super admins additionally see**, grouped under an "Admin Console"
   header in the nav:

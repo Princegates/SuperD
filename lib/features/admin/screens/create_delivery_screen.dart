@@ -205,7 +205,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
+    final drivers = ref.watch(rankedDriversProvider(null));
 
     return Scaffold(
       appBar: AppBar(title: const Text('New delivery')),

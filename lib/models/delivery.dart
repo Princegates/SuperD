@@ -20,8 +20,10 @@ class Delivery {
   final String? notes;
   final String? proofOfDeliveryUrl;
 
-  final String createdBy;
+  final String? createdBy;
   final String? assignedDriverId;
+  final String? vendorId;
+  final String? zoneId;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -36,9 +38,9 @@ class Delivery {
     required this.customerName,
     required this.pickupAddress,
     required this.dropoffAddress,
-    required this.createdBy,
     required this.createdAt,
     required this.updatedAt,
+    this.createdBy,
     this.customerPhone,
     this.pickupLat,
     this.pickupLng,
@@ -48,6 +50,8 @@ class Delivery {
     this.notes,
     this.proofOfDeliveryUrl,
     this.assignedDriverId,
+    this.vendorId,
+    this.zoneId,
     this.assignedAt,
     this.pickedUpAt,
     this.deliveredAt,
@@ -72,8 +76,10 @@ class Delivery {
       packageDescription: map['package_description'] as String?,
       notes: map['notes'] as String?,
       proofOfDeliveryUrl: map['proof_of_delivery_url'] as String?,
-      createdBy: map['created_by'] as String? ?? '',
+      createdBy: map['created_by'] as String?,
       assignedDriverId: map['assigned_driver_id'] as String?,
+      vendorId: map['vendor_id'] as String?,
+      zoneId: map['zone_id'] as String?,
       createdAt: parseDate(map['created_at']) ?? DateTime.now(),
       updatedAt: parseDate(map['updated_at']) ?? DateTime.now(),
       assignedAt: parseDate(map['assigned_at']),

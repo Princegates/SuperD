@@ -62,6 +62,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
     text: _formatDate(widget.existing?.dateOfBirth),
   );
   late DateTime? _dateOfBirth = widget.existing?.dateOfBirth;
+  late String? _zoneId = widget.existing?.zoneId;
 
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -125,6 +126,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
               : null,
           dateOfBirth: _isDriver ? null : _dateOfBirth,
           residentialAddress: _emptyToNull(_residentialAddressController.text),
+          zoneId: _isDriver ? _zoneId : null,
         );
 
         final newEmail = _emailController.text.trim();
@@ -348,6 +350,35 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                       labelText: 'Vehicle number',
                     ),
                   ),
+                  if (widget.isEditing) ...[
+                    const SizedBox(height: 14),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final zones = ref.watch(zonesProvider).valueOrNull;
+                        return DropdownButtonFormField<String?>(
+                          initialValue: _zoneId,
+                          decoration: const InputDecoration(
+                            labelText: 'Zone',
+                            helperText:
+                                'Groups this driver for assignment '
+                                'suggestions and pricing',
+                          ),
+                          items: [
+                            const DropdownMenuItem<String?>(
+                              value: null,
+                              child: Text('No zone'),
+                            ),
+                            for (final zone in zones ?? [])
+                              DropdownMenuItem<String?>(
+                                value: zone.id,
+                                child: Text(zone.name),
+                              ),
+                          ],
+                          onChanged: (value) => setState(() => _zoneId = value),
+                        );
+                      },
+                    ),
+                  ],
                 ],
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 16),

@@ -78,6 +78,7 @@ class ProfileRepository {
     String? vehicleNumber,
     DateTime? dateOfBirth,
     String? residentialAddress,
+    String? zoneId,
   }) async {
     await _client
         .from('profiles')
@@ -88,6 +89,7 @@ class ProfileRepository {
           'vehicle_number': vehicleNumber,
           'date_of_birth': _dateOnly(dateOfBirth),
           'residential_address': residentialAddress,
+          'zone_id': zoneId,
         })
         .eq('id', userId);
   }

@@ -1,0 +1,109 @@
+import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../models/vendor.dart';
+import '../../models/zone.dart';
+
+/// Zones (for grouping drivers/vendors) and vendors (the businesses whose
+/// customers request deliveries through a unique link, with no SuperD
+/// account of their own). The public-facing pieces - registering as a
+/// vendor, submitting a delivery request, and a vendor checking their own
+/// orders - all go through SECURITY DEFINER Postgres functions rather than
+/// direct table access, since those need to work with no session at all.
+class VendorRepository {
+  VendorRepository(this._client);
+
+  final SupabaseClient _client;
+
+  Future<List<Zone>> fetchZones() async {
+    final rows = await _client.from('zones').select().order('name');
+    return rows.map(Zone.fromMap).toList();
+  }
+
+  /// Dispatcher/super-admin only - enforced by RLS on `zones`.
+  Future<void> createZone(String name) async {
+    await _client.from('zones').insert({'name': name});
+  }
+
+  /// Every vendor, for the dispatcher/super-admin Vendors screen.
+  Future<List<Vendor>> fetchVendors() async {
+    final rows = await _client
+        .from('vendors')
+        .select('*, zones(name)')
+        .order('created_at', ascending: false);
+    return rows.map(Vendor.fromMap).toList();
+  }
+
+  /// Registers a vendor and returns their unique code (their link is
+  /// `/v/<code>`, which also doubles as their order-tracking link). Used
+  /// both by the dispatcher/super-admin "Add vendor" screen (pass
+  /// [createdBy]) and by the public self-service signup form (leave it
+  /// null) - same underlying `register_vendor` function either way.
+  Future<String> registerVendor({
+    required String vendorName,
+    required double locationLat,
+    required double locationLng,
+    required String phone,
+    String? zoneId,
+    String? createdBy,
+  }) async {
+    final code = await _client.rpc(
+      'register_vendor',
+      params: {
+        'vendor_name': vendorName,
+        'zone_id': zoneId,
+        'location_lat': locationLat,
+        'location_lng': locationLng,
+        'phone': phone,
+        'created_by': createdBy,
+      },
+    );
+    return code as String;
+  }
+
+  /// Looks up a vendor by their public code - null if it doesn't exist.
+  Future<VendorPublicInfo?> fetchVendorByCode(String code) async {
+    final rows = await _client.rpc(
+      'get_vendor_by_code',
+      params: {'p_code': code},
+    ) as List;
+    if (rows.isEmpty) return null;
+    return VendorPublicInfo.fromMap(rows.first as Map<String, dynamic>);
+  }
+
+  /// Creates a pending delivery on behalf of a customer who opened a
+  /// vendor's link - no login required. Returns the new tracking code.
+  Future<String> submitDeliveryRequest({
+    required String code,
+    required String customerName,
+    required String customerPhone,
+    required String dropoffAddress,
+    double? dropoffLat,
+    double? dropoffLng,
+    String? packageDescription,
+  }) async {
+    final trackingCode = await _client.rpc(
+      'submit_delivery_request',
+      params: {
+        'p_code': code,
+        'customer_name': customerName,
+        'customer_phone': customerPhone,
+        'dropoff_address': dropoffAddress,
+        'dropoff_lat': dropoffLat,
+        'dropoff_lng': dropoffLng,
+        'package_description': packageDescription,
+      },
+    );
+    return trackingCode as String;
+  }
+
+  /// A vendor's own order history - powers their tracking page.
+  Future<List<VendorDelivery>> fetchVendorDeliveries(String code) async {
+    final rows = await _client.rpc(
+      'get_vendor_deliveries',
+      params: {'p_code': code},
+    ) as List;
+    return rows
+        .map((row) => VendorDelivery.fromMap(row as Map<String, dynamic>))
+        .toList();
+  }
+}

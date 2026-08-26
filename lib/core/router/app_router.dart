@@ -7,6 +7,8 @@ import '../../features/admin/screens/create_delivery_screen.dart';
 import '../../features/admin/screens/delivery_detail_admin_screen.dart';
 import '../../features/admin/screens/staff_form_screen.dart';
 import '../../features/admin/screens/team_screen.dart';
+import '../../features/admin/screens/vendor_form_screen.dart';
+import '../../features/admin/screens/vendors_screen.dart';
 import '../../features/auth/screens/change_password_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
@@ -15,6 +17,9 @@ import '../../features/auth/screens/signup_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/driver/screens/delivery_detail_driver_screen.dart';
 import '../../features/driver/screens/driver_dashboard_screen.dart';
+import '../../features/public/screens/customer_request_screen.dart';
+import '../../features/public/screens/vendor_orders_screen.dart';
+import '../../features/public/screens/vendor_signup_screen.dart';
 import '../../models/profile.dart';
 import '../../models/user_role.dart';
 import '../providers/core_providers.dart';
@@ -69,6 +74,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       final role = profileState.valueOrNull?.role;
 
       final loc = state.matchedLocation;
+
+      // Public, no-login pages: a vendor's self-signup form, and the
+      // customer request/tracking pages behind a vendor's unique code.
+      // These must work for a completely anonymous visitor, so they're
+      // exempt from every session/role check below.
+      if (loc == '/vendor-signup' || loc.startsWith('/v/')) return null;
 
       if (isLoading) {
         return loc == '/splash' ? null : '/splash';
@@ -138,6 +149,30 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       GoRoute(
+        path: '/vendor-signup',
+        pageBuilder: (context, state) => fadeSlidePage(
+          key: state.pageKey,
+          child: const VendorSignupScreen(),
+        ),
+      ),
+      GoRoute(
+        path: '/v/:code',
+        pageBuilder: (context, state) => fadeSlidePage(
+          key: state.pageKey,
+          child: CustomerRequestScreen(code: state.pathParameters['code']!),
+        ),
+        routes: [
+          GoRoute(
+            path: 'orders',
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: VendorOrdersScreen(code: state.pathParameters['code']!),
+            ),
+          ),
+        ],
+      ),
+
+      GoRoute(
         path: '/admin',
         pageBuilder: (context, state) => fadeSlidePage(
           key: state.pageKey,
@@ -182,6 +217,20 @@ final routerProvider = Provider<GoRouter>((ref) {
                 deliveryId: state.pathParameters['id']!,
               ),
             ),
+          ),
+          GoRoute(
+            path: 'vendors',
+            pageBuilder: (context, state) =>
+                fadeSlidePage(key: state.pageKey, child: const VendorsScreen()),
+            routes: [
+              GoRoute(
+                path: 'new',
+                pageBuilder: (context, state) => fadeSlidePage(
+                  key: state.pageKey,
+                  child: const VendorFormScreen(),
+                ),
+              ),
+            ],
           ),
           GoRoute(
             path: 'change-password',

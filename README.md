@@ -286,6 +286,11 @@ unaffected.
 - `payments` — a recorded payment against a delivery: amount, currency,
   method (cash/card/mobile money/bank transfer), and status
   (pending/paid/failed/refunded).
+- `zones` — the fixed, admin-managed list of named areas drivers and
+  vendors are grouped into.
+- `vendors` — a business with a unique `code` (its public link), registered
+  location, and optional zone; `created_by` is null for a self-registered
+  vendor, or the staff account that added them otherwise.
 - Storage bucket `proof-of-delivery` — photos drivers capture on delivery.
 
 Row Level Security enforces the roles at the database level, not just in
@@ -386,6 +391,56 @@ save.
 - If the Twilio secrets aren't set, or the send fails, nothing breaks -
   the assignment itself still goes through; the failure is only visible in
   the function's logs (`supabase functions logs notify-driver-assigned`).
+
+## Vendors, zones, and public delivery requests
+
+A **vendor** is a business (a restaurant, a shop, ...) that wants its own
+customers to be able to request a delivery without ever installing the app
+or having a SuperD account. Registering a vendor - either through the
+public signup page or the dispatcher/super-admin "Add vendor" screen -
+generates a unique link like `https://your-app.example/v/AB12CD34EF`. That
+link:
+
+- Opens a public delivery-request form ("Ordering from *Vendor name*") for
+  the vendor's own customers to fill in their name, phone, and drop-off
+  location. Pickup is always the vendor's registered location, so the
+  customer only ever supplies the drop-off - it lands as a `pending`
+  delivery for a dispatcher to assign a driver to, same as one entered
+  manually.
+- Doubles as the vendor's own order-tracking page at
+  `.../v/AB12CD34EF/orders` - a live list of every delivery placed through
+  that link, its status, and the assigned driver's name/phone once one's
+  on the way.
+
+None of this needs a login. It's built on four Postgres functions
+(`register_vendor`, `get_vendor_by_code`, `submit_delivery_request`,
+`get_vendor_deliveries`) that Supabase's `anon` key is allowed to call -
+each one is scoped strictly to the single vendor matched by the code it's
+given, and there's no direct table access for `anon` at all, so there's no
+way to enumerate or read another vendor's data through it.
+
+To register as a vendor yourself, visit `/vendor-signup` - no dispatcher
+needed. To register one on a vendor's behalf instead, use **Vendors** (the
+shop icon on the dispatch screen's app bar) → **Add vendor**.
+
+### Zones
+
+**Zones** are a fixed, admin-managed list of named areas (e.g. "East Legon",
+"Osu") used to group both drivers and vendors, so a dispatcher assigning a
+driver can see who's actually nearby, and so pricing can eventually vary by
+area. Add zones from the **Vendors** screen's map icon ("Manage zones");
+assign a driver to one from their edit screen in **Team**, and a vendor to
+one when they're registered.
+
+### Rider suggestions
+
+When assigning a driver - whether creating a delivery or from an existing
+one's detail screen - drivers already in the same zone as the delivery are
+listed first, then everyone else ordered by who currently has the fewest
+active jobs. Same-zone matches are labelled "(Suggested)". This is a plain,
+free, instant calculation done entirely on-device - not a call to any
+external AI service - since "suggest the best rider" reduces to exactly
+that: proximity (by zone) and current workload.
 
 ## Testing
 

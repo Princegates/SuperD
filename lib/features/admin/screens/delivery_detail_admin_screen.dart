@@ -23,7 +23,6 @@ class DeliveryDetailAdminScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final deliveryState = ref.watch(deliveryByIdProvider(deliveryId));
-    final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
 
     return Scaffold(
       appBar: AppBar(title: const Text('Delivery')),
@@ -33,6 +32,7 @@ class DeliveryDetailAdminScreen extends ConsumerWidget {
           if (delivery == null) {
             return const Center(child: Text('Delivery not found'));
           }
+          final drivers = ref.watch(rankedDriversProvider(delivery.zoneId));
           return _DetailBody(delivery: delivery, drivers: drivers);
         },
       ),
@@ -145,7 +145,12 @@ class _DetailBody extends ConsumerWidget {
                     for (final driver in drivers)
                       DropdownMenuItem<String?>(
                         value: driver.id,
-                        child: Text(driver.displayName),
+                        child: Text(
+                          delivery.zoneId != null &&
+                                  driver.zoneId == delivery.zoneId
+                              ? '${driver.displayName} (Suggested)'
+                              : driver.displayName,
+                        ),
                       ),
                   ],
                   onChanged: delivery.status == DeliveryStatus.cancelled

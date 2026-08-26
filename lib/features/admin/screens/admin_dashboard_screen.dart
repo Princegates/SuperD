@@ -154,7 +154,7 @@ class _QuickStatsRow extends StatelessWidget {
         .length;
 
     return SizedBox(
-      height: 96,
+      height: 104,
       child: ListView(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -206,7 +206,7 @@ class _StatCard extends StatelessWidget {
     return Container(
       width: 136,
       margin: const EdgeInsets.only(right: 10),
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -215,6 +215,7 @@ class _StatCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Text(
             value,

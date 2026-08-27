@@ -255,11 +255,11 @@ class _VendorCard extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: Text(
+                    child: SelectableText(
                       link,
-                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(fontSize: 13),
                     ),
                   ),

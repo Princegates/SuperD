@@ -36,6 +36,14 @@ final vendorsProvider = FutureProvider<List<Vendor>>((ref) {
   return ref.watch(vendorRepositoryProvider).fetchVendors();
 });
 
+/// Every vendor, live - just for the admin shell's "new vendor registered"
+/// in-app notification. Kept separate from [vendorsProvider] (a one-shot
+/// fetch with the zone-name join the Vendors screen needs) for the same
+/// reason [driverLocationsProvider] is separate from [driversListProvider].
+final vendorRegistrationsProvider = StreamProvider<List<Vendor>>((ref) {
+  return ref.watch(vendorRepositoryProvider).watchVendorRegistrations();
+});
+
 /// The named places within one zone - see the Console's Zones tab.
 final zoneLocationsProvider = FutureProvider.family<List<ZoneLocation>, String>(
   (ref, zoneId) {

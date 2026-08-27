@@ -112,6 +112,19 @@ class VendorRepository {
     return rows.map(Vendor.fromMap).toList();
   }
 
+  /// Every vendor, live - just for the admin shell's "new vendor
+  /// registered" in-app notification, so it doesn't need the Vendors
+  /// screen open to fire. `.stream()` can't do the `zones(name)` join
+  /// [fetchVendors] does, but a notification only needs the vendor's name
+  /// anyway - `Vendor.fromMap` already tolerates a missing `zones` key.
+  Stream<List<Vendor>> watchVendorRegistrations() {
+    return _client
+        .from('vendors')
+        .stream(primaryKey: ['id'])
+        .order('created_at')
+        .map((rows) => rows.map(Vendor.fromMap).toList());
+  }
+
   /// Registers a vendor and returns their unique code (their link is
   /// `/v/<code>`, which also doubles as their order-tracking link). Used
   /// both by the dispatcher/super-admin "Add vendor" screen (pass

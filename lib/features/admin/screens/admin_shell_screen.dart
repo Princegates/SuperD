@@ -7,6 +7,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/user_role.dart';
+import '../../../models/vendor.dart';
 import '../../../shared/widgets/account_menu_button.dart';
 import '../../console/screens/console_audit_log_tab.dart';
 import '../../console/screens/console_finance_tab.dart';
@@ -150,6 +151,30 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
           final i = restOfSections.indexWhere((s) => s.label == label);
           if (i != -1) setState(() => _index = i + 1);
         }
+
+        // Same diffing approach as the new-delivery listener above - only
+        // ids that weren't there last time are a genuinely new vendor.
+        ref.listen<AsyncValue<List<Vendor>>>(vendorRegistrationsProvider, (
+          previous,
+          next,
+        ) {
+          final priorIds = previous?.valueOrNull?.map((v) => v.id).toSet();
+          final current = next.valueOrNull;
+          if (priorIds == null || current == null) return;
+          for (final vendor in current) {
+            if (!priorIds.contains(vendor.id)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('New vendor registered: ${vendor.vendorName}'),
+                  action: SnackBarAction(
+                    label: 'View',
+                    onPressed: () => goToLabel('Vendors'),
+                  ),
+                ),
+              );
+            }
+          }
+        });
 
         final sections = [
           _AdminSection(

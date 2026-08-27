@@ -63,6 +63,7 @@ supabase/
     0017_app_settings.sql           single-row app_settings table (currency), editable from Console > Settings
     0018_app_settings_theme.sql     adds the selected UI theme to app_settings
     0019_driver_web_login_toggle.sql adds allow_driver_web_login to app_settings
+    0020_vendors_realtime.sql       live-updates vendors, for the new-vendor in-app notification
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -919,6 +920,16 @@ set, or the send fails, nothing breaks - registration still succeeds; the
 failure is only visible in the function's logs
 (`supabase functions logs notify-vendor-registered`).
 
+The same webhook also emails every active dispatcher/super admin a "New
+vendor registered on SuperD" notice, independently of whether the vendor
+themselves has an email on file or their own send succeeded - staff still
+hear about it either way. On top of that, whoever's got the admin
+dashboard open sees an in-app notification the moment a new vendor
+registers, the same `SnackBar` + "View" pattern as new deliveries and new
+driver assignments - backed by realtime on the `vendors` table
+(`0020_vendors_realtime.sql`), not the webhook, so it fires even if
+`RESEND_API_KEY`/`APP_BASE_URL` were never configured at all.
+
 To register as a vendor yourself, visit `/vendor-signup` - no dispatcher
 needed. To register one on a vendor's behalf instead, open **Vendors**
 from the dashboard's nav → **Add vendor**.
@@ -1053,10 +1064,10 @@ you set one.
 
 ### In-app notifications
 
-Two more real-time alerts, both plain in-app `SnackBar`s (not push
+Three real-time alerts, all plain in-app `SnackBar`s (not push
 notifications, not email) - they only show up while the relevant
 dashboard is actually open, computed by diffing the same realtime
-delivery streams every screen already watches, so there's no separate
+streams every screen already watches, so there's no separate
 notification pipeline to maintain:
 
 - **Dispatcher/super admin** get one the moment a new delivery request
@@ -1065,11 +1076,14 @@ notification pipeline to maintain:
   jumps straight to it.
 - **Driver** get one the moment a delivery is newly assigned to them -
   "New delivery assigned: #*tracking code*", same **View** action.
+- **Dispatcher/super admin** also get one the moment a new vendor
+  registers - "New vendor registered: *vendor name*", with a **View**
+  action that jumps to the Vendors section.
 
-Neither fires on the very first load of a dashboard (only once there's a
-prior snapshot to diff against), so opening the app to an already-full
-delivery list doesn't trigger a flood of notifications for things that
-were already there.
+None of these fire on the very first load of a dashboard (only once
+there's a prior snapshot to diff against), so opening the app to an
+already-full list doesn't trigger a flood of notifications for things
+that were already there.
 
 ## Testing
 

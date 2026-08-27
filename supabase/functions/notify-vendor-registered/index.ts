@@ -1,14 +1,16 @@
-// Emails a vendor their unique link the moment they register. Wired up as
-// a Supabase Database Webhook (Database -> Webhooks in the dashboard) on
-// the "vendors" table for INSERT only - see the README for the exact
-// setup steps. Runs with the service-role key, same reasoning as the
-// other admin-*/notify-* functions.
+// Emails a vendor their unique link the moment they register, and
+// separately emails every active dispatcher/super admin so staff know a
+// new vendor is on the platform. Wired up as a Supabase Database Webhook
+// (Database -> Webhooks in the dashboard) on the "vendors" table for
+// INSERT only - see the README for the exact setup steps. Runs with the
+// service-role key, same reasoning as the other admin-*/notify-*
+// functions.
 // Deploy with `supabase functions deploy notify-vendor-registered`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
 
 async function sendEmail(
-  to: string,
+  to: string | string[],
   subject: string,
   html: string,
 ): Promise<boolean> {
@@ -62,28 +64,62 @@ Deno.serve(async (req) => {
     if (vendorError || !vendor) {
       return jsonResponse({ error: "Vendor not found" }, 404);
     }
-    if (!vendor.email) {
-      // Nothing to notify - no email on file for this vendor.
-      return jsonResponse({ skipped: true });
-    }
 
     const appBaseUrl = Deno.env.get("APP_BASE_URL");
-    if (!appBaseUrl) {
+    const link = appBaseUrl
+      ? `${appBaseUrl.replace(/\/+$/, "")}/v/${vendor.code}`
+      : null;
+
+    let sentToVendor: boolean | undefined;
+    if (vendor.email && link) {
+      sentToVendor = await sendEmail(
+        vendor.email,
+        "Your SuperD delivery link",
+        `
+          <p>Hi ${vendor.vendor_name},</p>
+          <p>You're registered on SuperD. Share this link with your
+          customers - they'll use it to request a delivery from you, and
+          it also shows you your own orders:</p>
+          <p><a href="${link}">${link}</a></p>
+        `,
+      );
+    } else if (vendor.email && !link) {
       console.error("notify-vendor-registered: APP_BASE_URL is not set");
-      return jsonResponse({ error: "APP_BASE_URL is not set" }, 500);
     }
-    const link = `${appBaseUrl.replace(/\/+$/, "")}/v/${vendor.code}`;
 
-    const html = `
-      <p>Hi ${vendor.vendor_name},</p>
-      <p>You're registered on SuperD. Share this link with your customers -
-      they'll use it to request a delivery from you, and it also shows you
-      your own orders:</p>
-      <p><a href="${link}">${link}</a></p>
-    `;
+    const { data: staff, error: staffError } = await admin
+      .from("profiles")
+      .select("email")
+      .in("role", ["dispatcher", "super_admin"])
+      .eq("is_active", true);
+    if (staffError) {
+      return jsonResponse({ error: staffError.message }, 500);
+    }
+    const staffEmails = (staff ?? [])
+      .map((s) => s.email as string)
+      .filter((email) => email.length > 0);
 
-    const sent = await sendEmail(vendor.email, "Your SuperD delivery link", html);
-    return jsonResponse({ sent });
+    let sentToStaff: boolean | undefined;
+    if (staffEmails.length > 0) {
+      sentToStaff = await sendEmail(
+        staffEmails,
+        "New vendor registered on SuperD",
+        `
+          <p>A new vendor has registered on SuperD:</p>
+          <p>
+            <strong>Name:</strong> ${vendor.vendor_name}<br>
+            <strong>Email:</strong> ${vendor.email ?? "not provided"}
+          </p>
+          ${
+            link
+              ? `<p>Their link: <a href="${link}">${link}</a></p>`
+              : ""
+          }
+        `,
+      );
+    }
+
+    return jsonResponse({ sentToVendor, sentToStaff });
   } catch (e) {
     return jsonResponse(
       { error: e instanceof Error ? e.message : String(e) },

@@ -45,6 +45,38 @@ class ProfileRepository {
     return rows.map(Profile.fromMap).toList();
   }
 
+  /// Every driver, live - for the dispatcher/super-admin Live Map. Filtering
+  /// out stale positions (a driver who closed the app a while ago) happens
+  /// client-side via `Profile.hasRecentLocation`, since this just streams
+  /// the raw rows.
+  Stream<List<Profile>> watchDriverLocations() {
+    return _client
+        .from('profiles')
+        .stream(primaryKey: ['id'])
+        .eq('role', UserRole.driver.wireValue)
+        .order('full_name')
+        .map((rows) => rows.map(Profile.fromMap).toList());
+  }
+
+  /// Called every ~15s by a driver's own app, only while it's open and
+  /// location is granted - see DriverDashboardScreen. No background
+  /// tracking; the position just goes stale (and drops off the Live Map)
+  /// once updates stop.
+  Future<void> updateLiveLocation({
+    required String userId,
+    required double lat,
+    required double lng,
+  }) async {
+    await _client
+        .from('profiles')
+        .update({
+          'last_lat': lat,
+          'last_lng': lng,
+          'location_updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', userId);
+  }
+
   /// Every user in the system, for the super-admin Team screen.
   Future<List<Profile>> fetchAllProfiles() async {
     final rows = await _client

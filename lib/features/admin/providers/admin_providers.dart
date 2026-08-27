@@ -16,6 +16,13 @@ final driversListProvider = FutureProvider<List<Profile>>((ref) {
   return ref.watch(profileRepositoryProvider).fetchDrivers();
 });
 
+/// Every driver's live position, for the Live Map. Kept separate from
+/// [driversListProvider] (a one-shot fetch used for rosters/assignment)
+/// since this one needs to be a live realtime stream instead.
+final driverLocationsProvider = StreamProvider<List<Profile>>((ref) {
+  return ref.watch(profileRepositoryProvider).watchDriverLocations();
+});
+
 /// Every user in the system - used by the super-admin Team screen.
 final allProfilesProvider = FutureProvider<List<Profile>>((ref) {
   return ref.watch(profileRepositoryProvider).fetchAllProfiles();

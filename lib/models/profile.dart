@@ -14,6 +14,9 @@ class Profile {
   final bool isActive;
   final bool mustChangePassword;
   final DateTime? createdAt;
+  final double? lastLat;
+  final double? lastLng;
+  final DateTime? locationUpdatedAt;
 
   const Profile({
     required this.id,
@@ -29,6 +32,9 @@ class Profile {
     this.isActive = true,
     this.mustChangePassword = false,
     this.createdAt,
+    this.lastLat,
+    this.lastLng,
+    this.locationUpdatedAt,
   });
 
   factory Profile.fromMap(Map<String, dynamic> map) {
@@ -50,8 +56,19 @@ class Profile {
       createdAt: map['created_at'] == null
           ? null
           : DateTime.tryParse(map['created_at'] as String),
+      lastLat: (map['last_lat'] as num?)?.toDouble(),
+      lastLng: (map['last_lng'] as num?)?.toDouble(),
+      locationUpdatedAt: map['location_updated_at'] == null
+          ? null
+          : DateTime.tryParse(map['location_updated_at'] as String),
     );
   }
 
   String get displayName => fullName.isNotEmpty ? fullName : email;
+
+  bool get hasRecentLocation =>
+      lastLat != null &&
+      lastLng != null &&
+      locationUpdatedAt != null &&
+      DateTime.now().difference(locationUpdatedAt!) < const Duration(minutes: 15);
 }

@@ -58,6 +58,7 @@ supabase/
     0008_role_change_bootstrap.sql  fixes promoting a super admin via direct SQL
     0009_staff_profile_fields.sql   date of birth + residential address fields
     0014_driver_self_signup.sql     self-signed-up drivers start pending approval, not active
+    0015_driver_live_location.sql   last_lat/last_lng/location_updated_at for the Live Map
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -869,8 +870,10 @@ back out of. What shows up in the nav is role-based:
   one-tap links into every other section this role can reach), **Deliveries**
   (the live job board: filter by status, create one, tap in for details),
   **Team** (add/edit/remove drivers, and dispatchers if you're a super
-  admin), and **Vendors** (register/edit vendors, copy their links,
-  activate/deactivate).
+  admin), **Vendors** (register/edit vendors, copy their links,
+  activate/deactivate), and **Live Map** (every driver currently sharing
+  their location, live on Google Maps - see **Live driver tracking**
+  below).
 - **Super admins additionally see**, grouped under an "Admin Console"
   header in the nav:
   - **Overview** - reporting/analytics computed live from existing data:
@@ -905,6 +908,46 @@ address bar either, since they live as plain in-app navigation state
 rather than their own URLs. The underlying data is independently
 RLS-protected regardless (e.g. `audit_log`'s select policy is
 `is_super_admin()` only), so it's not relying on the UI alone.
+
+### Live driver tracking
+
+The **Live Map** section shows every driver currently sharing their
+position as a marker on Google Maps, updating in real time. There's no
+background tracking and nothing persists once a driver's app is closed:
+
+- A driver's own app pushes their GPS position (`profiles.last_lat`/
+  `last_lng`/`location_updated_at`) every 15 seconds, for as long as their
+  dashboard screen stays open and location permission is granted - closing
+  the app or losing permission just stops the updates, nothing to turn off
+  server-side.
+- A driver whose last update is more than 15 minutes old drops off the map
+  entirely (`Profile.hasRecentLocation`), so a stale position from a
+  driver who went offline a while ago never lingers looking live.
+- No new RLS policy was needed for this: a driver can already update any
+  column on their own `profiles` row (`0002_roles_step2_policies.sql`),
+  and `profiles` was already in the realtime publication
+  (`0006_profiles_realtime.sql`), so a dispatcher/super admin's Live Map
+  picks up every update automatically.
+
+### In-app notifications
+
+Two more real-time alerts, both plain in-app `SnackBar`s (not push
+notifications, not email) - they only show up while the relevant
+dashboard is actually open, computed by diffing the same realtime
+delivery streams every screen already watches, so there's no separate
+notification pipeline to maintain:
+
+- **Dispatcher/super admin** get one the moment a new delivery request
+  comes in (from a vendor's customer link, or created directly) - "New
+  delivery request from *customer name*", with a **View** action that
+  jumps straight to it.
+- **Driver** get one the moment a delivery is newly assigned to them -
+  "New delivery assigned: #*tracking code*", same **View** action.
+
+Neither fires on the very first load of a dashboard (only once there's a
+prior snapshot to diff against), so opening the app to an already-full
+delivery list doesn't trigger a flood of notifications for things that
+were already there.
 
 ## Testing
 

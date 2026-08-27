@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../models/delivery.dart';
+import '../../../models/delivery_status.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/widgets/account_menu_button.dart';
 import '../../console/screens/console_audit_log_tab.dart';
@@ -10,8 +13,10 @@ import '../../console/screens/console_finance_tab.dart';
 import '../../console/screens/console_onboarding_tab.dart';
 import '../../console/screens/console_overview_tab.dart';
 import '../../console/screens/console_zones_tab.dart';
+import '../providers/admin_providers.dart';
 import 'admin_dashboard_screen.dart';
 import 'home_screen.dart';
+import 'live_map_screen.dart';
 import 'team_screen.dart';
 import 'vendors_screen.dart';
 
@@ -57,6 +62,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     ),
     _AdminSection(Icons.groups_outlined, 'Team', TeamScreen()),
     _AdminSection(Icons.storefront_outlined, 'Vendors', VendorsScreen()),
+    _AdminSection(Icons.near_me_outlined, 'Live Map', LiveMapScreen()),
     _AdminSection(
       Icons.insights_outlined,
       'Overview',
@@ -96,6 +102,38 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
         final isSuperAdmin =
             ref.watch(currentProfileProvider).valueOrNull?.role ==
             UserRole.superAdmin;
+
+        // The full delivery list re-emits on every change - only ids that
+        // weren't there last time are a genuinely new order, whether it
+        // came from a vendor's customer link or was created here directly.
+        // previous == null (still loading) is skipped so the first load
+        // doesn't fire one notification per already-existing delivery.
+        ref.listen<AsyncValue<List<Delivery>>>(allDeliveriesProvider, (
+          previous,
+          next,
+        ) {
+          final priorIds = previous?.valueOrNull?.map((d) => d.id).toSet();
+          final current = next.valueOrNull;
+          if (priorIds == null || current == null) return;
+          for (final delivery in current) {
+            if (delivery.status == DeliveryStatus.pending &&
+                !priorIds.contains(delivery.id)) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    'New delivery request from ${delivery.customerName}',
+                  ),
+                  action: SnackBarAction(
+                    label: 'View',
+                    onPressed: () =>
+                        context.push('/admin/delivery/${delivery.id}'),
+                  ),
+                ),
+              );
+            }
+          }
+        });
+
         final restOfSections = [
           for (final section in _restOfSections)
             if (!section.superAdminOnly || isSuperAdmin) section,

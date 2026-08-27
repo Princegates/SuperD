@@ -111,3 +111,50 @@ class VendorDelivery {
     );
   }
 }
+
+/// The tracking code and server-quoted price returned by
+/// `submit_delivery_request` - see `0022_delivery_pricing.sql`. The amount
+/// is computed there (base fare + distance charge), never trusted from the
+/// client.
+class DeliveryQuote {
+  final String trackingCode;
+  final double amount;
+  final String currency;
+
+  const DeliveryQuote({
+    required this.trackingCode,
+    required this.amount,
+    required this.currency,
+  });
+
+  factory DeliveryQuote.fromMap(Map<String, dynamic> map) {
+    return DeliveryQuote(
+      trackingCode: map['tracking_code'] as String? ?? '',
+      amount: (map['quoted_amount'] as num?)?.toDouble() ?? 0,
+      currency: map['currency'] as String? ?? 'GHS',
+    );
+  }
+}
+
+/// The pricing rates a customer's request would be quoted at, returned by
+/// the anonymous-safe `get_pricing_config()` RPC - used for a live
+/// estimate on the request form before submitting.
+class PricingConfig {
+  final double baseFare;
+  final double pricePerKm;
+  final String currency;
+
+  const PricingConfig({
+    required this.baseFare,
+    required this.pricePerKm,
+    required this.currency,
+  });
+
+  factory PricingConfig.fromMap(Map<String, dynamic> map) {
+    return PricingConfig(
+      baseFare: (map['base_fare'] as num?)?.toDouble() ?? 5,
+      pricePerKm: (map['price_per_km'] as num?)?.toDouble() ?? 1.5,
+      currency: map['currency'] as String? ?? 'GHS',
+    );
+  }
+}

@@ -64,6 +64,8 @@ supabase/
     0018_app_settings_theme.sql     adds the selected UI theme to app_settings
     0019_driver_web_login_toggle.sql adds allow_driver_web_login to app_settings
     0020_vendors_realtime.sql       live-updates vendors, for the new-vendor in-app notification
+    0021_sms_log.sql                logs SMS send attempts per vendor, for usage-based billing (schema only - not yet wired to a UI)
+    0022_delivery_pricing.sql       base_fare/price_per_km on app_settings + automatic pricing in submit_delivery_request
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -732,6 +734,41 @@ Paystack, Flutterwave, ...) to charge customers in-app is a bigger,
 separate piece of work — the schema has a `gateway_reference` column ready
 for it whenever you're ready to take that on.
 
+### Delivery pricing (public request form)
+
+A delivery a *customer* submits through a vendor's link (`/v/:code`, no
+login) is quoted automatically:
+
+```
+Customer Delivery Price = Base Delivery Fare + Distance Charge
+```
+
+- **Base fare** and **price per km** are both super-admin-configurable
+  from **Console > Settings** (same `app_settings` row as currency/theme —
+  `0022_delivery_pricing.sql`), defaulting to 5 and 1.5 in the app's
+  currency.
+- **Distance** is a straight-line (haversine great-circle) calculation
+  between the vendor's registered location and the customer's dropped pin
+  — not real road distance, and not a paid Distance Matrix API, consistent
+  with how this app already avoids Google Places for address search. If a
+  customer only types an address without dropping a pin, they're charged
+  just the base fare.
+- The price is computed **server-side**, inside `submit_delivery_request`
+  — never trusted from the client — and a `payments` row is created for
+  the delivery automatically when the quoted amount is greater than zero.
+- The request form shows a live estimate as the customer fills it in
+  (recomputed client-side with the same formula, via the anonymous-safe
+  `get_pricing_config()` RPC, purely for instant feedback), and the
+  confirmation screen shows the actual server-quoted fee once submitted.
+- **Optional extras** (e.g. a fragile-item surcharge) aren't a configurable
+  line-item catalog yet — a dispatcher can still adjust a delivery's
+  payment amount by hand from the delivery detail screen if a particular
+  order needs one.
+
+Deliveries created directly by a dispatcher/super admin (the "New
+delivery" form in the admin console) are unaffected — those already let
+the dispatcher set the delivery fee by hand.
+
 ## App theme
 
 A super admin can switch the whole app's brand color from **Console >
@@ -1066,12 +1103,13 @@ back out of. What shows up in the nav is role-based:
     pinning named locations within it. Deleting a zone still in use by a
     vendor, driver, or delivery is rejected (reassign those first).
   - **Settings** - app-wide settings: currency (see **Payments** above),
-    the UI theme, and whether drivers may sign in on web (see **Web
-    dashboard is back-office only**). Six built-in color themes (Navy &
-    Gold, Ocean Blue, Forest Green, Sunset Orange, Royal Purple, Charcoal)
-    - picking one applies for every user of the app, not just the super
-    admin who changed it. All three are backed by the single-row
-    `app_settings` table.
+    the UI theme, delivery pricing (see **Delivery pricing** above), and
+    whether drivers may sign in on web (see **Web dashboard is
+    back-office only**). Six built-in color themes (Navy & Gold, Ocean
+    Blue, Forest Green, Sunset Orange, Royal Purple, Charcoal) - picking
+    one applies for every user of the app, not just the super admin who
+    changed it. All of these are backed by the single-row `app_settings`
+    table.
 
 A dispatcher literally has no way to reach the Admin Console sections -
 they're not just hidden, there's no route for them to type into the

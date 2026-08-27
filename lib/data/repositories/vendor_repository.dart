@@ -179,8 +179,11 @@ class VendorRepository {
   }
 
   /// Creates a pending delivery on behalf of a customer who opened a
-  /// vendor's link - no login required. Returns the new tracking code.
-  Future<String> submitDeliveryRequest({
+  /// vendor's link - no login required. Returns the tracking code plus the
+  /// price quoted server-side (see `submit_delivery_request` in
+  /// `0022_delivery_pricing.sql` - base fare + straight-line distance
+  /// charge, computed there rather than trusted from the client).
+  Future<DeliveryQuote> submitDeliveryRequest({
     required String code,
     required String customerName,
     required String customerPhone,
@@ -189,7 +192,7 @@ class VendorRepository {
     double? dropoffLng,
     String? packageDescription,
   }) async {
-    final trackingCode = await _client.rpc(
+    final rows = await _client.rpc(
       'submit_delivery_request',
       params: {
         'p_code': code,
@@ -200,8 +203,16 @@ class VendorRepository {
         'dropoff_lng': dropoffLng,
         'package_description': packageDescription,
       },
-    );
-    return trackingCode as String;
+    ) as List;
+    return DeliveryQuote.fromMap(rows.first as Map<String, dynamic>);
+  }
+
+  /// The base fare / per-km rate a customer's request would be priced at,
+  /// for showing a live estimate before they submit. Anonymous-safe - see
+  /// `get_pricing_config()` in `0022_delivery_pricing.sql`.
+  Future<PricingConfig> fetchPricingConfig() async {
+    final rows = await _client.rpc('get_pricing_config') as List;
+    return PricingConfig.fromMap(rows.first as Map<String, dynamic>);
   }
 
   /// A vendor's own order history - powers their tracking page.

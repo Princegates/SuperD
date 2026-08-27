@@ -1,12 +1,16 @@
 /// App-wide settings - the currency payments are recorded in, the UI
-/// theme, and whether a driver may sign in on the web dashboard. Backed by
-/// the single-row `app_settings` table; see `0017_app_settings.sql`,
-/// `0018_app_settings_theme.sql`, and `0019_driver_web_login_toggle.sql`.
+/// theme, whether a driver may sign in on the web dashboard, and the
+/// automatic delivery-pricing rates. Backed by the single-row
+/// `app_settings` table; see `0017_app_settings.sql`,
+/// `0018_app_settings_theme.sql`, `0019_driver_web_login_toggle.sql`, and
+/// `0022_delivery_pricing.sql`.
 class AppSettings {
   const AppSettings({
     required this.currency,
     required this.theme,
     required this.allowDriverWebLogin,
+    this.baseFare = 5,
+    this.pricePerKm = 1.5,
   });
 
   final String currency;
@@ -19,11 +23,22 @@ class AppSettings {
   /// apps are built and distributed.
   final bool allowDriverWebLogin;
 
+  /// Flat fee every customer-submitted delivery starts with, before the
+  /// distance charge. See `submit_delivery_request` in
+  /// `0022_delivery_pricing.sql` for how this feeds into the quoted price.
+  final double baseFare;
+
+  /// Added per straight-line kilometer between the vendor and the
+  /// dropoff, on top of [baseFare].
+  final double pricePerKm;
+
   factory AppSettings.fromMap(Map<String, dynamic> map) {
     return AppSettings(
       currency: map['currency'] as String? ?? 'GHS',
       theme: map['theme'] as String? ?? 'navy_gold',
       allowDriverWebLogin: map['allow_driver_web_login'] as bool? ?? false,
+      baseFare: (map['base_fare'] as num?)?.toDouble() ?? 5,
+      pricePerKm: (map['price_per_km'] as num?)?.toDouble() ?? 1.5,
     );
   }
 

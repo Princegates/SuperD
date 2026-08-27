@@ -26,6 +26,16 @@ class SettingsRepository {
         : AppSettings.fromMap(row);
   }
 
+  Future<void> updatePricing({
+    required double baseFare,
+    required double pricePerKm,
+  }) async {
+    await _client
+        .from(_table)
+        .update({'base_fare': baseFare, 'price_per_km': pricePerKm})
+        .eq('id', true);
+  }
+
   /// The single settings row, live - so a currency or theme change by a
   /// super admin is picked up everywhere else in the app without a
   /// restart. Not used for anything security-gating (see [fetchSettings])
@@ -49,10 +59,7 @@ class SettingsRepository {
   /// Changes the app-wide currency. Only takes effect if the caller is a
   /// super admin - enforced by RLS, not just this client.
   Future<void> updateCurrency(String currency) async {
-    await _client
-        .from(_table)
-        .update({'currency': currency})
-        .eq('id', true);
+    await _client.from(_table).update({'currency': currency}).eq('id', true);
   }
 
   /// Changes the app-wide UI theme (see [ThemePreset] in app_theme.dart).

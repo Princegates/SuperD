@@ -20,3 +20,10 @@ final vendorDeliveriesProvider =
     StreamProvider.family<List<VendorDelivery>, String>((ref, code) {
       return ref.watch(vendorRepositoryProvider).watchVendorDeliveries(code);
     });
+
+/// The current base fare / per-km rate, for showing a customer a live price
+/// estimate on the request form before they submit. No session required -
+/// see `get_pricing_config()`.
+final pricingConfigProvider = FutureProvider<PricingConfig>((ref) {
+  return ref.watch(vendorRepositoryProvider).fetchPricingConfig();
+});

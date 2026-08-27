@@ -17,6 +17,8 @@ class _FakeSettingsRepository extends SettingsRepository {
   String? lastCurrency;
   String? lastTheme;
   bool? lastAllowDriverWebLogin;
+  double? lastBaseFare;
+  double? lastPricePerKm;
 
   @override
   Stream<AppSettings> watchSettings() => Stream.value(
@@ -24,6 +26,8 @@ class _FakeSettingsRepository extends SettingsRepository {
       currency: 'GHS',
       theme: 'navy_gold',
       allowDriverWebLogin: false,
+      baseFare: 5,
+      pricePerKm: 1.5,
     ),
   );
 
@@ -40,6 +44,15 @@ class _FakeSettingsRepository extends SettingsRepository {
   @override
   Future<void> setAllowDriverWebLogin(bool allow) async {
     lastAllowDriverWebLogin = allow;
+  }
+
+  @override
+  Future<void> updatePricing({
+    required double baseFare,
+    required double pricePerKm,
+  }) async {
+    lastBaseFare = baseFare;
+    lastPricePerKm = pricePerKm;
   }
 }
 
@@ -118,6 +131,14 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+
+    // The driver-web-login switch sits below the new pricing card, so it
+    // may start outside the ListView's viewport.
+    await tester.scrollUntilVisible(
+      find.byType(Switch),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
 
     expect(find.byType(Switch), findsOneWidget);
     expect(tester.widget<Switch>(find.byType(Switch)).value, false);

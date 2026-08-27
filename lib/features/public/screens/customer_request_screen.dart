@@ -74,7 +74,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   bool _isGeocoding = false;
   bool _isSubmitting = false;
   String? _errorMessage;
-  String? _trackingCode;
+  DeliveryQuote? _quote;
 
   @override
   void dispose() {
@@ -124,7 +124,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
       _errorMessage = null;
     });
     try {
-      final trackingCode = await ref
+      final quote = await ref
           .read(vendorRepositoryProvider)
           .submitDeliveryRequest(
             code: widget.code,
@@ -137,7 +137,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                 ? null
                 : _packageController.text.trim(),
           );
-      if (mounted) setState(() => _trackingCode = trackingCode);
+      if (mounted) setState(() => _quote = quote);
     } catch (e) {
       setState(
         () =>
@@ -148,10 +148,28 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
     }
   }
 
+  /// A live, client-side price estimate shown while the customer is still
+  /// filling in the form - the same base-fare-plus-distance formula the
+  /// server applies for real in `submit_delivery_request`, just computed
+  /// here for instant feedback before they submit. The actual charge is
+  /// always the server's own calculation, never this estimate.
+  double? _estimate(PricingConfig pricing) {
+    if (_lat == null || _lng == null) return pricing.baseFare;
+    final vendorLat = widget.vendor.locationLat;
+    final vendorLng = widget.vendor.locationLng;
+    if (vendorLat == null || vendorLng == null) return pricing.baseFare;
+    final distanceKm = const Distance().as(
+      LengthUnit.Kilometer,
+      LatLng(vendorLat, vendorLng),
+      LatLng(_lat!, _lng!),
+    );
+    return pricing.baseFare + pricing.pricePerKm * distanceKm;
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (_trackingCode != null) {
-      return _SubmittedCard(code: widget.code, trackingCode: _trackingCode!);
+    if (_quote != null) {
+      return _SubmittedCard(code: widget.code, quote: _quote!);
     }
 
     return SingleChildScrollView(
@@ -214,6 +232,41 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                 labelText: 'What are we delivering? (optional)',
               ),
             ),
+            const SizedBox(height: 14),
+            Builder(
+              builder: (context) {
+                final pricing = ref.watch(pricingConfigProvider).valueOrNull;
+                final estimate = pricing == null ? null : _estimate(pricing);
+                if (pricing == null || estimate == null) {
+                  return const SizedBox.shrink();
+                }
+                return Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primary.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.payments_outlined,
+                        size: 18,
+                        color: AppTheme.primary,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Estimated price: ${pricing.currency} '
+                          '${estimate.toStringAsFixed(2)}'
+                          '${_lat == null ? ' (pin a location for a distance-based estimate)' : ''}',
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
               Text(
@@ -244,10 +297,10 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
 }
 
 class _SubmittedCard extends StatelessWidget {
-  const _SubmittedCard({required this.code, required this.trackingCode});
+  const _SubmittedCard({required this.code, required this.quote});
 
   final String code;
-  final String trackingCode;
+  final DeliveryQuote quote;
 
   @override
   Widget build(BuildContext context) {
@@ -266,10 +319,19 @@ class _SubmittedCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             "We'll assign a rider shortly. Your tracking code is "
-            '#$trackingCode.',
+            '#${quote.trackingCode}.',
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.black54),
           ),
+          if (quote.amount > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Delivery fee: ${quote.currency} '
+              '${quote.amount.toStringAsFixed(2)}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
           const SizedBox(height: 20),
           ElevatedButton(
             onPressed: () => context.go('/v/$code/orders'),

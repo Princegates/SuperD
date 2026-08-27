@@ -285,11 +285,13 @@ links will 404:
    testing), not a bare domain.
 2. **SPA fallback**: every path must serve `index.html`, not a real file
    on disk - `/v/AB12CD34EF` doesn't exist as a file, the app's router
-   handles it client-side once `index.html` loads. Every static host
-   calls this something different:
+   handles it client-side once `index.html` loads. `web/_redirects`
+   ships in this repo already, so **Netlify** picks this up automatically
+   with no extra config - `flutter build web` copies it straight into
+   `build/web/`. Other hosts call this something different, and need
+   their own equivalent added by hand:
    - **Nginx**: `try_files $uri /index.html;`
    - **Apache**: a `.htaccess` rewrite rule to `index.html`
-   - **Netlify**: a `_redirects` file with `/*  /index.html  200`
    - **Vercel**: a `rewrites` entry in `vercel.json`
    - **Firebase Hosting**: `"rewrites": [{"source": "**", "destination": "/index.html"}]`
      in `firebase.json`

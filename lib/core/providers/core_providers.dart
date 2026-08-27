@@ -66,9 +66,7 @@ final authStateProvider = StreamProvider<AuthState>((ref) {
 /// "denied" just because the WebSocket isn't cooperating yet.
 final driverWebLoginAllowedProvider = FutureProvider<bool>((ref) async {
   ref.watch(authStateProvider);
-  final settings = await ref
-      .watch(settingsRepositoryProvider)
-      .fetchSettings();
+  final settings = await ref.watch(settingsRepositoryProvider).fetchSettings();
   return settings.allowDriverWebLogin;
 });
 

@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../models/driver_vehicle_type.dart';
 
 /// Self-service signup for drivers only - reachable from the login screen's
 /// Driver tab, native app only (the router keeps this route out of reach
@@ -14,8 +15,7 @@ class DriverSignupScreen extends ConsumerStatefulWidget {
   const DriverSignupScreen({super.key});
 
   @override
-  ConsumerState<DriverSignupScreen> createState() =>
-      _DriverSignupScreenState();
+  ConsumerState<DriverSignupScreen> createState() => _DriverSignupScreenState();
 }
 
 class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
@@ -27,6 +27,7 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
 
+  DriverVehicleType? _vehicleType;
   bool _isSubmitting = false;
   String? _errorMessage;
   bool _checkEmail = false;
@@ -62,6 +63,7 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
             fullName: _nameController.text.trim(),
             phone: _emptyToNull(_phoneController.text),
             vehicleNumber: _emptyToNull(_vehicleController.text),
+            vehicleType: _vehicleType,
           );
       // A session means the project has email confirmation off - the
       // router picks up the new session on its own and takes the driver
@@ -73,7 +75,8 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
       setState(() => _errorMessage = e.message);
     } catch (e) {
       setState(
-        () => _errorMessage = 'Could not create your account. Please try '
+        () => _errorMessage =
+            'Could not create your account. Please try '
             'again.',
       );
     } finally {
@@ -141,6 +144,26 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Vehicle number (optional)',
                             ),
+                          ),
+                          const SizedBox(height: 14),
+                          DropdownButtonFormField<DriverVehicleType?>(
+                            initialValue: _vehicleType,
+                            decoration: const InputDecoration(
+                              labelText: 'Vehicle type (optional)',
+                            ),
+                            items: [
+                              const DropdownMenuItem<DriverVehicleType?>(
+                                value: null,
+                                child: Text('Not set'),
+                              ),
+                              for (final type in DriverVehicleType.values)
+                                DropdownMenuItem<DriverVehicleType?>(
+                                  value: type,
+                                  child: Text(type.label),
+                                ),
+                            ],
+                            onChanged: (value) =>
+                                setState(() => _vehicleType = value),
                           ),
                           const SizedBox(height: 14),
                           TextFormField(

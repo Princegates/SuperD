@@ -145,7 +145,10 @@ class HomeScreen extends ConsumerWidget {
                   children: [
                     const Text(
                       'All deliveries by status',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
                     ),
                     const SizedBox(height: 12),
                     if (total == 0)
@@ -354,7 +357,10 @@ class _QuickLinkTile extends StatelessWidget {
           children: [
             Icon(link.icon, color: AppTheme.primary),
             const SizedBox(height: 10),
-            Text(link.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+            Text(
+              link.label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
           ],
         ),
       ),

@@ -106,6 +106,7 @@ Deno.serve(async (req) => {
     const phone = (body.phone ?? "").trim() || null;
     const ghanaCardNumber = (body.ghanaCardNumber ?? "").trim() || null;
     const vehicleNumber = (body.vehicleNumber ?? "").trim() || null;
+    const vehicleType = (body.vehicleType ?? "").trim() || null;
     const dateOfBirth = (body.dateOfBirth ?? "").trim() || null;
     const residentialAddress = (body.residentialAddress ?? "").trim() || null;
     const role = body.role === "dispatcher" ? "dispatcher" : "driver";
@@ -148,6 +149,7 @@ Deno.serve(async (req) => {
           phone,
           ghana_card_number: ghanaCardNumber,
           vehicle_number: vehicleNumber,
+          vehicle_type: vehicleType,
           date_of_birth: dateOfBirth,
           residential_address: residentialAddress,
           must_change_password: true,

@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../models/driver_vehicle_type.dart';
 import '../../models/profile.dart';
 import '../../models/user_role.dart';
 
@@ -110,6 +111,29 @@ class ProfileRepository {
         .eq('id', userId);
   }
 
+  /// Super-admin only - enforced server-side by `enforce_profile_role_change()`
+  /// (same protection as `role`), not just this client. Blocks a driver
+  /// from accepting a new delivery (or being assigned one) without signing
+  /// them out or touching anything already in progress - e.g. for unpaid
+  /// commission.
+  Future<void> setFrozen(String userId, bool isFrozen) async {
+    await _client
+        .from('profiles')
+        .update({'is_frozen': isFrozen})
+        .eq('id', userId);
+  }
+
+  /// A driver's own "available for new deliveries" toggle, shown on their
+  /// dashboard. Purely informational for dispatch/auto-assignment - not an
+  /// access control (unlike [setFrozen]), so a driver may set it on
+  /// themselves freely.
+  Future<void> setOnline(String userId, bool isOnline) async {
+    await _client
+        .from('profiles')
+        .update({'is_online': isOnline})
+        .eq('id', userId);
+  }
+
   /// Edits a driver's or dispatcher's own details. A dispatcher/super admin
   /// may call this for anyone; email isn't included - changing a login's
   /// email has to go through the auth admin API, not a plain table update.
@@ -119,6 +143,7 @@ class ProfileRepository {
     String? phone,
     String? ghanaCardNumber,
     String? vehicleNumber,
+    DriverVehicleType? vehicleType,
     DateTime? dateOfBirth,
     String? residentialAddress,
     String? zoneId,
@@ -130,6 +155,7 @@ class ProfileRepository {
           'phone': phone,
           'ghana_card_number': ghanaCardNumber,
           'vehicle_number': vehicleNumber,
+          'vehicle_type': vehicleType?.wireValue,
           'date_of_birth': _dateOnly(dateOfBirth),
           'residential_address': residentialAddress,
           'zone_id': zoneId,
@@ -145,6 +171,7 @@ class ProfileRepository {
     String? phone,
     String? ghanaCardNumber,
     String? vehicleNumber,
+    DriverVehicleType? vehicleType,
     String? residentialAddress,
   }) => _createStaffAccount(
     role: UserRole.driver,
@@ -153,6 +180,7 @@ class ProfileRepository {
     phone: phone,
     ghanaCardNumber: ghanaCardNumber,
     vehicleNumber: vehicleNumber,
+    vehicleType: vehicleType,
     residentialAddress: residentialAddress,
   );
 
@@ -185,6 +213,7 @@ class ProfileRepository {
     String? phone,
     String? ghanaCardNumber,
     String? vehicleNumber,
+    DriverVehicleType? vehicleType,
     DateTime? dateOfBirth,
     String? residentialAddress,
   }) async {
@@ -197,6 +226,7 @@ class ProfileRepository {
           'phone': phone,
           'ghanaCardNumber': ghanaCardNumber,
           'vehicleNumber': vehicleNumber,
+          'vehicleType': vehicleType?.wireValue,
           'dateOfBirth': _dateOnly(dateOfBirth),
           'residentialAddress': residentialAddress,
           'role': role.wireValue,

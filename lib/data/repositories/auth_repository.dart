@@ -1,5 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../models/driver_vehicle_type.dart';
+
 class AuthRepository {
   AuthRepository(this._client);
 
@@ -25,6 +27,7 @@ class AuthRepository {
     required String fullName,
     String? phone,
     String? vehicleNumber,
+    DriverVehicleType? vehicleType,
   }) {
     return _client.auth.signUp(
       email: email,
@@ -33,6 +36,7 @@ class AuthRepository {
         'full_name': fullName,
         'phone': phone,
         'vehicle_number': vehicleNumber,
+        'vehicle_type': vehicleType?.wireValue,
       },
     );
   }

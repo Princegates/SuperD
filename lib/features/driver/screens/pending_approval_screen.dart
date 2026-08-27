@@ -44,8 +44,7 @@ class PendingApprovalScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 28),
                 OutlinedButton.icon(
-                  onPressed: () =>
-                      ref.read(authRepositoryProvider).signOut(),
+                  onPressed: () => ref.read(authRepositoryProvider).signOut(),
                   icon: const Icon(Icons.logout),
                   label: const Text('Sign out'),
                 ),

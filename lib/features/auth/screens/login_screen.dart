@@ -278,8 +278,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             // Only a driver can create their own account -
                             // a dispatcher must be added by a super admin
                             // or another dispatcher from the Team screen.
-                            if (!kIsWeb &&
-                                _selectedTab == UserRole.driver) ...[
+                            if (!kIsWeb && _selectedTab == UserRole.driver) ...[
                               const SizedBox(height: 4),
                               Center(
                                 child: TextButton(

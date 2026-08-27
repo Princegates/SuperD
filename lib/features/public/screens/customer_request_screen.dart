@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -75,6 +77,16 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   bool _isSubmitting = false;
   String? _errorMessage;
   DeliveryQuote? _quote;
+  PriceEstimate? _estimate;
+
+  @override
+  void initState() {
+    super.initState();
+    // A base-fare-only estimate shows immediately, even before a location
+    // is set - refreshed with a real distance-based range the moment one
+    // is.
+    _refreshEstimate();
+  }
 
   @override
   void dispose() {
@@ -83,6 +95,22 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
     _addressController.dispose();
     _packageController.dispose();
     super.dispose();
+  }
+
+  Future<void> _refreshEstimate() async {
+    try {
+      final estimate = await ref
+          .read(vendorRepositoryProvider)
+          .fetchPriceEstimate(
+            code: widget.code,
+            dropoffLat: _lat,
+            dropoffLng: _lng,
+          );
+      if (mounted) setState(() => _estimate = estimate);
+    } catch (_) {
+      // An estimate is a nice-to-have, not required to submit - silently
+      // skip it rather than blocking or alarming the customer over it.
+    }
   }
 
   Future<void> _pickLocation() async {
@@ -104,6 +132,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
       _lng = picked.longitude;
       _isGeocoding = true;
     });
+    unawaited(_refreshEstimate());
     final address = await reverseGeocode(picked.latitude, picked.longitude);
     if (mounted) {
       setState(() {
@@ -146,24 +175,6 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
-  }
-
-  /// A live, client-side price estimate shown while the customer is still
-  /// filling in the form - the same base-fare-plus-distance formula the
-  /// server applies for real in `submit_delivery_request`, just computed
-  /// here for instant feedback before they submit. The actual charge is
-  /// always the server's own calculation, never this estimate.
-  double? _estimate(PricingConfig pricing) {
-    if (_lat == null || _lng == null) return pricing.baseFare;
-    final vendorLat = widget.vendor.locationLat;
-    final vendorLng = widget.vendor.locationLng;
-    if (vendorLat == null || vendorLng == null) return pricing.baseFare;
-    final distanceKm = const Distance().as(
-      LengthUnit.Kilometer,
-      LatLng(vendorLat, vendorLng),
-      LatLng(_lat!, _lng!),
-    );
-    return pricing.baseFare + pricing.pricePerKm * distanceKm;
   }
 
   @override
@@ -232,41 +243,37 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                 labelText: 'What are we delivering? (optional)',
               ),
             ),
-            const SizedBox(height: 14),
-            Builder(
-              builder: (context) {
-                final pricing = ref.watch(pricingConfigProvider).valueOrNull;
-                final estimate = pricing == null ? null : _estimate(pricing);
-                if (pricing == null || estimate == null) {
-                  return const SizedBox.shrink();
-                }
-                return Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppTheme.primary.withValues(alpha: 0.06),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.payments_outlined,
-                        size: 18,
-                        color: AppTheme.primary,
+            if (_estimate case final estimate?) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary.withValues(alpha: 0.06),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.payments_outlined,
+                      size: 18,
+                      color: AppTheme.primary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        estimate.low == estimate.high
+                            ? 'Estimated price: ${estimate.currency} '
+                                  '${estimate.high.toStringAsFixed(2)}'
+                            : 'Estimated price: ${estimate.currency} '
+                                  '${estimate.low.toStringAsFixed(2)}–'
+                                  '${estimate.high.toStringAsFixed(2)}',
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Estimated price: ${pricing.currency} '
-                          '${estimate.toStringAsFixed(2)}'
-                          '${_lat == null ? ' (pin a location for a distance-based estimate)' : ''}',
-                          style: const TextStyle(fontWeight: FontWeight.w600),
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
               Text(

@@ -6,8 +6,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/core_providers.dart';
+import '../../../core/theme/app_theme.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
+import '../../../models/profile.dart';
 import '../../../shared/widgets/account_menu_button.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivery_card.dart';
@@ -22,8 +24,7 @@ class DriverDashboardScreen extends ConsumerStatefulWidget {
       _DriverDashboardScreenState();
 }
 
-class _DriverDashboardScreenState
-    extends ConsumerState<DriverDashboardScreen> {
+class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   Timer? _locationTimer;
 
   @override
@@ -106,9 +107,7 @@ class _DriverDashboardScreenState
         if (!priorIds.contains(delivery.id)) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                'New delivery assigned: #${delivery.trackingCode}',
-              ),
+              content: Text('New delivery assigned: #${delivery.trackingCode}'),
               action: SnackBarAction(
                 label: 'View',
                 onPressed: () =>
@@ -129,75 +128,165 @@ class _DriverDashboardScreenState
           AccountMenuButton(changePasswordRoute: '/driver/change-password'),
         ],
       ),
-      body: AsyncValueView<List<Delivery>>(
-        value: deliveries,
-        data: (items) {
-          if (items.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'No deliveries assigned to you yet.',
-                  style: TextStyle(color: Colors.grey.shade500),
-                ),
+      body: Column(
+        children: [
+          if (profile != null) _AvailabilityBar(profile: profile),
+          if (profile?.isFrozen ?? false) const _FrozenBanner(),
+          Expanded(child: _DeliveryList(deliveries: deliveries)),
+        ],
+      ),
+    );
+  }
+}
+
+/// A driver's own "available for new deliveries" toggle - purely
+/// informational for dispatch/auto-assignment, not an access control (see
+/// `is_online` in `0025_driver_categories_and_status.sql`).
+class _AvailabilityBar extends ConsumerWidget {
+  const _AvailabilityBar({required this.profile});
+
+  final Profile profile;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: profile.isOnline
+          ? AppTheme.success.withValues(alpha: 0.08)
+          : Colors.grey.shade100,
+      child: Row(
+        children: [
+          Icon(
+            Icons.circle,
+            size: 10,
+            color: profile.isOnline ? AppTheme.success : Colors.grey.shade400,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            profile.isOnline
+                ? 'Online - available for deliveries'
+                : 'Offline - not receiving new deliveries',
+            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+          ),
+          const Spacer(),
+          Switch(
+            value: profile.isOnline,
+            onChanged: (value) => ref
+                .read(profileRepositoryProvider)
+                .setOnline(profile.id, value),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FrozenBanner extends StatelessWidget {
+  const _FrozenBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      color: AppTheme.danger.withValues(alpha: 0.1),
+      child: const Row(
+        children: [
+          Icon(Icons.ac_unit, size: 18, color: AppTheme.danger),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Your account is frozen - you can finish deliveries already '
+              "assigned to you, but can't accept a new one. Contact "
+              'dispatch to resolve this.',
+              style: TextStyle(
+                color: AppTheme.danger,
+                fontWeight: FontWeight.w600,
+                fontSize: 12.5,
               ),
-            );
-          }
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
-          final active = items
-              .where(
-                (d) =>
-                    d.status != DeliveryStatus.delivered &&
-                    d.status != DeliveryStatus.cancelled,
-              )
-              .toList();
-          final finished = items
-              .where(
-                (d) =>
-                    d.status == DeliveryStatus.delivered ||
-                    d.status == DeliveryStatus.cancelled,
-              )
-              .toList();
+class _DeliveryList extends ConsumerWidget {
+  const _DeliveryList({required this.deliveries});
 
-          return RefreshIndicator(
-            onRefresh: () async => ref.invalidate(myDeliveriesProvider),
-            child: ListView(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-              children: [
-                if (active.isNotEmpty) ...[
-                  _SectionHeader('Active (${active.length})'),
-                  for (final (index, delivery) in active.indexed) ...[
-                    StaggeredListItem(
-                      index: index,
-                      child: DeliveryCard(
-                        delivery: delivery,
-                        onTap: () =>
-                            context.push('/driver/delivery/${delivery.id}'),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                ],
-                if (finished.isNotEmpty) ...[
-                  const SizedBox(height: 12),
-                  _SectionHeader('Completed'),
-                  for (final (index, delivery) in finished.indexed) ...[
-                    StaggeredListItem(
-                      index: active.length + index,
-                      child: DeliveryCard(
-                        delivery: delivery,
-                        onTap: () =>
-                            context.push('/driver/delivery/${delivery.id}'),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                  ],
-                ],
-              ],
+  final AsyncValue<List<Delivery>> deliveries;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return AsyncValueView<List<Delivery>>(
+      value: deliveries,
+      data: (items) {
+        if (items.isEmpty) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(
+                'No deliveries assigned to you yet.',
+                style: TextStyle(color: Colors.grey.shade500),
+              ),
             ),
           );
-        },
-      ),
+        }
+
+        final active = items
+            .where(
+              (d) =>
+                  d.status != DeliveryStatus.delivered &&
+                  d.status != DeliveryStatus.cancelled,
+            )
+            .toList();
+        final finished = items
+            .where(
+              (d) =>
+                  d.status == DeliveryStatus.delivered ||
+                  d.status == DeliveryStatus.cancelled,
+            )
+            .toList();
+
+        return RefreshIndicator(
+          onRefresh: () async => ref.invalidate(myDeliveriesProvider),
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+            children: [
+              if (active.isNotEmpty) ...[
+                _SectionHeader('Active (${active.length})'),
+                for (final (index, delivery) in active.indexed) ...[
+                  StaggeredListItem(
+                    index: index,
+                    child: DeliveryCard(
+                      delivery: delivery,
+                      onTap: () =>
+                          context.push('/driver/delivery/${delivery.id}'),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ],
+              if (finished.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                _SectionHeader('Completed'),
+                for (final (index, delivery) in finished.indexed) ...[
+                  StaggeredListItem(
+                    index: active.length + index,
+                    child: DeliveryCard(
+                      delivery: delivery,
+                      onTap: () =>
+                          context.push('/driver/delivery/${delivery.id}'),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 }

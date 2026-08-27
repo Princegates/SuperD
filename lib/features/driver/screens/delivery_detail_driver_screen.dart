@@ -215,6 +215,14 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
     final actionLabel = delivery.status == DeliveryStatus.assigned
         ? 'Accept & begin trip'
         : 'Mark ${nextStatus?.label}';
+    // A frozen driver (see is_frozen in
+    // 0025_driver_categories_and_status.sql) can finish work already under
+    // way, but can't accept something new - the server enforces this too,
+    // this is just so the button doesn't invite a doomed tap.
+    final isFrozen =
+        ref.watch(currentProfileProvider).valueOrNull?.isFrozen ?? false;
+    final acceptBlocked =
+        delivery.status == DeliveryStatus.assigned && isFrozen;
 
     return Column(
       children: [
@@ -376,7 +384,10 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                             Expanded(
                               flex: 2,
                               child: ElevatedButton.icon(
-                                onPressed: _isRejecting || _isUpdatingStatus
+                                onPressed:
+                                    _isRejecting ||
+                                        _isUpdatingStatus ||
+                                        acceptBlocked
                                     ? null
                                     : () => _advanceStatus(nextStatus),
                                 icon: _isUpdatingStatus
@@ -394,6 +405,19 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                             ),
                         ],
                       ),
+                      if (acceptBlocked) ...[
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Your account is frozen - contact dispatch before '
+                          'accepting this.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppTheme.danger,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                       if (navigateTarget != null) ...[
                         const SizedBox(height: 12),
                         OutlinedButton.icon(

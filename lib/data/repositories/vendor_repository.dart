@@ -207,12 +207,39 @@ class VendorRepository {
     return DeliveryQuote.fromMap(rows.first as Map<String, dynamic>);
   }
 
-  /// The base fare / per-km rate a customer's request would be priced at,
-  /// for showing a live estimate before they submit. Anonymous-safe - see
-  /// `get_pricing_config()` in `0022_delivery_pricing.sql`.
-  Future<PricingConfig> fetchPricingConfig() async {
-    final rows = await _client.rpc('get_pricing_config') as List;
-    return PricingConfig.fromMap(rows.first as Map<String, dynamic>);
+  /// A low-high price range for [code]'s vendor, optionally narrowed by a
+  /// drop-off location - for showing a live estimate on the request form
+  /// before a customer submits. Anonymous-safe, zone-aware, and capped at
+  /// 50 server-side - see `get_delivery_price_estimate()` in
+  /// `0026_zone_pricing_and_auto_assign.sql`.
+  Future<PriceEstimate> fetchPriceEstimate({
+    required String code,
+    double? dropoffLat,
+    double? dropoffLng,
+  }) async {
+    final rows = await _client.rpc(
+      'get_delivery_price_estimate',
+      params: {
+        'p_code': code,
+        'dropoff_lat': dropoffLat,
+        'dropoff_lng': dropoffLng,
+      },
+    ) as List;
+    return PriceEstimate.fromMap(rows.first as Map<String, dynamic>);
+  }
+
+  /// Super-admin only (enforced by RLS on `zones`) - sets or clears a
+  /// zone's own pricing rates. Null clears the override, falling back to
+  /// the app-wide default from Console > Settings.
+  Future<void> updateZonePricing({
+    required String zoneId,
+    double? baseFare,
+    double? pricePerKm,
+  }) async {
+    await _client
+        .from('zones')
+        .update({'base_fare': baseFare, 'price_per_km': pricePerKm})
+        .eq('id', zoneId);
   }
 
   /// A vendor's own order history - powers their tracking page.

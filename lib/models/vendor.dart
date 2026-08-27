@@ -136,24 +136,28 @@ class DeliveryQuote {
   }
 }
 
-/// The pricing rates a customer's request would be quoted at, returned by
-/// the anonymous-safe `get_pricing_config()` RPC - used for a live
-/// estimate on the request form before submitting.
-class PricingConfig {
-  final double baseFare;
-  final double pricePerKm;
+/// A low-high price range a customer's request would likely be quoted at,
+/// returned by the anonymous-safe `get_delivery_price_estimate()` RPC - for
+/// showing an estimate on the request form immediately as a drop-off
+/// location is set, before submitting. Zone-aware and capped at 50 in the
+/// app's currency server-side, same as the real quote
+/// `submit_delivery_request` returns on actual submission - see
+/// `0026_zone_pricing_and_auto_assign.sql`.
+class PriceEstimate {
+  final double low;
+  final double high;
   final String currency;
 
-  const PricingConfig({
-    required this.baseFare,
-    required this.pricePerKm,
+  const PriceEstimate({
+    required this.low,
+    required this.high,
     required this.currency,
   });
 
-  factory PricingConfig.fromMap(Map<String, dynamic> map) {
-    return PricingConfig(
-      baseFare: (map['base_fare'] as num?)?.toDouble() ?? 5,
-      pricePerKm: (map['price_per_km'] as num?)?.toDouble() ?? 1.5,
+  factory PriceEstimate.fromMap(Map<String, dynamic> map) {
+    return PriceEstimate(
+      low: (map['low_amount'] as num?)?.toDouble() ?? 0,
+      high: (map['high_amount'] as num?)?.toDouble() ?? 0,
       currency: map['currency'] as String? ?? 'GHS',
     );
   }

@@ -76,8 +76,10 @@ const List<ThemePreset> kThemePresets = [
   ),
 ];
 
-ThemePreset themePresetFor(String key) =>
-    kThemePresets.firstWhere((p) => p.key == key, orElse: () => kThemePresets.first);
+ThemePreset themePresetFor(String key) => kThemePresets.firstWhere(
+  (p) => p.key == key,
+  orElse: () => kThemePresets.first,
+);
 
 /// SuperD's theme. The identity colors below default to the original
 /// navy/gold brand look but aren't `const` - [apply] swaps them for a

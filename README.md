@@ -68,6 +68,8 @@ supabase/
     0022_delivery_pricing.sql       base_fare/price_per_km on app_settings + automatic pricing in submit_delivery_request
     0023_driver_reject_and_undo.sql lets a driver reject an unaccepted assignment or undo their last status tap
     0024_seed_accra_zones.sql       optional seed data: 10 Accra-area zones with starter named locations
+    0025_driver_categories_and_status.sql  vehicle_type, is_online, is_frozen on profiles + the guards around them
+    0026_zone_pricing_and_auto_assign.sql   per-zone pricing, a low-high price estimate, and same-zone auto-assignment
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -745,23 +747,31 @@ login) is quoted automatically:
 Customer Delivery Price = Base Delivery Fare + Distance Charge
 ```
 
-- **Base fare** and **price per km** are both super-admin-configurable
-  from **Console > Settings** (same `app_settings` row as currency/theme —
+- **Base fare** and **price per km** are super-admin-configurable from
+  **Console > Settings** (same `app_settings` row as currency/theme —
   `0022_delivery_pricing.sql`), defaulting to 5 and 1.5 in the app's
-  currency.
+  currency. A **zone** can override both for vendors registered in it —
+  set from that zone's card in **Console > Zones** — falling back to the
+  app-wide default when left blank (`0026_zone_pricing_and_auto_assign.sql`).
 - **Distance** is a straight-line (haversine great-circle) calculation
   between the vendor's registered location and the customer's dropped pin
   — not real road distance, and not a paid Distance Matrix API, consistent
   with how this app already avoids Google Places for address search. If a
   customer only types an address without dropping a pin, they're charged
   just the base fare.
-- The price is computed **server-side**, inside `submit_delivery_request`
-  — never trusted from the client — and a `payments` row is created for
+- **Capped at 50** (in the app's currency) — however far the drop-off,
+  this is the most a single delivery is ever quoted or charged. The
+  request form shows this as a low-high **range** (roughly 15% below the
+  capped amount up to it, since a straight-line distance to a freshly
+  dropped pin is necessarily an estimate) via the anonymous-safe
+  `get_delivery_price_estimate()` RPC — refreshed the moment a drop-off
+  location is set, before the customer submits anything.
+- The real charge is computed **server-side**, inside
+  `submit_delivery_request` — never trusted from the client, and always
+  matching the estimate's high end — and a `payments` row is created for
   the delivery automatically when the quoted amount is greater than zero.
-- The request form shows a live estimate as the customer fills it in
-  (recomputed client-side with the same formula, via the anonymous-safe
-  `get_pricing_config()` RPC, purely for instant feedback), and the
-  confirmation screen shows the actual server-quoted fee once submitted.
+  The confirmation screen shows this actual server-quoted fee once
+  submitted.
 - **Optional extras** (e.g. a fragile-item surcharge) aren't a configurable
   line-item catalog yet — a dispatcher can still adjust a delivery's
   payment amount by hand from the delivery detail screen if a particular
@@ -770,6 +780,26 @@ Customer Delivery Price = Base Delivery Fare + Distance Charge
 Deliveries created directly by a dispatcher/super admin (the "New
 delivery" form in the admin console) are unaffected — those already let
 the dispatcher set the delivery fee by hand.
+
+### Automatic same-zone driver assignment
+
+A customer-submitted request doesn't need a dispatcher at all when
+someone's available: `submit_delivery_request` looks for a driver in the
+vendor's zone who is **online**, **active**, and **not frozen**, and
+assigns them immediately (status goes straight to `assigned`, same as a
+dispatcher assigning one by hand) instead of sitting at `pending`.
+
+Among the drivers who qualify, it specifically prefers whoever **already
+has the most active deliveries in that same zone** — so several requests
+from the same area consolidate onto one driver's route instead of
+spreading across everyone at once — tie-broken by whoever currently has
+the lightest total workload (for a fair start when nobody in the zone has
+any yet). If nobody in the zone is online, the delivery lands at
+`pending` exactly as before, for a dispatcher to assign by hand.
+
+This is just what happens automatically when nobody has to step in — a
+dispatcher can always reassign an auto-assigned delivery afterward, the
+same as any other one.
 
 ## Driver actions: reject and undo
 
@@ -797,6 +827,35 @@ case of a driver clearing *their own* assignment while it's still
 trusted from the client. Undo needs no schema change at all - a driver can
 already freely set `status` on their own assigned deliveries, so it's just
 the same status-update call with the previous status.
+
+## Driver categories and availability
+
+Three more per-driver fields, all added in
+`0025_driver_categories_and_status.sql`:
+
+- **Vehicle type** — Motorbike, Car, Van/Truck, or Tricycle. Set from the
+  Add/Edit driver form (**Team**) or a driver's own self-signup form; both
+  are optional, so a driver can stay unset until edited. The **Team**
+  screen groups drivers by this (with an "Unspecified vehicle" group for
+  anyone without one), separately from dispatchers and super admins.
+- **Online/offline** — a driver's own "available for new deliveries"
+  toggle, shown as a bar at the top of their dashboard. Purely
+  informational for dispatch, except that it's also what the zone
+  auto-assignment algorithm (above) checks before handing them a new
+  customer request - a driver who's offline is skipped, same as one who's
+  inactive or frozen.
+- **Frozen** — a super-admin-only control (e.g. for unpaid commission),
+  toggled from **Team** with a confirmation prompt and a "Frozen" badge on
+  the driver's row. A frozen driver keeps full access to whatever's
+  already assigned to them - they can still work it to completion - but
+  can't accept a delivery still sitting at `assigned`, and can't be newly
+  assigned another one either (both blocked server-side, not just in the
+  UI - see `enforce_delivery_update()`/`enforce_delivery_insert()`). Their
+  own dashboard shows a persistent banner explaining why, and unfreezing
+  is the same toggle in reverse. Protected the same way `role` is - a
+  driver or dispatcher can't unfreeze themselves or anyone else by hand,
+  only a super admin's change is let through
+  (`enforce_profile_role_change()`).
 
 ## App theme
 
@@ -1061,21 +1120,28 @@ has no real orders against it yet.
 
 **Zones** are a fixed, admin-managed list of named areas (e.g. "East Legon",
 "Osu") used to group both drivers and vendors, so a dispatcher assigning a
-driver can see who's actually nearby, and so pricing can eventually vary by
-area. Assign a driver to one from their edit screen in **Team**, and a
-vendor to one when they're registered.
+driver can see who's actually nearby, price customer requests by area, and
+auto-assign a driver without a dispatcher at all when one's available (see
+**Automatic same-zone driver assignment** above). Assign a driver to one
+from their edit screen in **Team**, and a vendor to one when they're
+registered.
 
 Only a super admin can create a zone or change what it covers - that
 happens from **Zones** in the dashboard's nav (a super-admin-only section,
-see **Admin dashboard** below), not from Vendors. There, each zone can
-also be given a list of specific
-named places within it (e.g. the "East Legon" zone might list "American
-House", "Trasacco Valley", ...) - tap a zone to expand it, "Add location"
-to pin one on the map (its name is pre-filled via reverse geocoding, but
-editable), and the × on any location to remove it. Drivers and vendors
-never see these individual locations - they still just pick the zone
-itself by name from a dropdown; the locations are reference data for
-whoever's defining what each zone actually covers.
+see **Admin dashboard** below), not from Vendors. There, each zone card
+has:
+
+- **A pricing override** - its own base fare / price per km, overriding
+  the app-wide default from **Console > Settings** for any vendor
+  registered in it. Leave either field blank to keep using the default.
+- **A list of specific named places within it** (e.g. the "East Legon"
+  zone might list "American House", "Trasacco Valley", ...) - tap a zone
+  to expand it, "Add location" to pin one on the map (its name is
+  pre-filled via reverse geocoding, but editable), and the × on any
+  location to remove it. Drivers and vendors never see these individual
+  locations - they still just pick the zone itself by name from a
+  dropdown; the locations are reference data for whoever's defining what
+  each zone actually covers.
 
 `0024_seed_accra_zones.sql` optionally seeds 10 ready-made zones covering
 the greater Accra area (Central Accra, Airport-East Legon,

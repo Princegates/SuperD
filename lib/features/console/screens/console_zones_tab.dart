@@ -93,10 +93,55 @@ class ConsoleZonesTab extends ConsumerWidget {
   }
 }
 
-class _ZoneCard extends ConsumerWidget {
+class _ZoneCard extends ConsumerStatefulWidget {
   const _ZoneCard({required this.zone});
 
   final Zone zone;
+
+  @override
+  ConsumerState<_ZoneCard> createState() => _ZoneCardState();
+}
+
+class _ZoneCardState extends ConsumerState<_ZoneCard> {
+  late final _baseFareController = TextEditingController(
+    text: widget.zone.baseFare?.toStringAsFixed(2),
+  );
+  late final _pricePerKmController = TextEditingController(
+    text: widget.zone.pricePerKm?.toStringAsFixed(2),
+  );
+  bool _isSavingPricing = false;
+
+  Zone get zone => widget.zone;
+
+  @override
+  void dispose() {
+    _baseFareController.dispose();
+    _pricePerKmController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _savePricing() async {
+    setState(() => _isSavingPricing = true);
+    try {
+      await ref
+          .read(vendorRepositoryProvider)
+          .updateZonePricing(
+            zoneId: zone.id,
+            baseFare: double.tryParse(_baseFareController.text.trim()),
+            pricePerKm: double.tryParse(_pricePerKmController.text.trim()),
+          );
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'zone_pricing_changed',
+        entityType: 'zone',
+        entityId: zone.id,
+        summary: 'Changed pricing for zone ${zone.name}',
+      );
+      ref.invalidate(zonesProvider);
+    } finally {
+      if (mounted) setState(() => _isSavingPricing = false);
+    }
+  }
 
   Future<void> _renameZone(BuildContext context, WidgetRef ref) async {
     final controller = TextEditingController(text: zone.name);
@@ -284,7 +329,7 @@ class _ZoneCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final locationsState = ref.watch(zoneLocationsProvider(zone.id));
 
     return Card(
@@ -329,6 +374,72 @@ class _ZoneCard extends ConsumerWidget {
             ? Text('${locationsState.valueOrNull!.length} location(s)')
             : null,
         children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pricing override',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 12.5,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Leave blank to use the app-wide default from Console > '
+                  'Settings.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _baseFareController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Base fare',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _pricePerKmController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        decoration: const InputDecoration(
+                          labelText: 'Per km',
+                          isDense: true,
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    OutlinedButton(
+                      onPressed: _isSavingPricing ? null : _savePricing,
+                      child: _isSavingPricing
+                          ? const SizedBox(
+                              height: 16,
+                              width: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Text('Save'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const Divider(height: 1),
           AsyncValueView<List<ZoneLocation>>(
             value: locationsState,
             loading: (_) => const Padding(

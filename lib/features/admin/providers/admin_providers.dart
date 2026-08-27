@@ -57,14 +57,17 @@ final zoneLocationsProvider = FutureProvider.family<List<ZoneLocation>, String>(
 /// is a plain, free, instant calculation, which is what "suggest the best
 /// rider" actually reduces to here (zone match + current workload).
 ///
-/// Only active drivers are considered - a self-signed-up driver pending
-/// approval (or one a dispatcher has deactivated) can't be assigned work.
+/// Only active, unfrozen drivers are considered - a self-signed-up driver
+/// pending approval (or one a dispatcher has deactivated) can't be
+/// assigned work, and neither can one a super admin has frozen (e.g. for
+/// unpaid commission) - see `is_frozen` in
+/// `0025_driver_categories_and_status.sql`.
 final rankedDriversProvider = Provider.family<List<Profile>, String?>((
   ref,
   targetZoneId,
 ) {
   final drivers = (ref.watch(driversListProvider).valueOrNull ?? [])
-      .where((d) => d.isActive)
+      .where((d) => d.isActive && !d.isFrozen)
       .toList();
   final deliveries = ref.watch(allDeliveriesProvider).valueOrNull ?? [];
 

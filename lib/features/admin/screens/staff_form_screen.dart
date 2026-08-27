@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/profile_repository.dart';
+import '../../../models/driver_vehicle_type.dart';
 import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/utils/audit_log.dart';
@@ -64,6 +65,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
   );
   late DateTime? _dateOfBirth = widget.existing?.dateOfBirth;
   late String? _zoneId = widget.existing?.zoneId;
+  late DriverVehicleType? _vehicleType = widget.existing?.vehicleType;
 
   bool _isSubmitting = false;
   String? _errorMessage;
@@ -125,6 +127,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
           vehicleNumber: _isDriver
               ? _emptyToNull(_vehicleController.text)
               : null,
+          vehicleType: _isDriver ? _vehicleType : null,
           dateOfBirth: _isDriver ? null : _dateOfBirth,
           residentialAddress: _emptyToNull(_residentialAddressController.text),
           zoneId: _isDriver ? _zoneId : null,
@@ -150,6 +153,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                 phone: _emptyToNull(_phoneController.text),
                 ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
                 vehicleNumber: _emptyToNull(_vehicleController.text),
+                vehicleType: _vehicleType,
                 residentialAddress: _emptyToNull(
                   _residentialAddressController.text,
                 ),
@@ -358,6 +362,25 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Vehicle number',
                     ),
+                  ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<DriverVehicleType?>(
+                    initialValue: _vehicleType,
+                    decoration: const InputDecoration(
+                      labelText: 'Vehicle type',
+                    ),
+                    items: [
+                      const DropdownMenuItem<DriverVehicleType?>(
+                        value: null,
+                        child: Text('Not set'),
+                      ),
+                      for (final type in DriverVehicleType.values)
+                        DropdownMenuItem<DriverVehicleType?>(
+                          value: type,
+                          child: Text(type.label),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() => _vehicleType = value),
                   ),
                   if (widget.isEditing) ...[
                     const SizedBox(height: 14),

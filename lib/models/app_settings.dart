@@ -11,6 +11,7 @@ class AppSettings {
     required this.allowDriverWebLogin,
     this.baseFare = 5,
     this.pricePerKm = 1.5,
+    this.commissionFlatFee = 0,
   });
 
   final String currency;
@@ -32,6 +33,11 @@ class AppSettings {
   /// dropoff, on top of [baseFare].
   final double pricePerKm;
 
+  /// Flat amount a driver owes the business per completed delivery - see
+  /// `commission_payments` in `0029_commission_payments.sql`. 0 means
+  /// commission tracking is effectively off.
+  final double commissionFlatFee;
+
   factory AppSettings.fromMap(Map<String, dynamic> map) {
     return AppSettings(
       currency: map['currency'] as String? ?? 'GHS',
@@ -39,6 +45,7 @@ class AppSettings {
       allowDriverWebLogin: map['allow_driver_web_login'] as bool? ?? false,
       baseFare: (map['base_fare'] as num?)?.toDouble() ?? 5,
       pricePerKm: (map['price_per_km'] as num?)?.toDouble() ?? 1.5,
+      commissionFlatFee: (map['commission_flat_fee'] as num?)?.toDouble() ?? 0,
     );
   }
 

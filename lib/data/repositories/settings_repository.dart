@@ -77,4 +77,14 @@ class SettingsRepository {
         .update({'allow_driver_web_login': allow})
         .eq('id', true);
   }
+
+  /// Changes the flat commission fee owed per completed delivery - see
+  /// [AppSettings.commissionFlatFee]. Only takes effect going forward;
+  /// commission already recorded keeps whatever fee applied at the time.
+  Future<void> updateCommissionFlatFee(double flatFee) async {
+    await _client
+        .from(_table)
+        .update({'commission_flat_fee': flatFee})
+        .eq('id', true);
+  }
 }

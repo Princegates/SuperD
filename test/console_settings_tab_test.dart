@@ -54,6 +54,13 @@ class _FakeSettingsRepository extends SettingsRepository {
     lastBaseFare = baseFare;
     lastPricePerKm = pricePerKm;
   }
+
+  double? lastCommissionFlatFee;
+
+  @override
+  Future<void> updateCommissionFlatFee(double flatFee) async {
+    lastCommissionFlatFee = flatFee;
+  }
 }
 
 /// A `SupabaseClient` with token auto-refresh disabled, so it doesn't leave

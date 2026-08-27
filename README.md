@@ -76,10 +76,12 @@ supabase/
     0026_zone_pricing_and_auto_assign.sql   per-zone pricing, a low-high price estimate, and same-zone auto-assignment
     0027_separate_vendor_orders_code.sql    security fix: splits the vendor's public link from their private "view all orders" link
     0028_road_distance_pricing.sql          prices by real road distance (Google Directions) when available, floored at straight-line
+    0029_commission_payments.sql            flat per-delivery driver commission, auto-recorded to a ledger when a delivery is marked delivered
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
     admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
+    get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
     notify-driver-assigned/        Edge Function: texts the customer when a driver is assigned
     notify-vendor-registered/      Edge Function: emails a vendor their link when they register
     notify-driver-application/     Edge Function: emails staff when a driver signs themselves up
@@ -850,6 +852,23 @@ This is just what happens automatically when nobody has to step in — a
 dispatcher can always reassign an auto-assigned delivery afterward, the
 same as any other one.
 
+### Driver commission
+
+Separate from the `payments` table above (what a *customer* owes for a
+delivery), a super admin can set a flat **commission** fee the *driver*
+owes the business per completed delivery, from **Console > Settings**.
+It defaults to `0`, which means commission tracking is effectively off —
+no records are created until a fee is set.
+
+Once a fee is set, `0029_commission_payments.sql` records it
+automatically: a database trigger fires the instant a delivery's status
+changes to `delivered`, inserting a `due` row into `commission_payments`
+for whoever the assigned driver was, in the app's currency at that
+moment. Nothing is collected in-app — same philosophy as customer
+payments — a dispatcher or super admin just marks it `paid` (or `waived`)
+from **Console > Commission** once the driver actually settles up (in
+person, weekly, however the business runs it).
+
 ## Driver actions: reject and undo
 
 - **Reject** - a full-size button right next to "Accept & begin trip" while
@@ -1252,14 +1271,29 @@ back out of. What shows up in the nav is role-based:
   below).
 - **Super admins additionally see**, grouped under an "Admin Console"
   header in the nav:
-  - **Overview** - reporting/analytics computed live from existing data:
-    total deliveries by status, completion/cancellation rate, a
-    top-drivers leaderboard by completed deliveries, zone activity, and
-    top vendors by volume.
+  - **Overview** - reporting/analytics computed live from existing data,
+    all-time and always current (no date filter - see **Reports** below
+    for that): total deliveries by status, completion/cancellation rate,
+    a top-drivers leaderboard by completed deliveries, zone activity, top
+    vendors by volume, plus summary cards covering every other major
+    record type - finance (collected/outstanding per currency), commission
+    (collected/outstanding per currency), staff (counts by role, plus
+    online/pending/frozen driver counts), vendors (active/inactive), and
+    zone pricing (which zones override the app-wide base fare/per-km
+    rate).
+  - **Reports** - the same numbers as Overview, but for a date range you
+    pick (or all time), with a **CSV export** of the underlying raw
+    records - deliveries, payments, or commission - for that range. CSV
+    export is web-only; the button shows a fallback message on mobile
+    since there's no filesystem download surface there.
   - **Finance** - revenue reconciliation across every payment ever
     recorded: collected vs outstanding (and failed/refunded, when
     present) per currency, a breakdown by payment method, and a
     recent-payments feed.
+  - **Commission** - what drivers owe the business, not what customers
+    owe for the delivery (see **Driver commission** below): outstanding
+    vs collected vs waived per currency, a per-driver "owed" breakdown,
+    and a recent-commission feed with a one-tap "Mark paid" action.
   - **Audit log** - a chronological record of who did what: role changes,
     staff added/removed, vendors registered/edited/(de)activated, drivers
     assigned, deliveries created, and payments marked paid. Entries are

@@ -21,13 +21,16 @@ class ConsoleSettingsTab extends ConsumerStatefulWidget {
 class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   final _baseFareController = TextEditingController();
   final _pricePerKmController = TextEditingController();
+  final _commissionFeeController = TextEditingController();
   String? _syncedFromSettings;
   bool _isSavingPricing = false;
+  bool _isSavingCommission = false;
 
   @override
   void dispose() {
     _baseFareController.dispose();
     _pricePerKmController.dispose();
+    _commissionFeeController.dispose();
     super.dispose();
   }
 
@@ -91,6 +94,25 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     }
   }
 
+  Future<void> _saveCommission(AppSettings settings, double flatFee) async {
+    setState(() => _isSavingCommission = true);
+    try {
+      await ref
+          .read(settingsRepositoryProvider)
+          .updateCommissionFlatFee(flatFee);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'commission_fee_changed',
+        entityType: 'app_settings',
+        summary:
+            'Changed driver commission to ${settings.currency} '
+            '${flatFee.toStringAsFixed(2)} per delivery',
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingCommission = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsState = ref.watch(appSettingsProvider);
@@ -101,11 +123,15 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
         // Sync the text fields from the live settings row once per value
         // (not on every rebuild) so a super admin's in-progress edit isn't
         // clobbered by their own keystroke triggering a rebuild.
-        final syncKey = '${settings.baseFare}|${settings.pricePerKm}';
+        final syncKey =
+            '${settings.baseFare}|${settings.pricePerKm}|'
+            '${settings.commissionFlatFee}';
         if (_syncedFromSettings != syncKey) {
           _syncedFromSettings = syncKey;
           _baseFareController.text = settings.baseFare.toStringAsFixed(2);
           _pricePerKmController.text = settings.pricePerKm.toStringAsFixed(2);
+          _commissionFeeController.text = settings.commissionFlatFee
+              .toStringAsFixed(2);
         }
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -279,6 +305,80 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                               )
                             : const Text('Save pricing'),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Driver commission',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'A flat amount a driver owes the business for every '
+                      'delivery they complete - recorded automatically in '
+                      'Console > Commission the moment a delivery is marked '
+                      "delivered. Set to 0 to stop tracking it. Doesn't "
+                      'affect commission already recorded.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _commissionFeeController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: InputDecoration(
+                              labelText:
+                                  'Commission per delivery (${settings.currency})',
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _isSavingCommission
+                              ? null
+                              : () {
+                                  final flatFee = double.tryParse(
+                                    _commissionFeeController.text.trim(),
+                                  );
+                                  if (flatFee == null) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Enter a valid number.'),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  _saveCommission(settings, flatFee);
+                                },
+                          child: _isSavingCommission
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Save'),
+                        ),
+                      ],
                     ),
                   ],
                 ),

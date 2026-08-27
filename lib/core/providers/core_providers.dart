@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../data/repositories/audit_repository.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/repositories/commission_repository.dart';
 import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/profile_repository.dart';
@@ -41,6 +42,10 @@ final auditRepositoryProvider = Provider<AuditRepository>((ref) {
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
   return SettingsRepository(ref.watch(supabaseClientProvider));
+});
+
+final commissionRepositoryProvider = Provider<CommissionRepository>((ref) {
+  return CommissionRepository(ref.watch(supabaseClientProvider));
 });
 
 /// The app-wide settings row (currently just the currency), kept live so a

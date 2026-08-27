@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/config/env.dart';
+import 'core/providers/core_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 
@@ -19,8 +20,19 @@ class SuperDApp extends ConsumerWidget {
     }
 
     final router = ref.watch(routerProvider);
+    final themeKey =
+        ref.watch(appSettingsProvider).valueOrNull?.theme ?? 'navy_gold';
+    AppTheme.apply(themeKey);
 
+    // AppTheme's colors are plain static fields (read directly all over the
+    // app, not via Theme.of(context)), so changing them alone wouldn't
+    // repaint anything already built. Keying the whole app on the theme
+    // forces Flutter to tear down and rebuild every widget below it when a
+    // super admin changes it - GoRouter's own state (the current route)
+    // lives outside this widget tree, in the same `router` instance, so it
+    // survives the remount and the user stays on the same screen.
     return MaterialApp.router(
+      key: ValueKey('theme-$themeKey'),
       title: 'SuperD',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,

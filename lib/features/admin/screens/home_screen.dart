@@ -216,7 +216,7 @@ class _BrandHeader extends StatelessWidget {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'SuperD',
               style: TextStyle(
                 fontSize: 24,

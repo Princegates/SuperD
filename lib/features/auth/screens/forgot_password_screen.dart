@@ -71,7 +71,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.lock_reset_outlined,
                           size: 48,
                           color: AppTheme.primary,

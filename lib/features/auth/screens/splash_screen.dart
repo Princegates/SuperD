@@ -179,7 +179,7 @@ class _SplashScreenState extends State<SplashScreen>
                 const SizedBox(height: 32),
                 FadeTransition(
                   opacity: _loaderFade,
-                  child: const SizedBox(
+                  child: SizedBox(
                     height: 22,
                     width: 22,
                     child: CircularProgressIndicator(

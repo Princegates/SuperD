@@ -1,13 +1,17 @@
-/// App-wide settings - currently just the currency payments are recorded
-/// in. Backed by the single-row `app_settings` table; see
-/// `0017_app_settings.sql`.
+/// App-wide settings - the currency payments are recorded in, and the UI
+/// theme. Backed by the single-row `app_settings` table; see
+/// `0017_app_settings.sql` and `0018_app_settings_theme.sql`.
 class AppSettings {
-  const AppSettings({required this.currency});
+  const AppSettings({required this.currency, required this.theme});
 
   final String currency;
+  final String theme;
 
   factory AppSettings.fromMap(Map<String, dynamic> map) {
-    return AppSettings(currency: map['currency'] as String? ?? 'GHS');
+    return AppSettings(
+      currency: map['currency'] as String? ?? 'GHS',
+      theme: map['theme'] as String? ?? 'navy_gold',
+    );
   }
 
   /// Currencies a super admin can pick from in Settings. Not exhaustive -

@@ -151,7 +151,7 @@ class _VendorCard extends ConsumerWidget {
                     ),
                     child: Text(
                       vendor.zoneName!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         color: AppTheme.primary,

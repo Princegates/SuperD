@@ -17,7 +17,7 @@ class SettingsRepository {
         .stream(primaryKey: ['id'])
         .map(
           (rows) => rows.isEmpty
-              ? const AppSettings(currency: 'GHS')
+              ? const AppSettings(currency: 'GHS', theme: 'navy_gold')
               : AppSettings.fromMap(rows.first),
         );
   }
@@ -29,5 +29,11 @@ class SettingsRepository {
         .from(_table)
         .update({'currency': currency})
         .eq('id', true);
+  }
+
+  /// Changes the app-wide UI theme (see [ThemePreset] in app_theme.dart).
+  /// Only takes effect if the caller is a super admin - enforced by RLS.
+  Future<void> updateTheme(String themeKey) async {
+    await _client.from(_table).update({'theme': themeKey}).eq('id', true);
   }
 }

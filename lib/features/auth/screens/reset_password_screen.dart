@@ -79,7 +79,7 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.mark_email_read_outlined,
                           size: 48,
                           color: AppTheme.primary,

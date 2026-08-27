@@ -15,14 +15,20 @@ class _FakeSettingsRepository extends SettingsRepository {
   _FakeSettingsRepository() : super(_testClient());
 
   String? lastCurrency;
+  String? lastTheme;
 
   @override
   Stream<AppSettings> watchSettings() =>
-      Stream.value(const AppSettings(currency: 'GHS'));
+      Stream.value(const AppSettings(currency: 'GHS', theme: 'navy_gold'));
 
   @override
   Future<void> updateCurrency(String currency) async {
     lastCurrency = currency;
+  }
+
+  @override
+  Future<void> updateTheme(String themeKey) async {
+    lastTheme = themeKey;
   }
 }
 
@@ -61,5 +67,30 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(fakeRepo.lastCurrency, 'NGN');
+  });
+
+  testWidgets('lets a super admin pick a different theme', (tester) async {
+    final fakeRepo = _FakeSettingsRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(fakeRepo),
+          supabaseClientProvider.overrideWithValue(_testClient()),
+        ],
+        child: const MaterialApp(home: Scaffold(body: ConsoleSettingsTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // All 6 presets show up as swatches, including the current one.
+    expect(find.text('Navy & Gold'), findsOneWidget);
+    expect(find.text('Ocean Blue'), findsOneWidget);
+    expect(find.text('Charcoal'), findsOneWidget);
+
+    await tester.tap(find.text('Ocean Blue'));
+    await tester.pumpAndSettle();
+
+    expect(fakeRepo.lastTheme, 'ocean_blue');
   });
 }

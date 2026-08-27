@@ -45,7 +45,7 @@ class _DeliveredCelebrationOverlayState
     final random = Random();
     final angle = (i / 14) * 2 * pi + random.nextDouble() * 0.3;
     final distance = 90 + random.nextDouble() * 50;
-    const colors = [
+    final colors = [
       AppTheme.accent,
       AppTheme.primary,
       Colors.white,

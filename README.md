@@ -61,6 +61,7 @@ supabase/
     0015_driver_live_location.sql   last_lat/last_lng/location_updated_at for the Live Map
     0016_currency_ghs.sql           switches the recorded-payment currency default to GHS (Ghana cedi)
     0017_app_settings.sql           single-row app_settings table (currency), editable from Console > Settings
+    0018_app_settings_theme.sql     adds the selected UI theme to app_settings
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -670,6 +671,32 @@ Paystack, Flutterwave, ...) to charge customers in-app is a bigger,
 separate piece of work — the schema has a `gateway_reference` column ready
 for it whenever you're ready to take that on.
 
+## App theme
+
+A super admin can switch the whole app's brand color from **Console >
+Settings**: six built-in presets (Navy & Gold - the original brand look
+and the default - Ocean Blue, Forest Green, Sunset Orange, Royal Purple,
+and Charcoal), defined in `lib/core/theme/app_theme.dart` as
+`kThemePresets`. Only the identity colors (`primary`/`accent` and their
+light tints) change per theme; the semantic status colors (success/
+warning/danger/neutral used for delivery and payment status) stay fixed
+across every theme, since red-means-trouble/green-means-done is a UX
+convention, not a branding choice.
+
+It applies for every user of the app, live, not just the super admin who
+changed it - the same realtime `app_settings` row that carries the
+currency carries the theme. Under the hood, `AppTheme`'s colors are plain
+static fields (matching how the rest of the app already reads them,
+`AppTheme.primary` etc., rather than `Theme.of(context)`), so a change
+alone wouldn't repaint anything already on screen; `SuperDApp` keys its
+root widget on the current theme, which forces Flutter to rebuild the
+entire app when it changes. Navigation isn't lost across that rebuild -
+`GoRouter`'s state (the current route) lives in the router instance
+itself, outside the remounted widget tree.
+
+Adding a 7th theme is a matter of adding one more `ThemePreset` entry to
+`kThemePresets` - nothing else needs to change.
+
 ## Customer SMS notifications
 
 The moment a delivery gets a driver assigned - whether that's set right at
@@ -916,9 +943,11 @@ back out of. What shows up in the nav is role-based:
     and vendors pick from elsewhere), and define what each one covers by
     pinning named locations within it. Deleting a zone still in use by a
     vendor, driver, or delivery is rejected (reassign those first).
-  - **Settings** - app-wide settings; currently just the currency (see
-    **Payments** above). A dropdown of common currencies, backed by the
-    single-row `app_settings` table.
+  - **Settings** - app-wide settings: currency (see **Payments** above)
+    and the UI theme. Six built-in color themes (Navy & Gold, Ocean Blue,
+    Forest Green, Sunset Orange, Royal Purple, Charcoal) - picking one
+    applies for every user of the app, not just the super admin who
+    changed it. Both are backed by the single-row `app_settings` table.
 
 A dispatcher literally has no way to reach the Admin Console sections -
 they're not just hidden, there's no route for them to type into the

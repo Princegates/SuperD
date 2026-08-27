@@ -57,6 +57,21 @@ final authStateProvider = StreamProvider<AuthState>((ref) {
   return ref.watch(authRepositoryProvider).onAuthStateChange;
 });
 
+/// Whether a driver may sign in on the web dashboard right now - a plain,
+/// one-time fetch (re-run on every sign-in/out via the authState watch
+/// below), deliberately not the live [appSettingsProvider] stream. This
+/// gates a real redirect decision in the router, and a realtime channel
+/// that's briefly slow to connect or times out - which does happen in
+/// practice - shouldn't be able to make that decision hang or default to
+/// "denied" just because the WebSocket isn't cooperating yet.
+final driverWebLoginAllowedProvider = FutureProvider<bool>((ref) async {
+  ref.watch(authStateProvider);
+  final settings = await ref
+      .watch(settingsRepositoryProvider)
+      .fetchSettings();
+  return settings.allowDriverWebLogin;
+});
+
 /// Set briefly by the router when it force-signs-out a driver account that
 /// tried to sign in on the web build (this dashboard is back-office only -
 /// drivers use the mobile app). The login screen watches this to show a

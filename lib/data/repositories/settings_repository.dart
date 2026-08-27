@@ -9,8 +9,28 @@ class SettingsRepository {
 
   static const _table = 'app_settings';
 
-  /// The single settings row, live - so a currency change by a super admin
-  /// is picked up everywhere else in the app without a restart.
+  /// One-time plain REST fetch of the settings row - no realtime
+  /// subscription involved. Used for the driver-web-login gate in the
+  /// router: that decision needs to be reliable every time, and a
+  /// WebSocket-based realtime channel is one more thing that can be slow
+  /// to connect or time out (seen in practice) - a plain fetch either
+  /// succeeds or fails outright, with nothing to hang waiting on.
+  Future<AppSettings> fetchSettings() async {
+    final row = await _client.from(_table).select().maybeSingle();
+    return row == null
+        ? const AppSettings(
+            currency: 'GHS',
+            theme: 'navy_gold',
+            allowDriverWebLogin: false,
+          )
+        : AppSettings.fromMap(row);
+  }
+
+  /// The single settings row, live - so a currency or theme change by a
+  /// super admin is picked up everywhere else in the app without a
+  /// restart. Not used for anything security-gating (see [fetchSettings])
+  /// since realtime being briefly unavailable shouldn't block a decision
+  /// that a plain fetch could make reliably instead.
   Stream<AppSettings> watchSettings() {
     return _client
         .from(_table)

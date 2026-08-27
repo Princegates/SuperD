@@ -359,9 +359,18 @@ A super admin can temporarily lift this from **Console > Settings**
 ("Allow driver sign-in on the web") - useful for testing the driver
 experience (accepting a delivery, live location sharing, ...) in a
 browser before the native Android/iOS apps are built and distributed.
-It's a live, realtime toggle (the same `app_settings` row as currency
-and theme), so switching it off again takes effect immediately for
-anyone still signed in as a driver on web.
+The Settings screen itself displays and edits it live (same `app_settings`
+row as currency and theme), but the router's actual gate check
+(`driverWebLoginAllowedProvider`) deliberately does a plain one-time
+fetch instead of subscribing to that realtime stream - re-run on every
+sign-in/out, not continuously. A driver's redirect decision shouldn't
+hang, or silently fall back to "denied", just because a WebSocket
+channel is slow to connect or times out, which does happen in practice
+on some projects/networks; a plain REST fetch either succeeds or
+fails outright; nothing to get stuck waiting on. The trade-off:
+switching the toggle off no longer force-signs-out a driver already
+using the web app mid-session - it only takes effect on their next
+sign-in - which is a reasonable price for the gate itself being reliable.
 
 There's still no self-signup for a **dispatcher** or **super admin**
 account, on any platform - those are always created deliberately, either

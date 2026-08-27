@@ -44,7 +44,7 @@ class _RouterRefreshNotifier extends ChangeNotifier {
   _RouterRefreshNotifier(Ref ref) {
     ref.listen(authStateProvider, (_, _) => notifyListeners());
     ref.listen(currentProfileProvider, (_, _) => notifyListeners());
-    ref.listen(appSettingsProvider, (_, _) => notifyListeners());
+    ref.listen(driverWebLoginAllowedProvider, (_, _) => notifyListeners());
   }
 }
 
@@ -109,18 +109,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       // `allow_driver_web_login` on from Console > Settings to test the
       // driver experience in a browser before the native apps exist.
       //
-      // app_settings arrives over realtime, not instantly on sign-in, so a
-      // driver reaching this point before that first value lands must NOT
-      // be treated as "toggle is off" - that raced a real "on" into an
-      // incorrect sign-out on a slower connection (seen on mobile, not on
-      // a fast laptop connection where the race window closed in time).
-      // Wait for a real answer instead of guessing.
-      final settingsState = ref.read(appSettingsProvider);
-      if (kIsWeb && role == UserRole.driver && !settingsState.hasValue) {
+      // This reads driverWebLoginAllowedProvider - a plain one-time fetch,
+      // deliberately not a realtime stream (see its doc comment): a
+      // WebSocket channel that's slow to connect or times out must not be
+      // able to make this decision hang or silently default to "denied".
+      // Still wait for that one fetch to actually finish before deciding,
+      // same reasoning as the isLoading gate above - answering "denied"
+      // before the real answer arrives would be its own bug.
+      final allowState = ref.read(driverWebLoginAllowedProvider);
+      if (kIsWeb && role == UserRole.driver && !allowState.hasValue) {
         return loc == '/splash' ? null : '/splash';
       }
-      final allowDriverWebLogin =
-          settingsState.valueOrNull?.allowDriverWebLogin ?? false;
+      final allowDriverWebLogin = allowState.valueOrNull ?? false;
       if (kIsWeb && role == UserRole.driver && !allowDriverWebLogin) {
         Future(() {
           ref.read(driverWebBlockedProvider.notifier).state = true;

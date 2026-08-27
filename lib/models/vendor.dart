@@ -110,6 +110,7 @@ class VendorDelivery {
   final String? driverName;
   final String? driverPhone;
   final DateTime createdAt;
+  final DateTime? scheduledAt;
 
   const VendorDelivery({
     required this.id,
@@ -120,6 +121,7 @@ class VendorDelivery {
     required this.createdAt,
     this.driverName,
     this.driverPhone,
+    this.scheduledAt,
   });
 
   factory VendorDelivery.fromMap(Map<String, dynamic> map) {
@@ -132,6 +134,9 @@ class VendorDelivery {
       driverName: map['driver_name'] as String?,
       driverPhone: map['driver_phone'] as String?,
       createdAt: DateTime.parse(map['created_at'] as String),
+      scheduledAt: map['scheduled_at'] == null
+          ? null
+          : DateTime.parse(map['scheduled_at'] as String),
     );
   }
 }

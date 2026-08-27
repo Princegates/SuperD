@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -9,6 +11,7 @@ import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivery_card.dart';
 import '../../../shared/widgets/staggered_list_item.dart';
 import '../providers/admin_providers.dart';
+import '../widgets/scheduled_delivery_banner.dart';
 
 /// The "Deliveries" section of the admin dashboard shell
 /// ([AdminShellScreen]) - just this section's own content, no app bar of
@@ -24,6 +27,22 @@ class AdminDashboardScreen extends ConsumerStatefulWidget {
 class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   DeliveryStatus? _filter;
 
+  // The "due soon"/"overdue" check in ScheduledDeliveryBanner and each
+  // DeliveryCard depends on DateTime.now(), not on any data change - a
+  // scheduled delivery becomes urgent purely because time passed, with no
+  // row ever being written. Nothing else triggers a rebuild for that, so
+  // this ticks one on its own every 30s while this screen is visible.
+  late final Timer _reminderTicker = Timer.periodic(
+    const Duration(seconds: 30),
+    (_) => setState(() {}),
+  );
+
+  @override
+  void dispose() {
+    _reminderTicker.cancel();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final deliveriesState = ref.watch(allDeliveriesProvider);
@@ -38,6 +57,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       ),
       body: Column(
         children: [
+          if (deliveriesState.valueOrNull case final all?)
+            ScheduledDeliveryBanner(deliveries: all),
           _StatusFilterBar(
             value: _filter,
             onChanged: (status) => setState(() => _filter = status),

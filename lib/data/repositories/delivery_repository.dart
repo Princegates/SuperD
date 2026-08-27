@@ -58,6 +58,7 @@ class DeliveryRepository {
     String? notes,
     required String createdBy,
     String? assignedDriverId,
+    DateTime? scheduledAt,
   }) async {
     final row = await _client
         .from(_table)
@@ -74,6 +75,7 @@ class DeliveryRepository {
           'notes': notes,
           'created_by': createdBy,
           'assigned_driver_id': assignedDriverId,
+          'scheduled_at': scheduledAt?.toIso8601String(),
           'status': assignedDriverId == null
               ? DeliveryStatus.pending.wireValue
               : DeliveryStatus.assigned.wireValue,

@@ -201,6 +201,7 @@ class VendorRepository {
     double? dropoffLng,
     String? packageDescription,
     double? roadDistanceKm,
+    DateTime? scheduledAt,
   }) async {
     final rows = await _client.rpc(
       'submit_delivery_request',
@@ -213,6 +214,7 @@ class VendorRepository {
         'dropoff_lng': dropoffLng,
         'package_description': packageDescription,
         'road_distance_km': roadDistanceKm,
+        'scheduled_at': scheduledAt?.toIso8601String(),
       },
     ) as List;
     return DeliveryQuote.fromMap(rows.first as Map<String, dynamic>);

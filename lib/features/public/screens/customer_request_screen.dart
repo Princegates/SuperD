@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/providers/core_providers.dart';
@@ -11,6 +12,7 @@ import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/schedule_picker.dart';
 import '../providers/public_providers.dart';
 
 /// The page a customer lands on after opening a vendor's link. No login -
@@ -78,6 +80,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   String? _errorMessage;
   DeliveryQuote? _quote;
   PriceEstimate? _estimate;
+  DateTime? _scheduledAt;
 
   /// The real road distance to [_lat]/[_lng] from the vendor's location,
   /// fetched via Google Directions (see [_refreshRoadDistance]) - null
@@ -199,6 +202,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                 ? null
                 : _packageController.text.trim(),
             roadDistanceKm: _roadDistanceKm,
+            scheduledAt: _scheduledAt,
           );
       if (mounted) setState(() => _quote = quote);
     } catch (e) {
@@ -214,7 +218,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   @override
   Widget build(BuildContext context) {
     if (_quote != null) {
-      return _SubmittedCard(quote: _quote!);
+      return _SubmittedCard(quote: _quote!, scheduledAt: _scheduledAt);
     }
 
     return SingleChildScrollView(
@@ -277,6 +281,21 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                 labelText: 'What are we delivering? (optional)',
               ),
             ),
+            const SizedBox(height: 16),
+            Text(
+              'When',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade600,
+                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(height: 8),
+            SchedulePicker(
+              value: _scheduledAt,
+              onChanged: (value) => setState(() => _scheduledAt = value),
+            ),
             if (_estimate case final estimate?) ...[
               const SizedBox(height: 14),
               Container(
@@ -338,9 +357,10 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
 }
 
 class _SubmittedCard extends StatelessWidget {
-  const _SubmittedCard({required this.quote});
+  const _SubmittedCard({required this.quote, this.scheduledAt});
 
   final DeliveryQuote quote;
+  final DateTime? scheduledAt;
 
   @override
   Widget build(BuildContext context) {
@@ -370,6 +390,15 @@ class _SubmittedCard extends StatelessWidget {
               '${quote.amount.toStringAsFixed(2)}',
               textAlign: TextAlign.center,
               style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
+          if (scheduledAt case final scheduled?) ...[
+            const SizedBox(height: 6),
+            Text(
+              'Scheduled for '
+              '${DateFormat('EEE d MMM, h:mm a').format(scheduled)}',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ],
           const SizedBox(height: 20),

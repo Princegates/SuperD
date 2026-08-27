@@ -10,6 +10,7 @@ import '../../../models/payment_method.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/reverse_geocode.dart';
+import '../../../shared/widgets/schedule_picker.dart';
 import '../providers/admin_providers.dart';
 
 class CreateDeliveryScreen extends ConsumerStatefulWidget {
@@ -36,6 +37,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   double? _dropoffLng;
 
   String? _assignedDriverId;
+  DateTime? _scheduledAt;
   PaymentMethod _paymentMethod = PaymentMethod.cash;
   bool _isSubmitting = false;
   bool _isLocating = false;
@@ -181,6 +183,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                 : _notesController.text.trim(),
             createdBy: userId,
             assignedDriverId: _assignedDriverId,
+            scheduledAt: _scheduledAt,
           );
 
       await logAuditEvent(
@@ -334,6 +337,12 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Notes (optional)',
                   ),
+                ),
+                const SizedBox(height: 20),
+                const _SectionLabel('When'),
+                SchedulePicker(
+                  value: _scheduledAt,
+                  onChanged: (value) => setState(() => _scheduledAt = value),
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Payment'),

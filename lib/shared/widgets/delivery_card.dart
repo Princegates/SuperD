@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../models/delivery.dart';
+import '../utils/scheduled_delivery.dart';
 import 'status_badge.dart';
 
 class DeliveryCard extends StatefulWidget {
@@ -22,17 +24,33 @@ class DeliveryCard extends StatefulWidget {
   State<DeliveryCard> createState() => _DeliveryCardState();
 }
 
-class _DeliveryCardState extends State<DeliveryCard> {
+class _DeliveryCardState extends State<DeliveryCard>
+    with SingleTickerProviderStateMixin {
   bool _pressed = false;
+
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
 
   void _setPressed(bool value) {
     if (_pressed != value) setState(() => _pressed = value);
   }
 
   @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final delivery = widget.delivery;
     final timeLabel = DateFormat.MMMd().add_jm().format(delivery.createdAt);
+    final scheduledAt = delivery.scheduledAt;
+    final isOverdue = delivery.isOverdue();
+    final isDueSoon = delivery.isDueSoon(scheduledDueSoonThreshold);
+    final scheduleColor = isOverdue ? AppTheme.danger : AppTheme.warning;
 
     return Listener(
       onPointerDown: (_) => _setPressed(true),
@@ -74,6 +92,45 @@ class _DeliveryCardState extends State<DeliveryCard> {
                     icon: Icons.place,
                     text: delivery.dropoffAddress,
                   ),
+                  if (scheduledAt != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        if (isDueSoon || isOverdue)
+                          AnimatedBuilder(
+                            animation: _pulse,
+                            builder: (context, child) => Transform.scale(
+                              scale: 1 + (_pulse.value * 0.25),
+                              child: child,
+                            ),
+                            child: Icon(
+                              Icons.alarm,
+                              size: 13,
+                              color: scheduleColor,
+                            ),
+                          )
+                        else
+                          Icon(
+                            Icons.event_outlined,
+                            size: 13,
+                            color: Colors.grey.shade500,
+                          ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Scheduled ${DateFormat('d MMM, h:mm a').format(scheduledAt)}',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: (isDueSoon || isOverdue)
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: (isDueSoon || isOverdue)
+                                ? scheduleColor
+                                : Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 10),
                   Row(
                     children: [

@@ -77,6 +77,7 @@ supabase/
     0027_separate_vendor_orders_code.sql    security fix: splits the vendor's public link from their private "view all orders" link
     0028_road_distance_pricing.sql          prices by real road distance (Google Directions) when available, floored at straight-line
     0029_commission_payments.sql            flat per-delivery driver commission, auto-recorded to a ledger when a delivery is marked delivered
+    0030_scheduled_delivery.sql              lets a customer pick a future date/time instead of ASAP, and skips auto-assignment for anything scheduled well ahead
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -360,6 +361,24 @@ takes effect.
 
 Once it's live, set `APP_BASE_URL` to that exact domain (see **Getting the
 link's domain right** below) so vendor links and their emails point at it.
+
+### Marketing landing page
+
+`web/welcome/index.html` is a small, self-contained static HTML page (no
+Flutter, no build step of its own) - a public-facing front door you can
+link to from social media or ads, with an animated logo, a features
+section that fades in on scroll, and buttons into **Register your
+business** (`/vendor-signup`) and **Staff & driver login** (`/login`).
+It isn't the app's own root (`/` still goes straight into the Flutter app
+- the SPA fallback above already routes anyone there to `/login`), so it
+doesn't touch how the app itself is reached; it's a separate page any
+existing vendor/customer/tracking link is completely unaffected by.
+
+It's plain HTML/CSS with a few lines of JS (no external dependencies
+besides a Google Fonts stylesheet), and `flutter build web` copies it
+into `build/web/welcome/index.html` automatically since it lives under
+`web/` - it deploys with the rest of the site and needs no separate
+hosting step. Once live, it's reachable at `https://your-domain.example/welcome`.
 
 ### Web dashboard is back-office only
 
@@ -868,6 +887,30 @@ moment. Nothing is collected in-app — same philosophy as customer
 payments — a dispatcher or super admin just marks it `paid` (or `waived`)
 from **Console > Commission** once the driver actually settles up (in
 person, weekly, however the business runs it).
+
+### Scheduled deliveries
+
+Both the public request form and the dispatcher's create-delivery form
+have a **When** section - "As soon as possible" (the historical default,
+`scheduled_at` left `null`) or "Schedule for later", which opens a
+date/time picker. A scheduled request still gets priced and tracked
+exactly the same way; the only behavioral difference is automatic
+same-zone driver assignment (see above) skips anything scheduled more
+than 15 minutes out, so it doesn't get handed to whoever happens to be
+online right now for a job that isn't ready to start - it sits at
+`pending` for a dispatcher to assign closer to the time.
+
+That's what the **animated reminder banner** at the top of the admin
+dashboard's Deliveries screen is for: it watches every pending/assigned
+delivery's `scheduled_at` and pulses an alarm icon once one is within 30
+minutes of its scheduled time (turning red if that time has actually
+passed and it's still not out for delivery), listing exactly which ones
+and linking straight into each. It re-checks every 30 seconds on its own
+- unlike a status change, a delivery becoming "due soon" happens purely
+because time passed, with no database row ever written to trigger a
+refresh. Individual delivery cards get a matching pulsing badge with the
+scheduled time, everywhere a `Delivery` is listed. See
+`0030_scheduled_delivery.sql`.
 
 ## Driver actions: reject and undo
 

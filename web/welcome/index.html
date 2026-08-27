@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SuperDelivery — Delivering More. Connecting Better.</title>
+<meta name="description" content="SuperDelivery is a free, open-source delivery management platform for local vendors, dispatchers, and riders." />
+<link rel="icon" href="../favicon.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --navy: #16213e;
+    --navy-deep: #0d1428;
+    --gold: #f5a623;
+    --gold-light: #ffd77a;
+    --ink: #eef1f8;
+    --muted: #aeb6cc;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--navy-deep);
+    color: var(--ink);
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3 { font-family: 'Poppins', 'Inter', sans-serif; margin: 0; }
+
+  a { color: inherit; text-decoration: none; }
+
+  /* ---------- Hero ---------- */
+
+  .hero {
+    position: relative;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 48px 20px 64px;
+    background:
+      radial-gradient(circle at 50% 18%, rgba(245, 166, 35, 0.16), transparent 55%),
+      linear-gradient(160deg, var(--navy) 0%, var(--navy-deep) 70%);
+    background-size: 100% 100%, 140% 140%;
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+
+  @keyframes drift {
+    0%   { background-position: 50% 18%, 0% 0%; }
+    100% { background-position: 50% 30%, 100% 30%; }
+  }
+
+  .speed-lines {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .speed-lines span {
+    position: absolute;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+    opacity: 0;
+    animation: zoom-across 3.2s linear infinite;
+  }
+
+  .speed-lines span:nth-child(1) { top: 22%; width: 140px; left: -160px; animation-delay: 0s; }
+  .speed-lines span:nth-child(2) { top: 38%; width: 90px;  left: -160px; animation-delay: 1.1s; }
+  .speed-lines span:nth-child(3) { top: 61%; width: 180px; left: -200px; animation-delay: 2.1s; }
+  .speed-lines span:nth-child(4) { top: 76%; width: 110px; left: -160px; animation-delay: 0.6s; }
+
+  @keyframes zoom-across {
+    0%   { transform: translateX(0); opacity: 0; }
+    8%   { opacity: 0.8; }
+    85%  { opacity: 0.8; }
+    100% { transform: translateX(calc(100vw + 220px)); opacity: 0; }
+  }
+
+  .logo-wrap {
+    position: relative;
+    width: 220px;
+    height: 220px;
+    margin-bottom: 8px;
+    animation: fade-in-up 0.9s ease both;
+  }
+
+  .logo-glow {
+    position: absolute;
+    inset: -30px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(245, 166, 35, 0.35), transparent 70%);
+    filter: blur(6px);
+    animation: pulse-glow 2.6s ease-in-out infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { transform: scale(0.94); opacity: 0.6; }
+    50%      { transform: scale(1.08); opacity: 1; }
+  }
+
+  .logo-wrap img {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 28px;
+    animation: float 4.5s ease-in-out infinite;
+  }
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50%      { transform: translateY(-14px) rotate(-1.5deg); }
+  }
+
+  .hero h1 {
+    font-size: clamp(28px, 5vw, 44px);
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    animation: fade-in-up 0.9s ease 0.15s both;
+  }
+
+  .hero .accent { color: var(--gold); }
+
+  .hero p.tagline {
+    margin-top: 10px;
+    font-size: clamp(14px, 2.2vw, 17px);
+    color: var(--muted);
+    max-width: 520px;
+    animation: fade-in-up 0.9s ease 0.3s both;
+  }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(18px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .cta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    justify-content: center;
+    margin-top: 32px;
+    animation: fade-in-up 0.9s ease 0.45s both;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 14px 26px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 15px;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    will-change: transform;
+  }
+
+  .btn:hover { transform: translateY(-3px) scale(1.02); }
+
+  .btn-primary {
+    background: linear-gradient(120deg, var(--gold), var(--gold-light));
+    color: var(--navy-deep);
+    box-shadow: 0 8px 24px rgba(245, 166, 35, 0.28);
+  }
+
+  .btn-primary:hover { box-shadow: 0 12px 30px rgba(245, 166, 35, 0.4); }
+
+  .btn-ghost {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: var(--ink);
+  }
+
+  .btn-ghost:hover { background: rgba(255, 255, 255, 0.12); }
+
+  .track-note {
+    margin-top: 22px;
+    font-size: 13px;
+    color: var(--muted);
+    animation: fade-in-up 0.9s ease 0.55s both;
+  }
+
+  .scroll-cue {
+    position: absolute;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 26px;
+    height: 42px;
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    border-radius: 14px;
+  }
+
+  .scroll-cue::before {
+    content: '';
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 4px;
+    height: 8px;
+    background: var(--gold);
+    border-radius: 2px;
+    transform: translateX(-50%);
+    animation: scroll-dot 1.6s ease-in-out infinite;
+  }
+
+  @keyframes scroll-dot {
+    0%   { top: 8px; opacity: 1; }
+    70%  { top: 20px; opacity: 0; }
+    100% { top: 8px; opacity: 0; }
+  }
+
+  /* ---------- Features ---------- */
+
+  .features {
+    padding: 88px 20px;
+    background: var(--navy-deep);
+  }
+
+  .features h2 {
+    text-align: center;
+    font-size: clamp(22px, 4vw, 30px);
+    font-weight: 700;
+    margin-bottom: 12px;
+  }
+
+  .features .sub {
+    text-align: center;
+    color: var(--muted);
+    max-width: 560px;
+    margin: 0 auto 52px;
+    font-size: 15px;
+  }
+
+  .grid {
+    max-width: 1080px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+    gap: 22px;
+  }
+
+  .card {
+    background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    padding: 26px 22px;
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s ease, transform 0.6s ease, border-color 0.2s ease;
+  }
+
+  .card.visible { opacity: 1; transform: translateY(0); }
+
+  .card:hover { border-color: rgba(245, 166, 35, 0.4); }
+
+  .card .icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    background: rgba(245, 166, 35, 0.14);
+    margin-bottom: 16px;
+  }
+
+  .card h3 {
+    font-size: 16.5px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .card p {
+    font-size: 13.5px;
+    line-height: 1.55;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  /* ---------- Access section ---------- */
+
+  .access {
+    padding: 80px 20px 96px;
+    background: linear-gradient(180deg, var(--navy-deep), var(--navy));
+    text-align: center;
+  }
+
+  .access h2 {
+    font-size: clamp(22px, 4vw, 28px);
+    font-weight: 700;
+    margin-bottom: 14px;
+  }
+
+  .access p {
+    color: var(--muted);
+    max-width: 480px;
+    margin: 0 auto 36px;
+    font-size: 14.5px;
+  }
+
+  .access-cards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 18px;
+    justify-content: center;
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  .access-card {
+    flex: 1 1 220px;
+    max-width: 280px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 16px;
+    padding: 28px 20px;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+  }
+
+  .access-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--gold);
+  }
+
+  .access-card .icon { font-size: 28px; margin-bottom: 12px; }
+
+  .access-card h3 { font-size: 16px; margin-bottom: 6px; }
+
+  .access-card p {
+    font-size: 13px;
+    margin-bottom: 18px;
+    color: var(--muted);
+  }
+
+  /* ---------- Footer ---------- */
+
+  footer {
+    padding: 28px 20px 36px;
+    background: var(--navy);
+    text-align: center;
+    font-size: 12.5px;
+    color: var(--muted);
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+  }
+
+  footer a.foot-link { color: var(--gold-light); font-weight: 600; }
+</style>
+</head>
+<body>
+
+  <section class="hero">
+    <div class="speed-lines" aria-hidden="true">
+      <span></span><span></span><span></span><span></span>
+    </div>
+
+    <div class="logo-wrap">
+      <div class="logo-glow" aria-hidden="true"></div>
+      <img
+        src="../assets/assets/branding/logo_full.png"
+        alt="SuperDelivery logo"
+        onerror="this.style.display='none'"
+      />
+    </div>
+
+    <h1>Super<span class="accent">Delivery</span></h1>
+    <p class="tagline">Delivering More. Connecting Better. — a free, open-source
+      delivery management platform for local vendors, their dispatchers, and
+      the riders who get it there.</p>
+
+    <div class="cta-row">
+      <a class="btn btn-primary" href="../vendor-signup">
+        Register your business
+      </a>
+      <a class="btn btn-ghost" href="../login">
+        Staff &amp; driver login
+      </a>
+    </div>
+
+    <p class="track-note">
+      Already a customer? Use the tracking link your vendor sent you after
+      you placed your order.
+    </p>
+
+    <div class="scroll-cue" aria-hidden="true"></div>
+  </section>
+
+  <section class="features">
+    <h2>Everything a delivery business needs, in one place</h2>
+    <p class="sub">
+      No fees, no vendor lock-in — self-host it or point it at your own
+      Supabase project.
+    </p>
+
+    <div class="grid">
+      <div class="card">
+        <div class="icon">🔗</div>
+        <h3>One-tap vendor sign-up</h3>
+        <p>A vendor registers once and gets a shareable link that turns
+          into a full delivery request form for their customers — no
+          account needed on either side.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📍</div>
+        <h3>Live order tracking</h3>
+        <p>Every customer gets their own private tracking link, and every
+          dispatcher gets a live map of every rider currently on the
+          road.</p>
+      </div>
+      <div class="card">
+        <div class="icon">⚡</div>
+        <h3>Smart zone pricing</h3>
+        <p>Fares are priced automatically from real road distance, with
+          per-zone rates and instant same-zone rider assignment when
+          someone's available.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🗓️</div>
+        <h3>Schedule ahead</h3>
+        <p>Customers can pick a future date and time instead of "now" —
+          dispatchers get an animated reminder as the scheduled time gets
+          close, so nothing slips through.</p>
+      </div>
+      <div class="card">
+        <div class="icon">💳</div>
+        <h3>Payments &amp; commission</h3>
+        <p>Track what customers owe and what riders owe the business,
+          side by side, with a full CSV export for your own books.</p>
+      </div>
+      <div class="card">
+        <div class="icon">📊</div>
+        <h3>Reporting built in</h3>
+        <p>An always-current overview plus date-range reports across
+          deliveries, payments, staff, vendors, and zones — no
+          spreadsheet gymnastics required.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="access">
+    <h2>Get started</h2>
+    <p>Whether you run the business or ride for it, here's your door in.</p>
+
+    <div class="access-cards">
+      <div class="access-card">
+        <div class="icon">🏪</div>
+        <h3>Vendors</h3>
+        <p>Register your business once and get your own ordering link to
+          share with customers.</p>
+        <a class="btn btn-primary" href="../vendor-signup">Sign up</a>
+      </div>
+      <div class="access-card">
+        <div class="icon">🧑‍💼</div>
+        <h3>Dispatchers &amp; admins</h3>
+        <p>Sign in to the back office to manage deliveries, riders, and
+          reporting.</p>
+        <a class="btn btn-ghost" href="../login">Log in</a>
+      </div>
+      <div class="access-card">
+        <div class="icon">🛵</div>
+        <h3>Riders</h3>
+        <p>Sign in from the SuperDelivery mobile app to see your
+          assignments and go online.</p>
+        <a class="btn btn-ghost" href="../login">Log in</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    SuperDelivery — free and open-source.
+    <a class="foot-link" href="../login">Login</a>
+    ·
+    <a class="foot-link" href="../vendor-signup">Vendor sign-up</a>
+  </footer>
+
+  <script>
+    // Fades feature cards in as they scroll into view, instead of all at
+    // once - purely cosmetic, so a browser without IntersectionObserver
+    // just shows them immediately.
+    var cards = document.querySelectorAll('.card');
+    if ('IntersectionObserver' in window) {
+      var observer = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry, i) {
+          if (entry.isIntersecting) {
+            setTimeout(function () {
+              entry.target.classList.add('visible');
+            }, i * 60);
+            observer.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.15 });
+      cards.forEach(function (card) { observer.observe(card); });
+    } else {
+      cards.forEach(function (card) { card.classList.add('visible'); });
+    }
+  </script>
+</body>
+</html>

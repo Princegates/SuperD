@@ -71,6 +71,15 @@ class TrackOrderScreen extends ConsumerWidget {
                             label: 'Drop-off',
                             value: order.dropoffAddress,
                           ),
+                          if (order.scheduledAt case final scheduledAt?) ...[
+                            const SizedBox(height: 10),
+                            _Row(
+                              icon: Icons.event_outlined,
+                              label: 'Scheduled',
+                              value: DateFormat('EEE d MMM, h:mm a')
+                                  .format(scheduledAt),
+                            ),
+                          ],
                           if (order.driverName != null) ...[
                             const SizedBox(height: 10),
                             _Row(

@@ -31,6 +31,10 @@ class Delivery {
   final DateTime? pickedUpAt;
   final DateTime? deliveredAt;
 
+  /// When the customer wants this delivered - null means as soon as
+  /// possible (the default before scheduling existed).
+  final DateTime? scheduledAt;
+
   const Delivery({
     required this.id,
     required this.trackingCode,
@@ -55,6 +59,7 @@ class Delivery {
     this.assignedAt,
     this.pickedUpAt,
     this.deliveredAt,
+    this.scheduledAt,
   });
 
   factory Delivery.fromMap(Map<String, dynamic> map) {
@@ -85,9 +90,35 @@ class Delivery {
       assignedAt: parseDate(map['assigned_at']),
       pickedUpAt: parseDate(map['picked_up_at']),
       deliveredAt: parseDate(map['delivered_at']),
+      scheduledAt: parseDate(map['scheduled_at']),
     );
   }
 
   bool get hasPickupCoordinates => pickupLat != null && pickupLng != null;
   bool get hasDropoffCoordinates => dropoffLat != null && dropoffLng != null;
+
+  /// Still needs a driver (or hasn't been picked up yet) and its scheduled
+  /// time is within [threshold] of now - the condition the animated
+  /// dispatch reminder on the admin dashboard watches for.
+  bool isDueSoon(Duration threshold, {DateTime? now}) {
+    final scheduled = scheduledAt;
+    if (scheduled == null) return false;
+    if (status != DeliveryStatus.pending && status != DeliveryStatus.assigned) {
+      return false;
+    }
+    final n = now ?? DateTime.now();
+    return !scheduled.isBefore(n.subtract(const Duration(minutes: 1))) &&
+        scheduled.isBefore(n.add(threshold));
+  }
+
+  /// True once the scheduled time has passed and it's still not out for
+  /// delivery - an overdue dispatch, not just "coming up soon".
+  bool isOverdue({DateTime? now}) {
+    final scheduled = scheduledAt;
+    if (scheduled == null) return false;
+    if (status != DeliveryStatus.pending && status != DeliveryStatus.assigned) {
+      return false;
+    }
+    return scheduled.isBefore(now ?? DateTime.now());
+  }
 }

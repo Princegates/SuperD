@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/providers/core_providers.dart';
@@ -290,6 +291,13 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                           icon: Icons.notes_outlined,
                           label: 'Notes',
                           value: delivery.notes!,
+                        ),
+                      if (delivery.scheduledAt case final scheduledAt?)
+                        _InfoRow(
+                          icon: Icons.event_outlined,
+                          label: 'Scheduled',
+                          value: DateFormat('EEE d MMM, h:mm a')
+                              .format(scheduledAt),
                         ),
                     ],
                   ),

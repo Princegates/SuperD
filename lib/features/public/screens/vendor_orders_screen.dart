@@ -90,6 +90,17 @@ class _OrderCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text('${order.customerName} · ${order.dropoffAddress}'),
+            if (order.scheduledAt case final scheduledAt?) ...[
+              const SizedBox(height: 4),
+              Text(
+                'Scheduled ${DateFormat('d MMM, h:mm a').format(scheduledAt)}',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
             if (order.driverName != null) ...[
               const SizedBox(height: 6),
               InkWell(

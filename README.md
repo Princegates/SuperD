@@ -877,6 +877,43 @@ fires no matter which screen registered the vendor:
    - **Edge Function**: `notify-vendor-registered`
    - **HTTP Method**: `POST`
 
+**If the Webhooks page isn't there** (same situation as the driver
+application emails above - some projects only get a raw
+trigger-to-Postgres-function form under **Database → Triggers**, not the
+polished Edge-Function webhook picker): use the same `pg_net` fallback.
+`supabase/config.toml` already has `notify-vendor-registered` set to
+`verify_jwt = false` for this reason - redeploy it once that's in place,
+then from the **SQL Editor**:
+
+```sql
+create extension if not exists pg_net;
+
+create or replace function public.trigger_notify_vendor_registered()
+returns trigger
+language plpgsql
+as $$
+begin
+  perform net.http_post(
+    url := 'https://your-project-ref.supabase.co/functions/v1/notify-vendor-registered',
+    headers := '{"Content-type": "application/json"}'::jsonb,
+    body := jsonb_build_object('record', row_to_json(new))
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists notify_vendor_registered on public.vendors;
+create trigger notify_vendor_registered
+after insert on public.vendors
+for each row
+execute function public.trigger_notify_vendor_registered();
+```
+
+Same debugging approach too - `pg_net` sends this asynchronously, so
+check what actually happened with
+`select * from net._http_response order by created desc limit 5;`
+in the SQL Editor.
+
 If a vendor didn't give an email, or `RESEND_API_KEY`/`APP_BASE_URL` isn't
 set, or the send fails, nothing breaks - registration still succeeds; the
 failure is only visible in the function's logs

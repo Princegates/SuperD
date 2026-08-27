@@ -1,4 +1,4 @@
-# SuperD: per-function Supabase config. Only these two functions need an
+# SuperD: per-function Supabase config. Only these three functions need an
 # entry here - they're only ever called by this project's own database
 # triggers (see 0014_driver_self_signup.sql's webhook setup in the
 # README), never by an end-user client, and they don't trust the caller's
@@ -8,11 +8,13 @@
 # documented in the README has no clean way to supply one reliably.
 #
 # Every other function (admin-create-driver, admin-delete-driver,
-# admin-update-email, notify-driver-assigned, notify-vendor-registered)
-# keeps the platform default (verify_jwt = true) - those either check the
-# caller's role themselves or are invoked through the dashboard's
-# "Supabase Edge Functions" webhook type, which attaches a valid token
-# automatically.
+# admin-update-email, notify-driver-assigned) keeps the platform default
+# (verify_jwt = true) - those either check the caller's role themselves or
+# are invoked through the dashboard's "Supabase Edge Functions" webhook
+# type, which attaches a valid token automatically. notify-vendor-registered
+# was originally in that second group too, but plenty of projects don't get
+# the polished Webhooks UI (just a raw trigger-to-Postgres-function form
+# instead), so it needs the same pg_net fallback as the other two.
 
 project_id = "atpokstjgdhdcbnwrbrp"
 
@@ -20,4 +22,7 @@ project_id = "atpokstjgdhdcbnwrbrp"
 verify_jwt = false
 
 [functions.notify-driver-approved]
+verify_jwt = false
+
+[functions.notify-vendor-registered]
 verify_jwt = false

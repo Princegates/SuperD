@@ -66,6 +66,7 @@ supabase/
     0020_vendors_realtime.sql       live-updates vendors, for the new-vendor in-app notification
     0021_sms_log.sql                logs SMS send attempts per vendor, for usage-based billing (schema only - not yet wired to a UI)
     0022_delivery_pricing.sql       base_fare/price_per_km on app_settings + automatic pricing in submit_delivery_request
+    0023_driver_reject_and_undo.sql lets a driver reject an unaccepted assignment or undo their last status tap
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -768,6 +769,34 @@ Customer Delivery Price = Base Delivery Fare + Distance Charge
 Deliveries created directly by a dispatcher/super admin (the "New
 delivery" form in the admin console) are unaffected — those already let
 the dispatcher set the delivery fee by hand.
+
+## Driver actions: reject and undo
+
+A driver's delivery detail screen has a "⋮" menu (top right) with up to two
+context-sensitive actions, next to the main "Accept & begin trip" / "Mark
+..." button:
+
+- **Reject delivery** - only shown while the delivery is still `assigned`
+  (i.e. before the driver has tapped "Accept & begin trip"). Sends it back
+  to the unassigned pool (`pending`, no driver) for a dispatcher to give to
+  someone else, and prompts for confirmation first since it's not
+  reversible from the driver's side. The dispatcher/super admin console
+  gets a "Delivery #... is unassigned and needs a new driver" notification
+  the moment this happens, the same way a brand-new customer request does.
+- **Undo - back to "..."** - shown once the driver has moved past
+  `assigned` (`in_transit`, `picked_up`, or `delivered`), for walking back
+  one step if they tapped the wrong button: `in_transit` → `assigned`,
+  `picked_up` → `in_transit`, `delivered` → `picked_up`.
+
+Rejecting needs a small, deliberately narrow exception in
+`enforce_delivery_update()` (`0023_driver_reject_and_undo.sql`): normally a
+driver can never change `assigned_driver_id` (that's what stops them
+reassigning jobs to themselves or anyone else), but this carves out the one
+case of a driver clearing *their own* assignment while it's still
+`assigned` - re-checked server-side in `driver_reject_delivery()`, not just
+trusted from the client. Undo needs no schema change at all - a driver can
+already freely set `status` on their own assigned deliveries, so it's just
+the same status-update call with the previous status.
 
 ## App theme
 

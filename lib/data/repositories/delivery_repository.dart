@@ -111,6 +111,20 @@ class DeliveryRepository {
   Future<void> cancel(String deliveryId) =>
       updateStatus(deliveryId: deliveryId, status: DeliveryStatus.cancelled);
 
+  /// Sends a delivery that's assigned to the calling driver, but not yet
+  /// accepted (still 'assigned' - before "Accept & begin trip"), back to
+  /// the unassigned pool for a dispatcher to give to someone else. Goes
+  /// through the `driver_reject_delivery` RPC rather than a plain table
+  /// update, since `assigned_driver_id` is otherwise locked against
+  /// anyone but a dispatcher - see `enforce_delivery_update()` in
+  /// `0023_driver_reject_and_undo.sql`.
+  Future<void> rejectDelivery(String deliveryId) async {
+    await _client.rpc(
+      'driver_reject_delivery',
+      params: {'p_delivery_id': deliveryId},
+    );
+  }
+
   Future<void> setNotes({
     required String deliveryId,
     required String notes,

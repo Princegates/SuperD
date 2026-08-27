@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -17,17 +18,107 @@ import '../../../shared/widgets/map_preview.dart';
 import '../../../shared/widgets/payment_card.dart';
 import '../../../shared/widgets/status_badge.dart';
 
-class DeliveryDetailDriverScreen extends ConsumerWidget {
+class DeliveryDetailDriverScreen extends ConsumerStatefulWidget {
   const DeliveryDetailDriverScreen({super.key, required this.deliveryId});
 
   final String deliveryId;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final deliveryState = ref.watch(deliveryByIdProvider(deliveryId));
+  ConsumerState<DeliveryDetailDriverScreen> createState() =>
+      _DeliveryDetailDriverScreenState();
+}
+
+class _DeliveryDetailDriverScreenState
+    extends ConsumerState<DeliveryDetailDriverScreen> {
+  bool _isMenuActionRunning = false;
+
+  Future<void> _confirmReject(Delivery delivery) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject this delivery?'),
+        content: const Text(
+          "It'll go back to the pool, unassigned, for a dispatcher to give "
+          'to another driver.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isMenuActionRunning = true);
+    try {
+      await ref.read(deliveryRepositoryProvider).rejectDelivery(delivery.id);
+      if (mounted) context.pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not reject this delivery. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isMenuActionRunning = false);
+    }
+  }
+
+  Future<void> _undo(Delivery delivery, DeliveryStatus previous) async {
+    setState(() => _isMenuActionRunning = true);
+    try {
+      await ref
+          .read(deliveryRepositoryProvider)
+          .updateStatus(deliveryId: delivery.id, status: previous);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not undo. Please try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isMenuActionRunning = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final deliveryState = ref.watch(deliveryByIdProvider(widget.deliveryId));
+    final delivery = deliveryState.valueOrNull;
+    final canReject = delivery?.status == DeliveryStatus.assigned;
+    final previousStatus = delivery?.status.previousForDriver;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Delivery')),
+      appBar: AppBar(
+        title: const Text('Delivery'),
+        actions: [
+          if (delivery != null && (canReject || previousStatus != null))
+            PopupMenuButton<VoidCallback>(
+              enabled: !_isMenuActionRunning,
+              onSelected: (action) => action(),
+              itemBuilder: (context) => [
+                if (canReject)
+                  PopupMenuItem(
+                    value: () => _confirmReject(delivery),
+                    child: const Text('Reject delivery'),
+                  ),
+                if (previousStatus != null)
+                  PopupMenuItem(
+                    value: () => _undo(delivery, previousStatus),
+                    child: Text('Undo - back to "${previousStatus.label}"'),
+                  ),
+              ],
+            ),
+        ],
+      ),
       body: AsyncValueView<Delivery?>(
         value: deliveryState,
         data: (delivery) {

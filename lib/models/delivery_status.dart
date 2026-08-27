@@ -69,4 +69,16 @@ enum DeliveryStatus {
     DeliveryStatus.pickedUp => DeliveryStatus.delivered,
     _ => null,
   };
+
+  /// The reverse of [nextForDriver] - lets a driver undo a status they
+  /// tapped by mistake, one step at a time. `assigned` has no previous step
+  /// here on purpose: backing out of an assignment entirely is "reject",
+  /// not "undo" - see `driver_reject_delivery` in
+  /// `0023_driver_reject_and_undo.sql`.
+  DeliveryStatus? get previousForDriver => switch (this) {
+    DeliveryStatus.inTransit => DeliveryStatus.assigned,
+    DeliveryStatus.pickedUp => DeliveryStatus.inTransit,
+    DeliveryStatus.delivered => DeliveryStatus.pickedUp,
+    _ => null,
+  };
 }

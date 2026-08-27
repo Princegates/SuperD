@@ -111,25 +111,46 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
             ref.watch(currentProfileProvider).valueOrNull?.role ==
             UserRole.superAdmin;
 
-        // The full delivery list re-emits on every change - only ids that
-        // weren't there last time are a genuinely new order, whether it
-        // came from a vendor's customer link or was created here directly.
-        // previous == null (still loading) is skipped so the first load
-        // doesn't fire one notification per already-existing delivery.
+        // The full delivery list re-emits on every change - diffing by id
+        // tells apart a genuinely new order (never seen this id before)
+        // from an existing delivery whose status just changed. previous ==
+        // null (still loading) is skipped so the first load doesn't fire
+        // one notification per already-existing delivery.
         ref.listen<AsyncValue<List<Delivery>>>(allDeliveriesProvider, (
           previous,
           next,
         ) {
-          final priorIds = previous?.valueOrNull?.map((d) => d.id).toSet();
+          final priorById = {
+            for (final d in previous?.valueOrNull ?? <Delivery>[]) d.id: d,
+          };
           final current = next.valueOrNull;
-          if (priorIds == null || current == null) return;
+          if (previous?.valueOrNull == null || current == null) return;
           for (final delivery in current) {
-            if (delivery.status == DeliveryStatus.pending &&
-                !priorIds.contains(delivery.id)) {
+            final prior = priorById[delivery.id];
+            if (prior == null) {
+              if (delivery.status == DeliveryStatus.pending) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'New delivery request from ${delivery.customerName}',
+                    ),
+                    action: SnackBarAction(
+                      label: 'View',
+                      onPressed: () =>
+                          context.push('/admin/delivery/${delivery.id}'),
+                    ),
+                  ),
+                );
+              }
+            } else if (prior.status == DeliveryStatus.assigned &&
+                delivery.status == DeliveryStatus.pending) {
+              // A driver rejected it (or it was manually unassigned) -
+              // either way it needs a new driver.
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(
-                    'New delivery request from ${delivery.customerName}',
+                    'Delivery #${delivery.trackingCode} is unassigned and '
+                    'needs a new driver',
                   ),
                   action: SnackBarAction(
                     label: 'View',

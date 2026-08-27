@@ -772,21 +772,20 @@ the dispatcher set the delivery fee by hand.
 
 ## Driver actions: reject and undo
 
-A driver's delivery detail screen has a "⋮" menu (top right) with up to two
-context-sensitive actions, next to the main "Accept & begin trip" / "Mark
-..." button:
-
-- **Reject delivery** - only shown while the delivery is still `assigned`
-  (i.e. before the driver has tapped "Accept & begin trip"). Sends it back
-  to the unassigned pool (`pending`, no driver) for a dispatcher to give to
-  someone else, and prompts for confirmation first since it's not
-  reversible from the driver's side. The dispatcher/super admin console
-  gets a "Delivery #... is unassigned and needs a new driver" notification
-  the moment this happens, the same way a brand-new customer request does.
-- **Undo - back to "..."** - shown once the driver has moved past
-  `assigned` (`in_transit`, `picked_up`, or `delivered`), for walking back
-  one step if they tapped the wrong button: `in_transit` → `assigned`,
-  `picked_up` → `in_transit`, `delivered` → `picked_up`.
+- **Reject** - a full-size button right next to "Accept & begin trip" while
+  the delivery is still `assigned` (i.e. before the driver has accepted it) -
+  equal billing with accept, since it's a real fork for the driver to make,
+  not a buried correction. Sends the delivery back to the unassigned pool
+  (`pending`, no driver) for a dispatcher to give to someone else, and
+  prompts for confirmation first since it's not reversible from the
+  driver's side. The dispatcher/super admin console gets a "Delivery #... is
+  unassigned and needs a new driver" notification the moment this happens,
+  the same way a brand-new customer request does.
+- **Undo** - tucked in the "⋮" menu (top right) once the driver has moved
+  past `assigned` (`in_transit`, `picked_up`, or `delivered`), for walking
+  back one step if they tapped the wrong button: `in_transit` → `assigned`,
+  `picked_up` → `in_transit`, `delivered` → `picked_up`. Kept out of the way
+  since it's a correction, not part of the main flow.
 
 Rejecting needs a small, deliberately narrow exception in
 `enforce_delivery_update()` (`0023_driver_reject_and_undo.sql`): normally a

@@ -30,50 +30,10 @@ class DeliveryDetailDriverScreen extends ConsumerStatefulWidget {
 
 class _DeliveryDetailDriverScreenState
     extends ConsumerState<DeliveryDetailDriverScreen> {
-  bool _isMenuActionRunning = false;
-
-  Future<void> _confirmReject(Delivery delivery) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reject this delivery?'),
-        content: const Text(
-          "It'll go back to the pool, unassigned, for a dispatcher to give "
-          'to another driver.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Reject'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-
-    setState(() => _isMenuActionRunning = true);
-    try {
-      await ref.read(deliveryRepositoryProvider).rejectDelivery(delivery.id);
-      if (mounted) context.pop();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not reject this delivery. Please try again.'),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isMenuActionRunning = false);
-    }
-  }
+  bool _isUndoing = false;
 
   Future<void> _undo(Delivery delivery, DeliveryStatus previous) async {
-    setState(() => _isMenuActionRunning = true);
+    setState(() => _isUndoing = true);
     try {
       await ref
           .read(deliveryRepositoryProvider)
@@ -85,7 +45,7 @@ class _DeliveryDetailDriverScreenState
         );
       }
     } finally {
-      if (mounted) setState(() => _isMenuActionRunning = false);
+      if (mounted) setState(() => _isUndoing = false);
     }
   }
 
@@ -93,28 +53,26 @@ class _DeliveryDetailDriverScreenState
   Widget build(BuildContext context) {
     final deliveryState = ref.watch(deliveryByIdProvider(widget.deliveryId));
     final delivery = deliveryState.valueOrNull;
-    final canReject = delivery?.status == DeliveryStatus.assigned;
+    // "Reject" (only reachable from 'assigned') is a visible button on the
+    // detail body itself, right next to "Accept & begin trip" - see
+    // _DriverDetailBody. Undo stays tucked in this overflow menu since it's
+    // a corrective action for every other status, not a step in the main
+    // flow.
     final previousStatus = delivery?.status.previousForDriver;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Delivery'),
         actions: [
-          if (delivery != null && (canReject || previousStatus != null))
+          if (delivery != null && previousStatus != null)
             PopupMenuButton<VoidCallback>(
-              enabled: !_isMenuActionRunning,
+              enabled: !_isUndoing,
               onSelected: (action) => action(),
               itemBuilder: (context) => [
-                if (canReject)
-                  PopupMenuItem(
-                    value: () => _confirmReject(delivery),
-                    child: const Text('Reject delivery'),
-                  ),
-                if (previousStatus != null)
-                  PopupMenuItem(
-                    value: () => _undo(delivery, previousStatus),
-                    child: Text('Undo - back to "${previousStatus.label}"'),
-                  ),
+                PopupMenuItem(
+                  value: () => _undo(delivery, previousStatus),
+                  child: Text('Undo - back to "${previousStatus.label}"'),
+                ),
               ],
             ),
         ],
@@ -144,6 +102,7 @@ class _DriverDetailBody extends ConsumerStatefulWidget {
 class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
   bool _isUpdatingStatus = false;
   bool _isUploadingPhoto = false;
+  bool _isRejecting = false;
 
   Future<void> _advanceStatus(DeliveryStatus next) async {
     setState(() => _isUpdatingStatus = true);
@@ -156,6 +115,48 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
       }
     } finally {
       if (mounted) setState(() => _isUpdatingStatus = false);
+    }
+  }
+
+  Future<void> _confirmReject() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reject this delivery?'),
+        content: const Text(
+          "It'll go back to the pool, unassigned, for a dispatcher to give "
+          'to another driver.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Reject'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isRejecting = true);
+    try {
+      await ref
+          .read(deliveryRepositoryProvider)
+          .rejectDelivery(widget.delivery.id);
+      if (mounted) context.pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not reject this delivery. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isRejecting = false);
     }
   }
 
@@ -340,43 +341,109 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
           top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-            child: Row(
-              children: [
-                if (navigateTarget != null) ...[
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () => launchNavigation(
-                        lat: navigateTarget.latitude,
-                        lng: navigateTarget.longitude,
-                      ),
-                      icon: const Icon(Icons.directions_outlined),
-                      label: const Text('Navigate'),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                if (nextStatus != null)
-                  Expanded(
-                    flex: 2,
-                    child: ElevatedButton.icon(
-                      onPressed: _isUpdatingStatus
-                          ? null
-                          : () => _advanceStatus(nextStatus),
-                      icon: _isUpdatingStatus
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
+            child: delivery.status == DeliveryStatus.assigned
+                // Before a driver has accepted, reject deserves equal
+                // billing next to accept, not a buried menu item - it's a
+                // real fork, not a correction.
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _isRejecting || _isUpdatingStatus
+                                  ? null
+                                  : _confirmReject,
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.danger,
+                                side: const BorderSide(color: AppTheme.danger),
                               ),
-                            )
-                          : Icon(nextStatus.icon),
-                      label: Text(actionLabel),
-                    ),
+                              icon: _isRejecting
+                                  ? const SizedBox(
+                                      height: 18,
+                                      width: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.close),
+                              label: const Text('Reject'),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          if (nextStatus != null)
+                            Expanded(
+                              flex: 2,
+                              child: ElevatedButton.icon(
+                                onPressed: _isRejecting || _isUpdatingStatus
+                                    ? null
+                                    : () => _advanceStatus(nextStatus),
+                                icon: _isUpdatingStatus
+                                    ? const SizedBox(
+                                        height: 18,
+                                        width: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : Icon(nextStatus.icon),
+                                label: Text(actionLabel),
+                              ),
+                            ),
+                        ],
+                      ),
+                      if (navigateTarget != null) ...[
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () => launchNavigation(
+                            lat: navigateTarget.latitude,
+                            lng: navigateTarget.longitude,
+                          ),
+                          icon: const Icon(Icons.directions_outlined),
+                          label: const Text('Navigate'),
+                        ),
+                      ],
+                    ],
+                  )
+                : Row(
+                    children: [
+                      if (navigateTarget != null) ...[
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () => launchNavigation(
+                              lat: navigateTarget.latitude,
+                              lng: navigateTarget.longitude,
+                            ),
+                            icon: const Icon(Icons.directions_outlined),
+                            label: const Text('Navigate'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                      ],
+                      if (nextStatus != null)
+                        Expanded(
+                          flex: 2,
+                          child: ElevatedButton.icon(
+                            onPressed: _isUpdatingStatus
+                                ? null
+                                : () => _advanceStatus(nextStatus),
+                            icon: _isUpdatingStatus
+                                ? const SizedBox(
+                                    height: 18,
+                                    width: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : Icon(nextStatus.icon),
+                            label: Text(actionLabel),
+                          ),
+                        ),
+                    ],
                   ),
-              ],
-            ),
           ),
         ),
       ],

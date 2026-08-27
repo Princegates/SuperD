@@ -1,7 +1,29 @@
+/// The two secrets `register_vendor` hands back - a public [code] to share
+/// with customers, and a private [ordersCode] for the vendor's own "view
+/// all my orders" page. See `0027_separate_vendor_orders_code.sql`.
+class VendorRegistration {
+  final String code;
+  final String ordersCode;
+
+  const VendorRegistration({required this.code, required this.ordersCode});
+
+  factory VendorRegistration.fromMap(Map<String, dynamic> map) {
+    return VendorRegistration(
+      code: map['code'] as String,
+      ordersCode: map['orders_code'] as String,
+    );
+  }
+}
+
 /// A vendor as seen by dispatchers/super admins managing the roster.
 class Vendor {
   final String id;
   final String code;
+
+  /// A SEPARATE secret from [code] - only for this vendor's own "view all
+  /// my orders" page. Never shown or sent to a customer - see
+  /// `vendors.orders_code` in `0027_separate_vendor_orders_code.sql`.
+  final String ordersCode;
   final String vendorName;
   final String? zoneId;
   final String? zoneName;
@@ -15,6 +37,7 @@ class Vendor {
   const Vendor({
     required this.id,
     required this.code,
+    required this.ordersCode,
     required this.vendorName,
     required this.phone,
     required this.createdAt,
@@ -31,6 +54,7 @@ class Vendor {
     return Vendor(
       id: map['id'] as String,
       code: map['code'] as String,
+      ordersCode: map['orders_code'] as String? ?? '',
       vendorName: map['vendor_name'] as String? ?? '',
       zoneId: map['zone_id'] as String?,
       zoneName: zone?['name'] as String?,

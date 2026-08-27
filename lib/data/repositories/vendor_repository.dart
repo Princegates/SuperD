@@ -144,7 +144,13 @@ class VendorRepository {
   /// [email], when given, gets the vendor their link by email automatically
   /// - see `notify-vendor-registered` (a Database Webhook on this table's
   /// insert, documented in the README).
-  Future<String> registerVendor({
+  ///
+  /// Returns two SEPARATE secrets: [VendorRegistration.code] is the public
+  /// link to share with customers, and [VendorRegistration.ordersCode] is
+  /// a private one for the vendor's own "view all my orders" page - never
+  /// give that one to a customer, or they can see every other customer's
+  /// order for this vendor too. See `0027_separate_vendor_orders_code.sql`.
+  Future<VendorRegistration> registerVendor({
     required String vendorName,
     required double locationLat,
     required double locationLng,
@@ -153,7 +159,7 @@ class VendorRepository {
     String? email,
     String? createdBy,
   }) async {
-    final code = await _client.rpc(
+    final rows = await _client.rpc(
       'register_vendor',
       params: {
         'vendor_name': vendorName,
@@ -164,8 +170,8 @@ class VendorRepository {
         'email': email,
         'created_by': createdBy,
       },
-    );
-    return code as String;
+    ) as List;
+    return VendorRegistration.fromMap(rows.first as Map<String, dynamic>);
   }
 
   /// Looks up a vendor by their public code - null if it doesn't exist.
@@ -242,27 +248,56 @@ class VendorRepository {
         .eq('id', zoneId);
   }
 
-  /// A vendor's own order history - powers their tracking page.
-  Future<List<VendorDelivery>> fetchVendorDeliveries(String code) async {
+  /// A vendor's own order history - powers their private orders page.
+  /// [ordersCode] is the vendor's own secret (never the public [code] a
+  /// customer receives) - see `0027_separate_vendor_orders_code.sql`.
+  Future<List<VendorDelivery>> fetchVendorDeliveries(String ordersCode) async {
     final rows = await _client.rpc(
       'get_vendor_deliveries',
-      params: {'p_code': code},
+      params: {'p_orders_code': ordersCode},
     ) as List;
     return rows
         .map((row) => VendorDelivery.fromMap(row as Map<String, dynamic>))
         .toList();
   }
 
-  /// Live version of [fetchVendorDeliveries], for the order-tracking page
-  /// so a customer sees a status change (assigned, picked up, delivered)
-  /// without pulling to refresh. This is polled rather than true Postgres
-  /// realtime - the page is anonymous/no-login, and `deliveries` has no
-  /// anon read policy at all (only this scoped, code-gated RPC), so
-  /// there's no table to subscribe to without opening up direct access
-  /// that would let anyone enumerate other vendors' orders.
-  Stream<List<VendorDelivery>> watchVendorDeliveries(String code) async* {
+  /// Live version of [fetchVendorDeliveries], so a vendor sees a status
+  /// change (assigned, picked up, delivered) without pulling to refresh.
+  /// This is polled rather than true Postgres realtime - the page is
+  /// anonymous/no-login, and `deliveries` has no anon read policy at all
+  /// (only this scoped RPC), so there's no table to subscribe to without
+  /// opening up direct access that would let anyone enumerate other
+  /// vendors' orders.
+  Stream<List<VendorDelivery>> watchVendorDeliveries(String ordersCode) async* {
     while (true) {
-      yield await fetchVendorDeliveries(code);
+      yield await fetchVendorDeliveries(ordersCode);
+      await Future<void>.delayed(const Duration(seconds: 5));
+    }
+  }
+
+  /// A single delivery, scoped to the tracking code a customer was given
+  /// when they submitted it - never the vendor's full order list, so one
+  /// customer can never see another's order this way. Null if the code
+  /// doesn't match anything. See `get_delivery_by_tracking_code()` in
+  /// `0027_separate_vendor_orders_code.sql`.
+  Future<VendorDelivery?> fetchDeliveryByTrackingCode(
+    String trackingCode,
+  ) async {
+    final rows = await _client.rpc(
+      'get_delivery_by_tracking_code',
+      params: {'p_tracking_code': trackingCode},
+    ) as List;
+    if (rows.isEmpty) return null;
+    return VendorDelivery.fromMap(rows.first as Map<String, dynamic>);
+  }
+
+  /// Live version of [fetchDeliveryByTrackingCode] - same polling
+  /// approach as [watchVendorDeliveries].
+  Stream<VendorDelivery?> watchDeliveryByTrackingCode(
+    String trackingCode,
+  ) async* {
+    while (true) {
+      yield await fetchDeliveryByTrackingCode(trackingCode);
       await Future<void>.delayed(const Duration(seconds: 5));
     }
   }

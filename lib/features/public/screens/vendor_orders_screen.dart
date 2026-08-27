@@ -10,21 +10,25 @@ import '../../../shared/widgets/staggered_list_item.dart';
 import '../../../shared/widgets/status_badge.dart';
 import '../providers/public_providers.dart';
 
-/// A vendor's own order history - the same link they share with customers
-/// doubles as this tracking page (`/v/:code/orders`). No login required.
+/// A vendor's own order history - reachable only with their PRIVATE
+/// `ordersCode` (`/vendor-orders/:ordersCode`), a separate secret from the
+/// public link their customers use to place orders. No login required,
+/// but this code is never shown to a customer - see
+/// `0027_separate_vendor_orders_code.sql`.
 class VendorOrdersScreen extends ConsumerWidget {
-  const VendorOrdersScreen({super.key, required this.code});
+  const VendorOrdersScreen({super.key, required this.ordersCode});
 
-  final String code;
+  final String ordersCode;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final deliveriesState = ref.watch(vendorDeliveriesProvider(code));
+    final deliveriesState = ref.watch(vendorDeliveriesProvider(ordersCode));
 
     return Scaffold(
       appBar: AppBar(title: const Text('Your orders')),
       body: RefreshIndicator(
-        onRefresh: () async => ref.invalidate(vendorDeliveriesProvider(code)),
+        onRefresh: () async =>
+            ref.invalidate(vendorDeliveriesProvider(ordersCode)),
         child: AsyncValueView<List<VendorDelivery>>(
           value: deliveriesState,
           data: (orders) {

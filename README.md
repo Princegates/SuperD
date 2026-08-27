@@ -70,6 +70,7 @@ supabase/
     0024_seed_accra_zones.sql       optional seed data: 10 Accra-area zones with starter named locations
     0025_driver_categories_and_status.sql  vehicle_type, is_online, is_frozen on profiles + the guards around them
     0026_zone_pricing_and_auto_assign.sql   per-zone pricing, a low-high price estimate, and same-zone auto-assignment
+    0027_separate_vendor_orders_code.sql    security fix: splits the vendor's public link from their private "view all orders" link
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -960,32 +961,50 @@ A **vendor** is a business (a restaurant, a shop, ...) that wants its own
 customers to be able to request a delivery without ever installing the app
 or having a SuperD account. Registering a vendor - either through the
 public signup page or the dispatcher/super-admin "Add vendor" screen -
-generates a unique link like `https://your-app.example/v/AB12CD34EF`. That
-link:
+generates **two separate, unrelated links** (`register_vendor` hands back
+both at once):
 
-- Opens a public delivery-request form ("Ordering from *Vendor name*") for
-  the vendor's own customers to fill in their name, phone, and drop-off
-  location. Pickup is always the vendor's registered location, so the
-  customer only ever supplies the drop-off - it lands as a `pending`
-  delivery for a dispatcher to assign a driver to, same as one entered
-  manually.
-- Doubles as the vendor's own order-tracking page at
-  `.../v/AB12CD34EF/orders` - a live list of every delivery placed through
-  that link, its status, and the assigned driver's name/phone once one's
-  on the way. "Live" here means polled every 5 seconds, not true Postgres
-  realtime - this page is anonymous/no-login, and `deliveries` has no anon
-  read policy at all (only the scoped RPC below), so there's no table to
-  subscribe to without opening up direct access that would let anyone
-  enumerate other vendors' orders. A status change animates in (color,
-  icon, and label cross-fade) rather than snapping, and each order card
-  eases into place the first time it appears.
+- **The public link**, e.g. `https://your-app.example/v/AB12CD34EF` -
+  share this with the vendor's own customers. It opens a delivery-request
+  form ("Ordering from *Vendor name*") for them to fill in their name,
+  phone, and drop-off location. Pickup is always the vendor's registered
+  location, so the customer only ever supplies the drop-off. Depending on
+  driver availability in the vendor's zone it's either auto-assigned
+  immediately or lands as `pending` for a dispatcher to assign by hand
+  (see **Automatic same-zone driver assignment** above).
+- **The private orders link**, e.g.
+  `https://your-app.example/vendor-orders/QK7RS2T9WXYZ` - for the vendor
+  themselves only, **never** the customers. It's a live list of every
+  delivery ever placed through their public link, its status, and the
+  assigned driver's name/phone once one's on the way.
 
-None of this needs a login. It's built on four Postgres functions
+These two links are deliberately separate secrets (`vendors.code` vs.
+`vendors.orders_code` - see `0027_separate_vendor_orders_code.sql`).
+Before that migration, both jobs were done by the same code, which meant
+any customer holding a vendor's ordering link could also open
+`.../orders` and see every *other* customer's name, phone, drop-off
+address, and driver's phone for that vendor - if you're running an older
+version of SuperD, apply that migration to close this. A customer tracking
+their *own* order instead uses a third, per-delivery link -
+`https://your-app.example/t/<trackingCode>` - shown right after they
+submit a request, which only ever shows that one delivery.
+
+"Live" on both the orders page and a customer's own tracking page means
+polled every 5 seconds, not true Postgres realtime - these pages are
+anonymous/no-login, and `deliveries` has no anon read policy at all (only
+the scoped RPCs below), so there's no table to subscribe to without
+opening up direct access that would let anyone enumerate other
+vendors'/customers' data. A status change animates in (color, icon, and
+label cross-fade) rather than snapping, and each order card eases into
+place the first time it appears.
+
+None of this needs a login. It's built on five Postgres functions
 (`register_vendor`, `get_vendor_by_code`, `submit_delivery_request`,
-`get_vendor_deliveries`) that Supabase's `anon` key is allowed to call -
-each one is scoped strictly to the single vendor matched by the code it's
-given, and there's no direct table access for `anon` at all, so there's no
-way to enumerate or read another vendor's data through it.
+`get_vendor_deliveries`, `get_delivery_by_tracking_code`) that Supabase's
+`anon` key is allowed to call - each one is scoped strictly to the single
+vendor/delivery matched by the code it's given, and there's no direct
+table access for `anon` at all, so there's no way to enumerate or read
+another vendor's or customer's data through it.
 
 ### Getting the link's domain right
 
@@ -1011,10 +1030,12 @@ not something you can actually hand a customer.
 ### Emailing a vendor their link
 
 A vendor can give an email address when registering (self-signup or the
-"Add vendor" screen). If they do, they're emailed their `/v/<code>` link
-the moment their record is created - one less thing for whoever registered
-them to remember to share. SMS delivery of the same link is planned as a
-follow-up; email comes first.
+"Add vendor" screen). If they do, they're emailed both their `/v/<code>`
+public link and their private `/vendor-orders/<ordersCode>` link (clearly
+labeled as private, never for customers) the moment their record is
+created - one less thing for whoever registered them to remember to
+share. SMS delivery of the same links is planned as a follow-up; email
+comes first.
 
 Like the customer SMS notification above, this is wired up as a
 **Supabase Database Webhook** (not called from the app itself), so it

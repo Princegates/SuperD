@@ -251,36 +251,50 @@ class _VendorCard extends ConsumerWidget {
               style: const TextStyle(color: Colors.black54),
             ),
             const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7F8FA),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: SelectableText(
-                      link,
-                      style: const TextStyle(fontSize: 13),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Copy link',
-                    icon: const Icon(Icons.copy, size: 18),
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: link));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Link copied')),
-                      );
-                    },
-                  ),
-                ],
-              ),
+            _LinkRow(link: link),
+            const SizedBox(height: 8),
+            Text(
+              "Private orders link (vendor only - never share with a customer):",
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
             ),
+            const SizedBox(height: 4),
+            _LinkRow(link: vendorOrdersLink(vendor.ordersCode)),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _LinkRow extends StatelessWidget {
+  const _LinkRow({required this.link});
+
+  final String link;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF7F8FA),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: SelectableText(link, style: const TextStyle(fontSize: 13)),
+          ),
+          IconButton(
+            tooltip: 'Copy link',
+            icon: const Icon(Icons.copy, size: 18),
+            onPressed: () {
+              Clipboard.setData(ClipboardData(text: link));
+              ScaffoldMessenger.of(context)
+                  .showSnackBar(const SnackBar(content: Text('Link copied')));
+            },
+          ),
+        ],
       ),
     );
   }

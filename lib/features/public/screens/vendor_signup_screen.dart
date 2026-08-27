@@ -6,6 +6,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/utils/vendor_link.dart';
@@ -34,7 +35,7 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
   bool _isGeocoding = false;
   bool _isSubmitting = false;
   String? _errorMessage;
-  String? _resultCode;
+  VendorRegistration? _registration;
 
   @override
   void dispose() {
@@ -88,7 +89,7 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
       _errorMessage = null;
     });
     try {
-      final code = await ref
+      final registration = await ref
           .read(vendorRepositoryProvider)
           .registerVendor(
             vendorName: _nameController.text.trim(),
@@ -98,7 +99,7 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
             email: _emailController.text.trim(),
             zoneId: _zoneId,
           );
-      if (mounted) setState(() => _resultCode = code);
+      if (mounted) setState(() => _registration = registration);
     } catch (e) {
       setState(() => _errorMessage = 'Could not register. Please try again.');
     } finally {
@@ -118,8 +119,8 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
             constraints: const BoxConstraints(maxWidth: 480),
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: _resultCode != null
-                  ? _SuccessCard(code: _resultCode!)
+              child: _registration != null
+                  ? _SuccessCard(registration: _registration!)
                   : Form(
                       key: _formKey,
                       child: Column(
@@ -247,13 +248,14 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
 }
 
 class _SuccessCard extends StatelessWidget {
-  const _SuccessCard({required this.code});
+  const _SuccessCard({required this.registration});
 
-  final String code;
+  final VendorRegistration registration;
 
   @override
   Widget build(BuildContext context) {
-    final link = vendorLink(code);
+    final link = vendorLink(registration.code);
+    final ordersLink = vendorOrdersLink(registration.ordersCode);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -267,42 +269,63 @@ class _SuccessCard extends StatelessWidget {
         const SizedBox(height: 6),
         const Text(
           'Share this link with your customers so they can request a '
-          "delivery. It also doubles as your order-tracking page - bookmark it.",
+          'delivery.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.black54),
         ),
         const SizedBox(height: 20),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SelectableText(
-                    link,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Copy link',
-                  icon: const Icon(Icons.copy),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: link));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Link copied')),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
+        _LinkCard(link: link),
+        const SizedBox(height: 24),
+        const Text(
+          'This second link is private - it shows every order ever placed '
+          "through your link above, so it's only for you. Never share it "
+          'with a customer.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.black54),
         ),
+        const SizedBox(height: 12),
+        _LinkCard(link: ordersLink),
         const SizedBox(height: 20),
         OutlinedButton(
-          onPressed: () => context.go('/v/$code/orders'),
+          onPressed: () =>
+              context.go('/vendor-orders/${registration.ordersCode}'),
           child: const Text('View my orders'),
         ),
       ],
+    );
+  }
+}
+
+class _LinkCard extends StatelessWidget {
+  const _LinkCard({required this.link});
+
+  final String link;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: SelectableText(
+                link,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Copy link',
+              icon: const Icon(Icons.copy),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: link));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('Link copied')));
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

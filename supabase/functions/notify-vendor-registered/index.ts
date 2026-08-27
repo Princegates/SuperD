@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
 
     const { data: vendor, error: vendorError } = await admin
       .from("vendors")
-      .select("vendor_name, code, email")
+      .select("vendor_name, code, orders_code, email")
       .eq("id", vendorId)
       .single();
     if (vendorError || !vendor) {
@@ -66,9 +66,14 @@ Deno.serve(async (req) => {
     }
 
     const appBaseUrl = Deno.env.get("APP_BASE_URL");
-    const link = appBaseUrl
-      ? `${appBaseUrl.replace(/\/+$/, "")}/v/${vendor.code}`
-      : null;
+    const base = appBaseUrl ? appBaseUrl.replace(/\/+$/, "") : null;
+    const link = base ? `${base}/v/${vendor.code}` : null;
+    // A SEPARATE secret from `link` above - only ever sent to the vendor
+    // themselves, never included in the staff broadcast below. Anyone
+    // holding it can see every order ever placed through the vendor's
+    // public link, including other customers' names/phones/addresses -
+    // see 0027_separate_vendor_orders_code.sql.
+    const ordersLink = base ? `${base}/vendor-orders/${vendor.orders_code}` : null;
 
     let sentToVendor: boolean | undefined;
     if (vendor.email && link) {
@@ -78,9 +83,18 @@ Deno.serve(async (req) => {
         `
           <p>Hi ${vendor.vendor_name},</p>
           <p>You're registered on SuperD. Share this link with your
-          customers - they'll use it to request a delivery from you, and
-          it also shows you your own orders:</p>
+          customers - they'll use it to request a delivery from you:</p>
           <p><a href="${link}">${link}</a></p>
+          ${
+            ordersLink
+              ? `
+          <p>This second link is private - it shows every order ever
+          placed through your link above, so it's only for you. Never
+          share it with a customer:</p>
+          <p><a href="${ordersLink}">${ordersLink}</a></p>
+          `
+              : ""
+          }
         `,
       );
     } else if (vendor.email && !link) {

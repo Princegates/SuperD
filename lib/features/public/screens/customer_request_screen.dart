@@ -180,7 +180,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   @override
   Widget build(BuildContext context) {
     if (_quote != null) {
-      return _SubmittedCard(code: widget.code, quote: _quote!);
+      return _SubmittedCard(quote: _quote!);
     }
 
     return SingleChildScrollView(
@@ -304,9 +304,8 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
 }
 
 class _SubmittedCard extends StatelessWidget {
-  const _SubmittedCard({required this.code, required this.quote});
+  const _SubmittedCard({required this.quote});
 
-  final String code;
   final DeliveryQuote quote;
 
   @override
@@ -341,7 +340,7 @@ class _SubmittedCard extends StatelessWidget {
           ],
           const SizedBox(height: 20),
           ElevatedButton(
-            onPressed: () => context.go('/v/$code/orders'),
+            onPressed: () => context.go('/t/${quote.trackingCode}'),
             child: const Text('Track this order'),
           ),
         ],

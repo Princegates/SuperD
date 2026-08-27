@@ -15,6 +15,19 @@ String vendorLink(String code) {
   return base.isEmpty ? '/v/$code' : '$base/v/$code';
 }
 
+/// The vendor's PRIVATE "view all my orders" link - a separate secret from
+/// [vendorLink] (see `vendors.orders_code` in
+/// `0027_separate_vendor_orders_code.sql`). Never share this with
+/// customers - anyone holding it can see every order ever placed through
+/// this vendor's public link, including other customers' names, phone
+/// numbers, and drop-off addresses.
+String vendorOrdersLink(String ordersCode) {
+  final base = publicBaseUrl();
+  return base.isEmpty
+      ? '/vendor-orders/$ordersCode'
+      : '$base/vendor-orders/$ordersCode';
+}
+
 /// The base URL vendor/customer links are built from, or '' if none could
 /// be determined - see [vendorLink].
 String publicBaseUrl() {

@@ -55,7 +55,7 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
   bool _isGeocoding = false;
   bool _isSubmitting = false;
   String? _errorMessage;
-  String? _resultCode;
+  VendorRegistration? _registration;
 
   String? _initialLocationLabel() {
     final vendor = widget.existing;
@@ -144,7 +144,7 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
         if (mounted) context.pop();
       } else {
         final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
-        final code = await repo.registerVendor(
+        final registration = await repo.registerVendor(
           vendorName: _nameController.text.trim(),
           locationLat: _lat!,
           locationLng: _lng!,
@@ -160,7 +160,7 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
           summary: 'Registered vendor ${_nameController.text.trim()}',
         );
         ref.invalidate(vendorsProvider);
-        if (mounted) setState(() => _resultCode = code);
+        if (mounted) setState(() => _registration = registration);
       }
     } catch (e) {
       setState(
@@ -184,8 +184,8 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20),
-          child: _resultCode != null
-              ? _VendorCreatedCard(code: _resultCode!)
+          child: _registration != null
+              ? _VendorCreatedCard(registration: _registration!)
               : Form(
                   key: _formKey,
                   child: Column(
@@ -320,13 +320,14 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
 }
 
 class _VendorCreatedCard extends StatelessWidget {
-  const _VendorCreatedCard({required this.code});
+  const _VendorCreatedCard({required this.registration});
 
-  final String code;
+  final VendorRegistration registration;
 
   @override
   Widget build(BuildContext context) {
-    final link = vendorLink(code);
+    final link = vendorLink(registration.code);
+    final ordersLink = vendorOrdersLink(registration.ordersCode);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -340,42 +341,62 @@ class _VendorCreatedCard extends StatelessWidget {
         const SizedBox(height: 6),
         const Text(
           'Share this link with the vendor - their customers use it to '
-          'request deliveries, and it also shows the vendor their own orders.',
+          'request deliveries.',
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.black54),
         ),
         const SizedBox(height: 20),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: SelectableText(
-                    link,
-                    style: const TextStyle(fontWeight: FontWeight.w700),
-                  ),
-                ),
-                IconButton(
-                  tooltip: 'Copy link',
-                  icon: const Icon(Icons.copy),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: link));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Link copied')),
-                    );
-                  },
-                ),
-              ],
-            ),
-          ),
+        _LinkCard(link: link),
+        const SizedBox(height: 24),
+        const Text(
+          "This second link is private to the vendor - it shows every "
+          "order ever placed through their link above. Give it to the "
+          "vendor only, never to a customer.",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.black54),
         ),
+        const SizedBox(height: 12),
+        _LinkCard(link: ordersLink),
         const SizedBox(height: 20),
         OutlinedButton(
           onPressed: () => context.pop(),
           child: const Text('Done'),
         ),
       ],
+    );
+  }
+}
+
+class _LinkCard extends StatelessWidget {
+  const _LinkCard({required this.link});
+
+  final String link;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            Expanded(
+              child: SelectableText(
+                link,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            IconButton(
+              tooltip: 'Copy link',
+              icon: const Icon(Icons.copy),
+              onPressed: () {
+                Clipboard.setData(ClipboardData(text: link));
+                ScaffoldMessenger.of(context)
+                    .showSnackBar(const SnackBar(content: Text('Link copied')));
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

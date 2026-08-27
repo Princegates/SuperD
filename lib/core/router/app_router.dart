@@ -17,6 +17,7 @@ import '../../features/driver/screens/driver_dashboard_screen.dart';
 import '../../features/driver/screens/driver_signup_screen.dart';
 import '../../features/driver/screens/pending_approval_screen.dart';
 import '../../features/public/screens/customer_request_screen.dart';
+import '../../features/public/screens/track_order_screen.dart';
 import '../../features/public/screens/vendor_orders_screen.dart';
 import '../../features/public/screens/vendor_signup_screen.dart';
 import '../../models/profile.dart';
@@ -76,11 +77,18 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final loc = state.matchedLocation;
 
-      // Public, no-login pages: a vendor's self-signup form, and the
-      // customer request/tracking pages behind a vendor's unique code.
-      // These must work for a completely anonymous visitor, so they're
-      // exempt from every session/role check below.
-      if (loc == '/vendor-signup' || loc.startsWith('/v/')) return null;
+      // Public, no-login pages: a vendor's self-signup form, the customer
+      // request page behind a vendor's public code, a vendor's own orders
+      // page behind their PRIVATE ordersCode, and a customer's single-
+      // order tracking page behind their tracking code. These must work
+      // for a completely anonymous visitor, so they're exempt from every
+      // session/role check below.
+      if (loc == '/vendor-signup' ||
+          loc.startsWith('/v/') ||
+          loc.startsWith('/vendor-orders/') ||
+          loc.startsWith('/t/')) {
+        return null;
+      }
 
       if (isLoading) {
         return loc == '/splash' ? null : '/splash';
@@ -213,15 +221,31 @@ final routerProvider = Provider<GoRouter>((ref) {
           key: state.pageKey,
           child: CustomerRequestScreen(code: state.pathParameters['code']!),
         ),
-        routes: [
-          GoRoute(
-            path: 'orders',
-            pageBuilder: (context, state) => fadeSlidePage(
-              key: state.pageKey,
-              child: VendorOrdersScreen(code: state.pathParameters['code']!),
-            ),
+      ),
+      // A customer's own single-order tracking page - scoped to the
+      // tracking code they were given at submission, never the vendor's
+      // full order list. See TrackOrderScreen's doc comment.
+      GoRoute(
+        path: '/t/:trackingCode',
+        pageBuilder: (context, state) => fadeSlidePage(
+          key: state.pageKey,
+          child: TrackOrderScreen(
+            trackingCode: state.pathParameters['trackingCode']!,
           ),
-        ],
+        ),
+      ),
+      // A vendor's own orders page - deliberately NOT nested under /v/:code
+      // any more, since that's the public code every customer already has.
+      // This is keyed by the vendor's separate, private ordersCode instead
+      // - see 0027_separate_vendor_orders_code.sql.
+      GoRoute(
+        path: '/vendor-orders/:ordersCode',
+        pageBuilder: (context, state) => fadeSlidePage(
+          key: state.pageKey,
+          child: VendorOrdersScreen(
+            ordersCode: state.pathParameters['ordersCode']!,
+          ),
+        ),
       ),
 
       GoRoute(

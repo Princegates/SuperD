@@ -5,9 +5,12 @@ import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gmap;
 import 'package:latlong2/latlong.dart';
 
+import '../utils/geocode_search.dart';
+
 /// Full-screen map for picking a point that isn't the device's own
-/// location - e.g. a dispatcher marking where a customer actually is.
-/// Returns the picked [LatLng] via [Navigator.pop], or null if cancelled.
+/// location - e.g. a dispatcher marking where a customer actually is, or a
+/// customer picking their own delivery address. Returns the picked
+/// [LatLng] via [Navigator.pop], or null if cancelled.
 class LocationPickerScreen extends StatefulWidget {
   const LocationPickerScreen({
     super.key,
@@ -24,7 +27,11 @@ class LocationPickerScreen extends StatefulWidget {
 
 class _LocationPickerScreenState extends State<LocationPickerScreen> {
   final Completer<gmap.GoogleMapController> _controller = Completer();
+  final _searchController = TextEditingController();
   LatLng? _picked;
+  List<GeocodeResult> _searchResults = const [];
+  bool _isSearching = false;
+  bool _isLocating = false;
 
   @override
   void initState() {
@@ -33,6 +40,26 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     if (widget.initialCenter == null) _centerOnDeviceLocation();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _moveCamera(LatLng target, {double zoom = 15}) async {
+    final controller = await _controller.future;
+    await controller.animateCamera(
+      gmap.CameraUpdate.newLatLngZoom(
+        gmap.LatLng(target.latitude, target.longitude),
+        zoom,
+      ),
+    );
+  }
+
+  /// Just re-centers the map on first load, if there's nothing picked
+  /// yet - a starting point to orient from, not itself a pick. Use my
+  /// location (below) is the explicit, one-tap version of this that
+  /// actually places a pin.
   Future<void> _centerOnDeviceLocation() async {
     try {
       final permission = await Geolocator.checkPermission();
@@ -42,16 +69,76 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
       }
       final position = await Geolocator.getCurrentPosition();
       if (!mounted) return;
-      final controller = await _controller.future;
-      await controller.animateCamera(
-        gmap.CameraUpdate.newLatLngZoom(
-          gmap.LatLng(position.latitude, position.longitude),
-          15,
-        ),
-      );
+      await _moveCamera(LatLng(position.latitude, position.longitude));
     } catch (_) {
-      // No luck getting a starting point - the dispatcher can just pan/zoom.
+      // No luck getting a starting point - can just pan/zoom instead.
     }
+  }
+
+  Future<void> _useMyLocation() async {
+    setState(() => _isLocating = true);
+    try {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Location permission is off - allow it, or just tap the "
+                'map instead.',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+      final position = await Geolocator.getCurrentPosition();
+      final here = LatLng(position.latitude, position.longitude);
+      if (!mounted) return;
+      await _moveCamera(here);
+      setState(() {
+        _picked = here;
+        _searchResults = const [];
+      });
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Couldn't get your current location")),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLocating = false);
+    }
+  }
+
+  Future<void> _search() async {
+    final query = _searchController.text;
+    if (query.trim().isEmpty) return;
+    setState(() => _isSearching = true);
+    final results = await searchAddress(query);
+    if (!mounted) return;
+    setState(() {
+      _searchResults = results;
+      _isSearching = false;
+    });
+    if (results.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No matches for that address')),
+      );
+    }
+  }
+
+  Future<void> _selectResult(GeocodeResult result) async {
+    await _moveCamera(result.location);
+    setState(() {
+      _picked = result.location;
+      _searchResults = const [];
+      _searchController.text = result.displayName;
+    });
   }
 
   @override
@@ -86,8 +173,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
             onMapCreated: (controller) {
               if (!_controller.isCompleted) _controller.complete(controller);
             },
-            onTap: (point) =>
-                setState(() => _picked = LatLng(point.latitude, point.longitude)),
+            onTap: (point) => setState(() {
+              _picked = LatLng(point.latitude, point.longitude);
+              _searchResults = const [];
+            }),
             markers: {
               if (_picked != null)
                 gmap.Marker(
@@ -101,13 +190,96 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
           Positioned(
             left: 16,
             right: 16,
+            top: 16,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _searchController,
+                            decoration: const InputDecoration(
+                              border: InputBorder.none,
+                              hintText: 'Type an address to search',
+                            ),
+                            onSubmitted: (_) => _search(),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Search',
+                          icon: _isSearching
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.search),
+                          onPressed: _isSearching ? null : _search,
+                        ),
+                        IconButton(
+                          tooltip: 'Use my current location',
+                          icon: _isLocating
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.my_location),
+                          onPressed: _isLocating ? null : _useMyLocation,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_searchResults.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Card(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        padding: EdgeInsets.zero,
+                        itemCount: _searchResults.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final result = _searchResults[index];
+                          return ListTile(
+                            dense: true,
+                            leading: const Icon(Icons.place_outlined),
+                            title: Text(
+                              result.displayName,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onTap: () => _selectResult(result),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
             bottom: 16,
             child: Card(
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Text(
                   _picked == null
-                      ? 'Tap the map to drop a pin, then confirm.'
+                      ? 'Search an address, use your location, or tap the '
+                            'map to drop a pin - then confirm.'
                       : 'Pinned: ${_picked!.latitude.toStringAsFixed(5)}, '
                             '${_picked!.longitude.toStringAsFixed(5)}',
                   textAlign: TextAlign.center,

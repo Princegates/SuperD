@@ -240,6 +240,28 @@ Without a key configured for a given platform, the map screens still
 build and open, they just won't render any tiles - a good way to confirm
 everything else in the app still works before chasing down a key.
 
+### Picking a location: search, current location, or tap the map
+
+The location picker (used for a driver/dispatcher's pickup/drop-off pin,
+and by a customer on the public delivery-request form) offers three ways
+to set a point, all on the one Google Map:
+
+- **Type an address** into the search box at the top and press enter (or
+  the search icon) - up to 5 matches show in a dropdown; tapping one jumps
+  the map there and drops the pin.
+- **Use my location** - the location icon next to search grabs the
+  device's current GPS position (prompting for permission if needed) and
+  pins that directly, no tap required.
+- **Tap the map** directly, same as before.
+
+The address search runs on OpenStreetMap's free Nominatim service, same
+as the reverse-geocoding that already fills in an address from a dropped
+pin - deliberately not Google's Places Autocomplete, since that's a
+separate paid API on top of the Maps SDK/JavaScript API key above, and
+this app tries to avoid stacking additional billed services where a free
+one does the job. The map tiles themselves still render via Google Maps
+regardless of which of the three methods set the pin.
+
 ## 3. Run it
 
 ```bash

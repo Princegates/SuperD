@@ -301,6 +301,20 @@ links will 404:
    Without this, `https://your-domain.example/v/AB12CD34EF` 404s instead
    of opening the request form - only `/` (the bare domain) would work.
 
+**Deploying to Netlify specifically**: `netlify.toml` in this repo already
+has the right build command and publish directory (`build/web`) - connect
+the repo (Site configuration → deploy from Git) and it builds itself,
+including cloning the Flutter SDK fresh each build (Netlify's own image
+doesn't have Flutter installed). It reads `SUPABASE_URL` and
+`SUPABASE_ANON_KEY` from Netlify's own environment variables rather than
+`env.json` (which is gitignored and never reaches the build), so add both
+under Site configuration → Environment variables with the same values as
+your local `env.json`. Note that Netlify's UI-configured build settings
+take priority over `netlify.toml` if both are set - if you've previously
+set a custom Build command by hand in the dashboard, clear it (or update
+it to match) so the version-controlled one in `netlify.toml` actually
+takes effect.
+
 Once it's live, set `APP_BASE_URL` to that exact domain (see **Getting the
 link's domain right** below) so vendor links and their emails point at it.
 

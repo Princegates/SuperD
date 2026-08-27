@@ -67,6 +67,7 @@ supabase/
     0021_sms_log.sql                logs SMS send attempts per vendor, for usage-based billing (schema only - not yet wired to a UI)
     0022_delivery_pricing.sql       base_fare/price_per_km on app_settings + automatic pricing in submit_delivery_request
     0023_driver_reject_and_undo.sql lets a driver reject an unaccepted assignment or undo their last status tap
+    0024_seed_accra_zones.sql       optional seed data: 10 Accra-area zones with starter named locations
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -1075,6 +1076,17 @@ editable), and the × on any location to remove it. Drivers and vendors
 never see these individual locations - they still just pick the zone
 itself by name from a dropdown; the locations are reference data for
 whoever's defining what each zone actually covers.
+
+`0024_seed_accra_zones.sql` optionally seeds 10 ready-made zones covering
+the greater Accra area (Central Accra, Airport-East Legon,
+Osu-Cantonments-Labone, Legon-Madina-North Accra, Adenta-Aburi Corridor,
+Teshie-Nungua-Spintex, Tema-Kpone, West Accra, North-West Accra,
+Kasoa-Outer West), each with a starter list of named locations - a
+head start for a deployer operating there, not something the app assumes.
+Skip that migration (or just delete/rename what it adds afterwards from
+Console > Zones) if you're deploying somewhere else. The seeded locations
+have no coordinates - add one from the map for any that are worth pinning
+exactly.
 
 ### Rider suggestions
 

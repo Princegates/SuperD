@@ -79,6 +79,12 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   DeliveryQuote? _quote;
   PriceEstimate? _estimate;
 
+  /// The real road distance to [_lat]/[_lng] from the vendor's location,
+  /// fetched via Google Directions (see [_refreshRoadDistance]) - null
+  /// until that finishes (or if it fails), in which case pricing just
+  /// falls back to straight-line distance, computed server-side.
+  double? _roadDistanceKm;
+
   @override
   void initState() {
     super.initState();
@@ -105,12 +111,38 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
             code: widget.code,
             dropoffLat: _lat,
             dropoffLng: _lng,
+            roadDistanceKm: _roadDistanceKm,
           );
       if (mounted) setState(() => _estimate = estimate);
     } catch (_) {
       // An estimate is a nice-to-have, not required to submit - silently
       // skip it rather than blocking or alarming the customer over it.
     }
+  }
+
+  /// Fetches the real road distance from the vendor to [_lat]/[_lng] (via
+  /// Google Directions, see `VendorRepository.fetchRoadDistanceKm`), then
+  /// refreshes the price estimate with it. Silently does nothing if
+  /// either the vendor or the drop-off has no coordinates - pricing just
+  /// uses the server's straight-line fallback in that case.
+  Future<void> _refreshPricing() async {
+    final vendorLat = widget.vendor.locationLat;
+    final vendorLng = widget.vendor.locationLng;
+    if (_lat != null &&
+        _lng != null &&
+        vendorLat != null &&
+        vendorLng != null) {
+      final distanceKm = await ref
+          .read(vendorRepositoryProvider)
+          .fetchRoadDistanceKm(
+            originLat: vendorLat,
+            originLng: vendorLng,
+            destLat: _lat!,
+            destLng: _lng!,
+          );
+      if (mounted) setState(() => _roadDistanceKm = distanceKm);
+    }
+    await _refreshEstimate();
   }
 
   Future<void> _pickLocation() async {
@@ -130,9 +162,10 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
     setState(() {
       _lat = picked.latitude;
       _lng = picked.longitude;
+      _roadDistanceKm = null;
       _isGeocoding = true;
     });
-    unawaited(_refreshEstimate());
+    unawaited(_refreshPricing());
     final address = await reverseGeocode(picked.latitude, picked.longitude);
     if (mounted) {
       setState(() {
@@ -165,6 +198,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
             packageDescription: _packageController.text.trim().isEmpty
                 ? null
                 : _packageController.text.trim(),
+            roadDistanceKm: _roadDistanceKm,
           );
       if (mounted) setState(() => _quote = quote);
     } catch (e) {

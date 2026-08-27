@@ -187,8 +187,11 @@ class VendorRepository {
   /// Creates a pending delivery on behalf of a customer who opened a
   /// vendor's link - no login required. Returns the tracking code plus the
   /// price quoted server-side (see `submit_delivery_request` in
-  /// `0022_delivery_pricing.sql` - base fare + straight-line distance
-  /// charge, computed there rather than trusted from the client).
+  /// `0028_road_distance_pricing.sql` - base fare + distance charge,
+  /// computed there rather than trusted from the client). [roadDistanceKm],
+  /// when given (see [fetchRoadDistanceKm]), prices by real road distance
+  /// instead of straight-line - the server still enforces a straight-line
+  /// floor either way, so this can never be used to under-report distance.
   Future<DeliveryQuote> submitDeliveryRequest({
     required String code,
     required String customerName,
@@ -197,6 +200,7 @@ class VendorRepository {
     double? dropoffLat,
     double? dropoffLng,
     String? packageDescription,
+    double? roadDistanceKm,
   }) async {
     final rows = await _client.rpc(
       'submit_delivery_request',
@@ -208,6 +212,7 @@ class VendorRepository {
         'dropoff_lat': dropoffLat,
         'dropoff_lng': dropoffLng,
         'package_description': packageDescription,
+        'road_distance_km': roadDistanceKm,
       },
     ) as List;
     return DeliveryQuote.fromMap(rows.first as Map<String, dynamic>);
@@ -217,11 +222,13 @@ class VendorRepository {
   /// drop-off location - for showing a live estimate on the request form
   /// before a customer submits. Anonymous-safe, zone-aware, and capped at
   /// 50 server-side - see `get_delivery_price_estimate()` in
-  /// `0026_zone_pricing_and_auto_assign.sql`.
+  /// `0028_road_distance_pricing.sql`. [roadDistanceKm] - see
+  /// [submitDeliveryRequest].
   Future<PriceEstimate> fetchPriceEstimate({
     required String code,
     double? dropoffLat,
     double? dropoffLng,
+    double? roadDistanceKm,
   }) async {
     final rows = await _client.rpc(
       'get_delivery_price_estimate',
@@ -229,9 +236,39 @@ class VendorRepository {
         'p_code': code,
         'dropoff_lat': dropoffLat,
         'dropoff_lng': dropoffLng,
+        'road_distance_km': roadDistanceKm,
       },
     ) as List;
     return PriceEstimate.fromMap(rows.first as Map<String, dynamic>);
+  }
+
+  /// The real driving distance (km) between two points, via Google's
+  /// Directions API - called through the `get-road-distance` Edge
+  /// Function so the Directions API key never ships to any client. Null
+  /// on any failure (no route, network error, key not configured) so
+  /// callers fall back to the server's own straight-line calculation -
+  /// see `0028_road_distance_pricing.sql`.
+  Future<double?> fetchRoadDistanceKm({
+    required double originLat,
+    required double originLng,
+    required double destLat,
+    required double destLng,
+  }) async {
+    try {
+      final response = await _client.functions.invoke(
+        'get-road-distance',
+        body: {
+          'originLat': originLat,
+          'originLng': originLng,
+          'destLat': destLat,
+          'destLng': destLng,
+        },
+      );
+      final data = response.data as Map<String, dynamic>;
+      return (data['distanceKm'] as num?)?.toDouble();
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Super-admin only (enforced by RLS on `zones`) - sets or clears a

@@ -31,7 +31,11 @@ across all devices.
   manage yourself (Google's free monthly credit covers normal usage for
   most deployments). See **Google Maps setup** below.
 
-Everything except Google Maps runs with no paid service required.
+Everything except Google Maps runs with no paid service required. One
+optional feature - pricing customer deliveries by real road distance
+instead of straight-line - additionally needs the Directions API enabled
+on that same Google Cloud project; skip it and pricing just uses the free
+straight-line calculation instead. See **Road-distance pricing setup**.
 
 ## Project layout
 
@@ -71,6 +75,7 @@ supabase/
     0025_driver_categories_and_status.sql  vehicle_type, is_online, is_frozen on profiles + the guards around them
     0026_zone_pricing_and_auto_assign.sql   per-zone pricing, a low-high price estimate, and same-zone auto-assignment
     0027_separate_vendor_orders_code.sql    security fix: splits the vendor's public link from their private "view all orders" link
+    0028_road_distance_pricing.sql          prices by real road distance (Google Directions) when available, floored at straight-line
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -79,6 +84,7 @@ supabase/
     notify-vendor-registered/      Edge Function: emails a vendor their link when they register
     notify-driver-application/     Edge Function: emails staff when a driver signs themselves up
     notify-driver-approved/        Edge Function: emails a driver once their signup is approved
+    get-road-distance/             Edge Function: real driving distance via Google Directions, for pricing
 ```
 
 ## 1. Stand up Supabase
@@ -754,12 +760,17 @@ Customer Delivery Price = Base Delivery Fare + Distance Charge
   currency. A **zone** can override both for vendors registered in it —
   set from that zone's card in **Console > Zones** — falling back to the
   app-wide default when left blank (`0026_zone_pricing_and_auto_assign.sql`).
-- **Distance** is a straight-line (haversine great-circle) calculation
-  between the vendor's registered location and the customer's dropped pin
-  — not real road distance, and not a paid Distance Matrix API, consistent
-  with how this app already avoids Google Places for address search. If a
-  customer only types an address without dropping a pin, they're charged
-  just the base fare.
+- **Distance** is the real road distance from Google's Directions API when
+  it's available — fetched by the app itself (via the `get-road-distance`
+  Edge Function, see **Road-distance pricing setup** below) the moment a
+  drop-off pin is set — falling back to a straight-line (haversine
+  great-circle) calculation between the vendor's registered location and
+  the dropped pin when it isn't (Directions API not configured, the call
+  failed, or no pin was dropped at all - a typed-only address gets just
+  the base fare). Either way, the amount actually charged
+  (`submit_delivery_request`) never uses a distance smaller than the
+  straight-line one — a customer can't under-report distance to pay less,
+  since that's a physical impossibility for any real route.
 - **Capped at 50** (in the app's currency) — however far the drop-off,
   this is the most a single delivery is ever quoted or charged. The
   request form shows this as a low-high **range** (roughly 15% below the
@@ -781,6 +792,43 @@ Customer Delivery Price = Base Delivery Fare + Distance Charge
 Deliveries created directly by a dispatcher/super admin (the "New
 delivery" form in the admin console) are unaffected — those already let
 the dispatcher set the delivery fee by hand.
+
+### Road-distance pricing setup
+
+Unlike the rest of this app's Google Maps usage, road-distance pricing
+needs the **Directions API** enabled and billed on your Google Cloud
+project — a genuinely paid API (beyond the $200/month Maps Platform free
+credit, if your volume is high enough), unlike the free straight-line
+fallback this feature degrades to when it's not set up. Skip this section
+entirely to keep pricing straight-line-only at zero extra cost - nothing
+else in the app depends on it.
+
+1. **Enable the API**: [Google Cloud Console](https://console.cloud.google.com/)
+   → your existing Maps project → **APIs & Services → Library** → enable
+   **Directions API**.
+2. **Create a SEPARATE key for this** - don't reuse your Android/iOS/web
+   Maps keys. This one is called from a server (the Edge Function below),
+   never shipped to any client build, so it should be a plain,
+   unrestricted (or IP-restricted, if your Supabase project has a stable
+   egress IP) key used for nothing else. Reusing a referrer/app-restricted
+   client key here won't work - those restriction types don't apply to a
+   server-side call.
+3. **Set it as a secret and deploy the function**:
+   ```bash
+   supabase secrets set GOOGLE_MAPS_SERVER_API_KEY=your-server-key-here
+   supabase functions deploy get-road-distance
+   ```
+   (Self-hosted: add `GOOGLE_MAPS_SERVER_API_KEY` as an environment
+   variable on the `functions` container instead, same as
+   `RESEND_API_KEY`.)
+4. **Run `0028_road_distance_pricing.sql`** if you haven't already (see
+   the migrations list above).
+
+That's it - no app rebuild needed, and no other config. The customer
+request form calls this function itself (`VendorRepository.fetchRoadDistanceKm`)
+whenever a drop-off location is set; if the secret isn't configured, the
+function returns an error the app already treats the same as "no route
+found" - straight-line pricing, unaffected.
 
 ### Automatic same-zone driver assignment
 

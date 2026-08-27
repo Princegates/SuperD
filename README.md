@@ -929,6 +929,17 @@ background tracking and nothing persists once a driver's app is closed:
   (`0006_profiles_realtime.sql`), so a dispatcher/super admin's Live Map
   picks up every update automatically.
 
+**Nothing showing up on the Live Map / no location prompt on Android?**
+Android only shows the runtime permission dialog for a permission the app
+actually declares - `ACCESS_FINE_LOCATION`/`ACCESS_COARSE_LOCATION` in
+`android/app/src/main/AndroidManifest.xml`. Without them,
+`Geolocator.requestPermission()` resolves immediately without ever
+prompting the driver, so location never gets shared and nothing looks
+wrong in the UI. If you're on an emulator, also open **Extended controls →
+Location**, set a point (or play a route), and make sure "Location" is
+toggled on for the AVD - a fresh emulator has no location fix at all until
+you set one.
+
 ### In-app notifications
 
 Two more real-time alerts, both plain in-app `SnackBar`s (not push

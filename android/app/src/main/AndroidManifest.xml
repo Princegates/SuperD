@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Needed for the driver app's live location sharing (Live Map) and
+         the pickup/dropoff location picker. Without these, Android has
+         nothing to prompt for and Geolocator.requestPermission() silently
+         resolves without ever showing the permission dialog. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <application
         android:label="superd"
         android:name="${applicationName}"

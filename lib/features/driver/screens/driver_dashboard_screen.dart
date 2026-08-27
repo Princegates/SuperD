@@ -43,12 +43,20 @@ class _DriverDashboardScreenState
   /// tracking, nothing persists once the app is closed. A transient GPS or
   /// network failure is silently ignored; it just tries again next tick.
   Future<void> _startSharingLocation() async {
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      debugPrint(
+        'SuperD: location services are off on this device - live '
+        'location sharing needs them enabled.',
+      );
+      return;
+    }
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
+      debugPrint('SuperD: location permission not granted ($permission).');
       return;
     }
     _pushLocation();
@@ -70,8 +78,11 @@ class _DriverDashboardScreenState
             lat: position.latitude,
             lng: position.longitude,
           );
-    } catch (_) {
-      // Best-effort - skip this tick, try again on the next one.
+    } catch (e) {
+      // Best-effort - skip this tick, try again on the next one. Logged
+      // (not shown to the driver) so a persistent failure is visible in
+      // `flutter run` output instead of silently never updating.
+      debugPrint('SuperD: live location update failed: $e');
     }
   }
 

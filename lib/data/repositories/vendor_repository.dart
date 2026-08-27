@@ -214,4 +214,18 @@ class VendorRepository {
         .map((row) => VendorDelivery.fromMap(row as Map<String, dynamic>))
         .toList();
   }
+
+  /// Live version of [fetchVendorDeliveries], for the order-tracking page
+  /// so a customer sees a status change (assigned, picked up, delivered)
+  /// without pulling to refresh. This is polled rather than true Postgres
+  /// realtime - the page is anonymous/no-login, and `deliveries` has no
+  /// anon read policy at all (only this scoped, code-gated RPC), so
+  /// there's no table to subscribe to without opening up direct access
+  /// that would let anyone enumerate other vendors' orders.
+  Stream<List<VendorDelivery>> watchVendorDeliveries(String code) async* {
+    while (true) {
+      yield await fetchVendorDeliveries(code);
+      await Future<void>.delayed(const Duration(seconds: 5));
+    }
+  }
 }

@@ -838,7 +838,13 @@ link:
 - Doubles as the vendor's own order-tracking page at
   `.../v/AB12CD34EF/orders` - a live list of every delivery placed through
   that link, its status, and the assigned driver's name/phone once one's
-  on the way.
+  on the way. "Live" here means polled every 5 seconds, not true Postgres
+  realtime - this page is anonymous/no-login, and `deliveries` has no anon
+  read policy at all (only the scoped RPC below), so there's no table to
+  subscribe to without opening up direct access that would let anyone
+  enumerate other vendors' orders. A status change animates in (color,
+  icon, and label cross-fade) rather than snapping, and each order card
+  eases into place the first time it appears.
 
 None of this needs a login. It's built on four Postgres functions
 (`register_vendor`, `get_vendor_by_code`, `submit_delivery_request`,

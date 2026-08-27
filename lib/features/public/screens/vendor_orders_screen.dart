@@ -6,6 +6,7 @@ import '../../../models/delivery_status.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/utils/navigation_launcher.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/staggered_list_item.dart';
 import '../../../shared/widgets/status_badge.dart';
 import '../providers/public_providers.dart';
 
@@ -46,7 +47,11 @@ class VendorOrdersScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               itemCount: orders.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
-              itemBuilder: (context, index) => _OrderCard(order: orders[index]),
+              itemBuilder: (context, index) => StaggeredListItem(
+                key: ValueKey(orders[index].id),
+                index: index,
+                child: _OrderCard(order: orders[index]),
+              ),
             );
           },
         ),

@@ -13,8 +13,10 @@ final vendorByCodeProvider = FutureProvider.family<VendorPublicInfo?, String>((
 });
 
 /// A vendor's own order history, keyed by their link code - powers the
-/// order-tracking page at `/v/:code/orders`. No session required.
+/// order-tracking page at `/v/:code/orders`, live (polled every 5s - see
+/// `watchVendorDeliveries`) so a status change shows up without a manual
+/// refresh. No session required.
 final vendorDeliveriesProvider =
-    FutureProvider.family<List<VendorDelivery>, String>((ref, code) {
-      return ref.watch(vendorRepositoryProvider).fetchVendorDeliveries(code);
+    StreamProvider.family<List<VendorDelivery>, String>((ref, code) {
+      return ref.watch(vendorRepositoryProvider).watchVendorDeliveries(code);
     });

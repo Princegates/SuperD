@@ -38,7 +38,7 @@ class Payment {
       id: map['id'] as String,
       deliveryId: map['delivery_id'] as String,
       amount: (map['amount'] as num).toDouble(),
-      currency: map['currency'] as String? ?? 'USD',
+      currency: map['currency'] as String? ?? 'GHS',
       method: PaymentMethod.fromString(map['method'] as String? ?? 'cash'),
       status: PaymentStatus.fromString(map['status'] as String? ?? 'pending'),
       gatewayReference: map['gateway_reference'] as String?,

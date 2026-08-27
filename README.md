@@ -59,6 +59,7 @@ supabase/
     0009_staff_profile_fields.sql   date of birth + residential address fields
     0014_driver_self_signup.sql     self-signed-up drivers start pending approval, not active
     0015_driver_live_location.sql   last_lat/last_lng/location_updated_at for the Live Map
+    0016_currency_ghs.sql           switches the recorded-payment currency default to GHS (Ghana cedi)
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -646,6 +647,13 @@ creating a delivery, which records a `pending` payment. Either the
 dispatcher/super admin or the driver assigned to that delivery can mark it
 `paid` (e.g. once cash-on-delivery is collected) from the delivery detail
 screen.
+
+Payments default to **GHS (Ghana cedi)** — `0016_currency_ghs.sql` sets
+that as the column default and backfills any existing rows. It's still a
+plain `text` column, not hardcoded into the UI (the Finance tab groups and
+totals by whatever currency is actually on each row), so a fork serving a
+different country can pass a different `currency` to
+`PaymentRepository.recordPayment` without any other change.
 
 **This only records payments — it doesn't collect money.** There's no
 payment gateway wired in, so card/mobile-money payments still have to

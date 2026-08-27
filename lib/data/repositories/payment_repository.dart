@@ -35,7 +35,7 @@ class PaymentRepository {
     required String deliveryId,
     required double amount,
     required PaymentMethod method,
-    String currency = 'USD',
+    String currency = 'GHS',
     PaymentStatus status = PaymentStatus.pending,
   }) async {
     await _client.from(_table).insert({

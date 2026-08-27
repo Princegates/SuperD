@@ -51,3 +51,6 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Supabase CLI local cache/link state (machine-specific, never shared)
+supabase/.temp/

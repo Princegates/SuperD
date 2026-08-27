@@ -103,6 +103,16 @@ class VendorRepository {
     await _client.from('vendors').update({'is_active': isActive}).eq('id', id);
   }
 
+  /// Permanently removes a vendor - dispatcher/super-admin only (RLS on
+  /// `vendors`). Postgres rejects this with a foreign-key-violation
+  /// (`23503`) if any delivery still references the vendor - same
+  /// protection as [deleteZone] - so their order history can't be
+  /// deleted out from under it; deactivate instead if that's what's
+  /// actually needed.
+  Future<void> deleteVendor(String id) async {
+    await _client.from('vendors').delete().eq('id', id);
+  }
+
   /// Every vendor, for the dispatcher/super-admin Vendors screen.
   Future<List<Vendor>> fetchVendors() async {
     final rows = await _client

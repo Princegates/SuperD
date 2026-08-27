@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -102,6 +103,57 @@ class _VendorCard extends ConsumerWidget {
     }
   }
 
+  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete vendor?'),
+        content: Text(
+          'This permanently removes "${vendor.vendorName}" and their link. '
+          "It can't be undone, and only works if they have no delivery "
+          'history - deactivate instead if you just want to stop new '
+          'requests.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete', style: TextStyle(color: AppTheme.danger)),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      await ref.read(vendorRepositoryProvider).deleteVendor(vendor.id);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'vendor_deleted',
+        entityType: 'vendor',
+        entityId: vendor.id,
+        summary: 'Deleted vendor ${vendor.vendorName}',
+      );
+      ref.invalidate(vendorsProvider);
+    } on PostgrestException catch (e) {
+      if (!context.mounted) return;
+      final inUse = e.code == '23503';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            inUse
+                ? '"${vendor.vendorName}" has delivery history - '
+                      'deactivate instead of deleting'
+                : 'Could not delete this vendor',
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final link = vendorLink(vendor.code);
@@ -176,6 +228,15 @@ class _VendorCard extends ConsumerWidget {
                     color: vendor.isActive ? AppTheme.success : Colors.black38,
                   ),
                   onPressed: () => _toggleActive(ref, context),
+                ),
+                IconButton(
+                  tooltip: 'Delete vendor',
+                  icon: const Icon(
+                    Icons.delete_outline,
+                    size: 20,
+                    color: AppTheme.danger,
+                  ),
+                  onPressed: () => _delete(context, ref),
                 ),
               ],
             ),

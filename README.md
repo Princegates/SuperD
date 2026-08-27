@@ -942,6 +942,14 @@ the vendor's existing orders and tracking page keep working. Deactivating
 never changes the vendor's `code`, so reactivating restores the exact same
 link.
 
+The trash icon **permanently deletes** a vendor instead - unlike
+deactivating, this can't be undone, and Postgres rejects it outright if
+the vendor has any delivery history at all (same foreign-key protection
+as deleting a zone - reassign or leave those deliveries be; deactivate
+the vendor if that's really what you want instead). There's no soft
+"undelete" - only ever delete a vendor that was registered by mistake and
+has no real orders against it yet.
+
 ### Zones
 
 **Zones** are a fixed, admin-managed list of named areas (e.g. "East Legon",

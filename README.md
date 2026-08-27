@@ -62,6 +62,7 @@ supabase/
     0016_currency_ghs.sql           switches the recorded-payment currency default to GHS (Ghana cedi)
     0017_app_settings.sql           single-row app_settings table (currency), editable from Console > Settings
     0018_app_settings_theme.sql     adds the selected UI theme to app_settings
+    0019_driver_web_login_toggle.sql adds allow_driver_web_login to app_settings
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -326,6 +327,14 @@ straight back out, with a message explaining why. Drivers still exist as
 a role (a dispatcher/super admin still creates and manages them from
 Team), they just can't sign in through this particular deployment; a
 native mobile build wouldn't have this restriction, once one exists.
+
+A super admin can temporarily lift this from **Console > Settings**
+("Allow driver sign-in on the web") - useful for testing the driver
+experience (accepting a delivery, live location sharing, ...) in a
+browser before the native Android/iOS apps are built and distributed.
+It's a live, realtime toggle (the same `app_settings` row as currency
+and theme), so switching it off again takes effect immediately for
+anyone still signed in as a driver on web.
 
 There's still no self-signup for a **dispatcher** or **super admin**
 account, on any platform - those are always created deliberately, either
@@ -959,11 +968,13 @@ back out of. What shows up in the nav is role-based:
     and vendors pick from elsewhere), and define what each one covers by
     pinning named locations within it. Deleting a zone still in use by a
     vendor, driver, or delivery is rejected (reassign those first).
-  - **Settings** - app-wide settings: currency (see **Payments** above)
-    and the UI theme. Six built-in color themes (Navy & Gold, Ocean Blue,
-    Forest Green, Sunset Orange, Royal Purple, Charcoal) - picking one
-    applies for every user of the app, not just the super admin who
-    changed it. Both are backed by the single-row `app_settings` table.
+  - **Settings** - app-wide settings: currency (see **Payments** above),
+    the UI theme, and whether drivers may sign in on web (see **Web
+    dashboard is back-office only**). Six built-in color themes (Navy &
+    Gold, Ocean Blue, Forest Green, Sunset Orange, Royal Purple, Charcoal)
+    - picking one applies for every user of the app, not just the super
+    admin who changed it. All three are backed by the single-row
+    `app_settings` table.
 
 A dispatcher literally has no way to reach the Admin Console sections -
 they're not just hidden, there's no route for them to type into the

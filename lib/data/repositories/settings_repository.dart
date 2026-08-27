@@ -17,7 +17,11 @@ class SettingsRepository {
         .stream(primaryKey: ['id'])
         .map(
           (rows) => rows.isEmpty
-              ? const AppSettings(currency: 'GHS', theme: 'navy_gold')
+              ? const AppSettings(
+                  currency: 'GHS',
+                  theme: 'navy_gold',
+                  allowDriverWebLogin: false,
+                )
               : AppSettings.fromMap(rows.first),
         );
   }
@@ -35,5 +39,15 @@ class SettingsRepository {
   /// Only takes effect if the caller is a super admin - enforced by RLS.
   Future<void> updateTheme(String themeKey) async {
     await _client.from(_table).update({'theme': themeKey}).eq('id', true);
+  }
+
+  /// Toggles whether a driver may sign in on the web dashboard - see
+  /// [AppSettings.allowDriverWebLogin]. Only takes effect if the caller is
+  /// a super admin - enforced by RLS.
+  Future<void> setAllowDriverWebLogin(bool allow) async {
+    await _client
+        .from(_table)
+        .update({'allow_driver_web_login': allow})
+        .eq('id', true);
   }
 }

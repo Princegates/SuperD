@@ -44,6 +44,7 @@ class _RouterRefreshNotifier extends ChangeNotifier {
   _RouterRefreshNotifier(Ref ref) {
     ref.listen(authStateProvider, (_, _) => notifyListeners());
     ref.listen(currentProfileProvider, (_, _) => notifyListeners());
+    ref.listen(appSettingsProvider, (_, _) => notifyListeners());
   }
 }
 
@@ -101,11 +102,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
-      // This is a back-office dashboard, not the driver app - a driver
-      // account signing in on web gets signed straight back out. (Kept to
-      // the web build only: driver login still works fine from a native
-      // mobile build, once one exists.)
-      if (kIsWeb && role == UserRole.driver) {
+      // This is normally a back-office dashboard, not the driver app - a
+      // driver account signing in on web gets signed straight back out.
+      // (Kept to the web build only: driver login always works fine from
+      // a native mobile build.) A super admin can flip
+      // `allow_driver_web_login` on from Console > Settings to test the
+      // driver experience in a browser before the native apps exist.
+      final allowDriverWebLogin =
+          ref.read(appSettingsProvider).valueOrNull?.allowDriverWebLogin ??
+          false;
+      if (kIsWeb && role == UserRole.driver && !allowDriverWebLogin) {
         Future(() {
           ref.read(driverWebBlockedProvider.notifier).state = true;
           ref.read(authRepositoryProvider).signOut();

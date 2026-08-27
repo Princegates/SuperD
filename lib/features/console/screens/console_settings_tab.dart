@@ -9,7 +9,8 @@ import '../../../shared/widgets/async_value_view.dart';
 
 /// Super-admin-only app-wide settings: the currency payments are recorded
 /// and displayed in everywhere else in the app (delivery fees, the
-/// Finance tab, payment cards on delivery detail), and the UI theme.
+/// Finance tab, payment cards on delivery detail), the UI theme, and
+/// whether a driver may sign in on the web dashboard for testing.
 class ConsoleSettingsTab extends ConsumerWidget {
   const ConsoleSettingsTab({super.key});
 
@@ -38,6 +39,18 @@ class ConsoleSettingsTab extends ConsumerWidget {
       summary:
           'Changed app theme from ${themePresetFor(from).label} to '
           '${themePresetFor(to).label}',
+    );
+  }
+
+  Future<void> _toggleDriverWebLogin(WidgetRef ref, bool allow) async {
+    await ref.read(settingsRepositoryProvider).setAllowDriverWebLogin(allow);
+    await logAuditEvent(
+      ref.read(supabaseClientProvider),
+      action: 'driver_web_login_toggled',
+      entityType: 'app_settings',
+      summary: allow
+          ? 'Enabled driver sign-in on the web dashboard'
+          : 'Disabled driver sign-in on the web dashboard',
     );
   }
 
@@ -129,6 +142,44 @@ class ConsoleSettingsTab extends ConsumerWidget {
                                 _changeTheme(ref, settings.theme, preset.key),
                           ),
                       ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Allow driver sign-in on the web',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        Switch(
+                          value: settings.allowDriverWebLogin,
+                          onChanged: (value) =>
+                              _toggleDriverWebLogin(ref, value),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Normally a driver account gets signed straight back '
+                      'out on this dashboard - it\'s back-office only, '
+                      'drivers use the mobile app. Turn this on to test the '
+                      'driver experience in a browser before the Android/iOS '
+                      'apps are ready, then turn it back off once they are.',
+                      style: TextStyle(color: Colors.grey.shade600),
                     ),
                   ],
                 ),

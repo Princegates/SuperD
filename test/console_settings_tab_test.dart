@@ -16,10 +16,16 @@ class _FakeSettingsRepository extends SettingsRepository {
 
   String? lastCurrency;
   String? lastTheme;
+  bool? lastAllowDriverWebLogin;
 
   @override
-  Stream<AppSettings> watchSettings() =>
-      Stream.value(const AppSettings(currency: 'GHS', theme: 'navy_gold'));
+  Stream<AppSettings> watchSettings() => Stream.value(
+    const AppSettings(
+      currency: 'GHS',
+      theme: 'navy_gold',
+      allowDriverWebLogin: false,
+    ),
+  );
 
   @override
   Future<void> updateCurrency(String currency) async {
@@ -29,6 +35,11 @@ class _FakeSettingsRepository extends SettingsRepository {
   @override
   Future<void> updateTheme(String themeKey) async {
     lastTheme = themeKey;
+  }
+
+  @override
+  Future<void> setAllowDriverWebLogin(bool allow) async {
+    lastAllowDriverWebLogin = allow;
   }
 }
 
@@ -92,5 +103,28 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(fakeRepo.lastTheme, 'ocean_blue');
+  });
+
+  testWidgets('lets a super admin toggle driver web login', (tester) async {
+    final fakeRepo = _FakeSettingsRepository();
+
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(fakeRepo),
+          supabaseClientProvider.overrideWithValue(_testClient()),
+        ],
+        child: const MaterialApp(home: Scaffold(body: ConsoleSettingsTab())),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(Switch), findsOneWidget);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, false);
+
+    await tester.tap(find.byType(Switch));
+    await tester.pumpAndSettle();
+
+    expect(fakeRepo.lastAllowDriverWebLogin, true);
   });
 }

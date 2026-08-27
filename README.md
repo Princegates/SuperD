@@ -251,7 +251,11 @@ to set a point, all on the one Google Map:
   the map there and drops the pin.
 - **Use my location** - the location icon next to search grabs the
   device's current GPS position (prompting for permission if needed) and
-  pins that directly, no tap required.
+  pins that directly. This also runs **automatically** the first time the
+  picker opens with nothing already set (not when re-opening it to edit
+  an existing pin, so that never gets silently overwritten) - so on most
+  devices the pin is already sitting on the customer's actual location
+  before they touch anything.
 - **Tap the map** directly, same as before.
 
 The address search runs on OpenStreetMap's free Nominatim service, same

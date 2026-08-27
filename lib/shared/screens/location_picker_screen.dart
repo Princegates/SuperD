@@ -37,7 +37,11 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   void initState() {
     super.initState();
     _picked = widget.initialCenter;
-    if (widget.initialCenter == null) _centerOnDeviceLocation();
+    // First time opening the picker (nothing set yet) - try to place the
+    // pin at the device's own location right away, same as tapping "Use
+    // my location" manually. Editing an already-set point skips this, so
+    // re-opening the picker never silently overwrites what's there.
+    if (widget.initialCenter == null) _useMyLocation();
   }
 
   @override
@@ -56,25 +60,10 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
     );
   }
 
-  /// Just re-centers the map on first load, if there's nothing picked
-  /// yet - a starting point to orient from, not itself a pick. Use my
-  /// location (below) is the explicit, one-tap version of this that
-  /// actually places a pin.
-  Future<void> _centerOnDeviceLocation() async {
-    try {
-      final permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        return;
-      }
-      final position = await Geolocator.getCurrentPosition();
-      if (!mounted) return;
-      await _moveCamera(LatLng(position.latitude, position.longitude));
-    } catch (_) {
-      // No luck getting a starting point - can just pan/zoom instead.
-    }
-  }
-
+  /// Places the pin at the device's own current location - called both
+  /// automatically on first opening the picker (see initState) and from
+  /// the explicit "Use my location" button, so retrying after an initial
+  /// denial works the same way as the first attempt.
   Future<void> _useMyLocation() async {
     setState(() => _isLocating = true);
     try {

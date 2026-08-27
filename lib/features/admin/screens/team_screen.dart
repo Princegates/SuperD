@@ -369,76 +369,128 @@ class _PersonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final canManage = person.role != UserRole.superAdmin;
     final canFreeze = isSuperAdmin && person.role == UserRole.driver;
+
+    // A ListTile's title/subtitle only get whatever width is left after
+    // `leading` and `trailing` - cramming every action into `trailing`
+    // (up to 5 icon buttons plus a role dropdown) could squeeze that down
+    // to almost nothing on a narrow phone, and Flutter's Text falls back
+    // to wrapping one character per line rather than overflowing. A plain
+    // Column sidesteps this: the name/contact row gets an Expanded (a
+    // real, bounded width) on its own line, and actions get their own
+    // full-width row underneath that can Wrap onto a second line instead
+    // of stealing space from the text above it.
     return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          child: Text(
-            person.displayName.isNotEmpty
-                ? person.displayName[0].toUpperCase()
-                : '?',
-          ),
-        ),
-        title: Row(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Flexible(child: Text(person.displayName)),
-            if (!person.isActive) ...[
-              const SizedBox(width: 8),
-              _Badge(label: 'Pending approval', color: AppTheme.warning),
-            ],
-            if (person.isFrozen) ...[
-              const SizedBox(width: 8),
-              _Badge(label: 'Frozen', color: AppTheme.danger),
-            ],
-          ],
-        ),
-        subtitle: Text(
-          person.phone?.isNotEmpty == true
-              ? '${person.email} · ${person.phone}'
-              : person.email,
-        ),
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (canManage) ...[
-              IconButton(
-                tooltip: person.isActive
-                    ? 'Deactivate ${person.role.label.toLowerCase()}'
-                    : 'Approve ${person.role.label.toLowerCase()}',
-                icon: Icon(
-                  person.isActive ? Icons.toggle_on : Icons.toggle_off_outlined,
-                  size: 26,
-                  color: person.isActive ? AppTheme.success : Colors.black38,
-                ),
-                onPressed: onToggleActive,
-              ),
-              if (canFreeze)
-                IconButton(
-                  tooltip: person.isFrozen
-                      ? 'Unfreeze driver'
-                      : 'Freeze driver (e.g. unpaid commission)',
-                  icon: Icon(
-                    person.isFrozen ? Icons.ac_unit : Icons.ac_unit_outlined,
-                    size: 20,
-                    color: person.isFrozen ? AppTheme.danger : Colors.black38,
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  child: Text(
+                    person.displayName.isNotEmpty
+                        ? person.displayName[0].toUpperCase()
+                        : '?',
                   ),
-                  onPressed: onToggleFrozen,
                 ),
-              IconButton(
-                tooltip: 'Edit ${person.role.label.toLowerCase()}',
-                icon: const Icon(Icons.edit_outlined, size: 20),
-                onPressed: onEdit,
-              ),
-              IconButton(
-                tooltip: 'Remove ${person.role.label.toLowerCase()}',
-                icon: const Icon(
-                  Icons.delete_outline,
-                  size: 20,
-                  color: AppTheme.danger,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Wrap(
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Text(
+                            person.displayName,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          if (!person.isActive)
+                            _Badge(
+                              label: 'Pending approval',
+                              color: AppTheme.warning,
+                            ),
+                          if (person.isFrozen)
+                            _Badge(label: 'Frozen', color: AppTheme.danger),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        person.phone?.isNotEmpty == true
+                            ? '${person.email} · ${person.phone}'
+                            : person.email,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        style: TextStyle(
+                          color: Colors.grey.shade600,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-                onPressed: onDelete,
-              ),
-            ],
-            if (isSuperAdmin) _RoleControl(person: person, enabled: !isMe),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (canManage) ...[
+                  IconButton(
+                    tooltip: person.isActive
+                        ? 'Deactivate ${person.role.label.toLowerCase()}'
+                        : 'Approve ${person.role.label.toLowerCase()}',
+                    icon: Icon(
+                      person.isActive
+                          ? Icons.toggle_on
+                          : Icons.toggle_off_outlined,
+                      size: 26,
+                      color: person.isActive
+                          ? AppTheme.success
+                          : Colors.black38,
+                    ),
+                    onPressed: onToggleActive,
+                  ),
+                  if (canFreeze)
+                    IconButton(
+                      tooltip: person.isFrozen
+                          ? 'Unfreeze driver'
+                          : 'Freeze driver (e.g. unpaid commission)',
+                      icon: Icon(
+                        person.isFrozen
+                            ? Icons.ac_unit
+                            : Icons.ac_unit_outlined,
+                        size: 20,
+                        color: person.isFrozen
+                            ? AppTheme.danger
+                            : Colors.black38,
+                      ),
+                      onPressed: onToggleFrozen,
+                    ),
+                  IconButton(
+                    tooltip: 'Edit ${person.role.label.toLowerCase()}',
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    onPressed: onEdit,
+                  ),
+                  IconButton(
+                    tooltip: 'Remove ${person.role.label.toLowerCase()}',
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: AppTheme.danger,
+                    ),
+                    onPressed: onDelete,
+                  ),
+                ],
+                if (isSuperAdmin) _RoleControl(person: person, enabled: !isMe),
+              ],
+            ),
           ],
         ),
       ),

@@ -61,11 +61,17 @@ class _DetailBody extends ConsumerWidget {
       children: [
         Row(
           children: [
-            Text(
-              '#${delivery.trackingCode}',
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+            Expanded(
+              child: Text(
+                '#${delivery.trackingCode}',
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 18,
+                ),
+              ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             StatusBadge(status: delivery.status),
           ],
         ),

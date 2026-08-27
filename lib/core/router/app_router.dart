@@ -108,9 +108,19 @@ final routerProvider = Provider<GoRouter>((ref) {
       // a native mobile build.) A super admin can flip
       // `allow_driver_web_login` on from Console > Settings to test the
       // driver experience in a browser before the native apps exist.
+      //
+      // app_settings arrives over realtime, not instantly on sign-in, so a
+      // driver reaching this point before that first value lands must NOT
+      // be treated as "toggle is off" - that raced a real "on" into an
+      // incorrect sign-out on a slower connection (seen on mobile, not on
+      // a fast laptop connection where the race window closed in time).
+      // Wait for a real answer instead of guessing.
+      final settingsState = ref.read(appSettingsProvider);
+      if (kIsWeb && role == UserRole.driver && !settingsState.hasValue) {
+        return loc == '/splash' ? null : '/splash';
+      }
       final allowDriverWebLogin =
-          ref.read(appSettingsProvider).valueOrNull?.allowDriverWebLogin ??
-          false;
+          settingsState.valueOrNull?.allowDriverWebLogin ?? false;
       if (kIsWeb && role == UserRole.driver && !allowDriverWebLogin) {
         Future(() {
           ref.read(driverWebBlockedProvider.notifier).state = true;

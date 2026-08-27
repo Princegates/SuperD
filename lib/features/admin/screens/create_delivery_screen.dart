@@ -193,12 +193,15 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
 
       final fee = double.tryParse(_feeController.text.trim());
       if (fee != null && fee > 0) {
+        final currency =
+            ref.read(appSettingsProvider).valueOrNull?.currency ?? 'GHS';
         await ref
             .read(paymentRepositoryProvider)
             .recordPayment(
               deliveryId: deliveryId,
               amount: fee,
               method: _paymentMethod,
+              currency: currency,
             );
       }
 
@@ -215,6 +218,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   @override
   Widget build(BuildContext context) {
     final drivers = ref.watch(rankedDriversProvider(null));
+    final currency = ref.watch(appSettingsProvider).valueOrNull?.currency;
 
     return Scaffold(
       appBar: AppBar(title: const Text('New delivery')),
@@ -338,9 +342,11 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
-                  decoration: const InputDecoration(
-                    labelText: 'Delivery fee (optional)',
-                    prefixIcon: Icon(Icons.attach_money),
+                  decoration: InputDecoration(
+                    labelText: currency == null
+                        ? 'Delivery fee (optional)'
+                        : 'Delivery fee ($currency, optional)',
+                    prefixIcon: const Icon(Icons.attach_money),
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return null;

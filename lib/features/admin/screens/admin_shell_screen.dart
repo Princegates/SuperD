@@ -12,6 +12,7 @@ import '../../console/screens/console_audit_log_tab.dart';
 import '../../console/screens/console_finance_tab.dart';
 import '../../console/screens/console_onboarding_tab.dart';
 import '../../console/screens/console_overview_tab.dart';
+import '../../console/screens/console_settings_tab.dart';
 import '../../console/screens/console_zones_tab.dart';
 import '../providers/admin_providers.dart';
 import 'admin_dashboard_screen.dart';
@@ -91,6 +92,12 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       Icons.map_outlined,
       'Zones',
       ConsoleZonesTab(),
+      superAdminOnly: true,
+    ),
+    _AdminSection(
+      Icons.settings_outlined,
+      'Settings',
+      ConsoleSettingsTab(),
       superAdminOnly: true,
     ),
   ];

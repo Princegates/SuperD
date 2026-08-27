@@ -6,7 +6,9 @@ import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/profile_repository.dart';
+import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/vendor_repository.dart';
+import '../../models/app_settings.dart';
 import '../../models/profile.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
@@ -35,6 +37,17 @@ final vendorRepositoryProvider = Provider<VendorRepository>((ref) {
 
 final auditRepositoryProvider = Provider<AuditRepository>((ref) {
   return AuditRepository(ref.watch(supabaseClientProvider));
+});
+
+final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
+  return SettingsRepository(ref.watch(supabaseClientProvider));
+});
+
+/// The app-wide settings row (currently just the currency), kept live so a
+/// super admin's change in Console > Settings is picked up everywhere else
+/// without a restart.
+final appSettingsProvider = StreamProvider<AppSettings>((ref) {
+  return ref.watch(settingsRepositoryProvider).watchSettings();
 });
 
 /// Fires whenever the Supabase auth session changes (sign in / out / token

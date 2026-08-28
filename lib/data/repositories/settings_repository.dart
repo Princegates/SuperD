@@ -101,4 +101,18 @@ class SettingsRepository {
     }
     await _client.from(_table).update({'driver_daily_fee': fee}).eq('id', true);
   }
+
+  /// Changes (or clears) the automatic free-day threshold - see
+  /// [AppSettings.freeDayDeliveryThreshold]. Null turns the automatic
+  /// rule off; manual grants from Console > Daily Fees are unaffected
+  /// either way.
+  Future<void> updateFreeDayThreshold(int? threshold) async {
+    if (threshold != null && threshold <= 0) {
+      throw ArgumentError('The delivery threshold must be a positive number.');
+    }
+    await _client
+        .from(_table)
+        .update({'free_day_delivery_threshold': threshold})
+        .eq('id', true);
+  }
 }

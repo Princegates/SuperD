@@ -23,10 +23,12 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   final _pricePerKmController = TextEditingController();
   final _commissionFeeController = TextEditingController();
   final _dailyFeeController = TextEditingController();
+  final _freeDayThresholdController = TextEditingController();
   String? _syncedFromSettings;
   bool _isSavingPricing = false;
   bool _isSavingCommission = false;
   bool _isSavingDailyFee = false;
+  bool _isSavingFreeDayThreshold = false;
 
   @override
   void dispose() {
@@ -34,6 +36,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     _pricePerKmController.dispose();
     _commissionFeeController.dispose();
     _dailyFeeController.dispose();
+    _freeDayThresholdController.dispose();
     super.dispose();
   }
 
@@ -139,6 +142,31 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     }
   }
 
+  Future<void> _saveFreeDayThreshold(int? threshold) async {
+    setState(() => _isSavingFreeDayThreshold = true);
+    try {
+      await ref
+          .read(settingsRepositoryProvider)
+          .updateFreeDayThreshold(threshold);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'free_day_threshold_changed',
+        entityType: 'app_settings',
+        summary: threshold == null
+            ? 'Turned off the automatic free-day incentive'
+            : 'Set the automatic free-day incentive to every $threshold '
+                  'completed deliveries',
+      );
+    } on ArgumentError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingFreeDayThreshold = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsState = ref.watch(appSettingsProvider);
@@ -151,7 +179,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
         // clobbered by their own keystroke triggering a rebuild.
         final syncKey =
             '${settings.baseFare}|${settings.pricePerKm}|'
-            '${settings.commissionFlatFee}|${settings.driverDailyFee}';
+            '${settings.commissionFlatFee}|${settings.driverDailyFee}|'
+            '${settings.freeDayDeliveryThreshold}';
         if (_syncedFromSettings != syncKey) {
           _syncedFromSettings = syncKey;
           _baseFareController.text = settings.baseFare.toStringAsFixed(2);
@@ -159,6 +188,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
           _commissionFeeController.text = settings.commissionFlatFee
               .toStringAsFixed(2);
           _dailyFeeController.text = settings.driverDailyFee.toStringAsFixed(2);
+          _freeDayThresholdController.text =
+              settings.freeDayDeliveryThreshold?.toString() ?? '';
         }
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -433,7 +464,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       "not just a warning. Set to 0 to turn this off. Must "
                       'be between 10 and 100 otherwise. See Console > Daily '
                       'Fees to review payments and confirm ones paid '
-                      'outside the app.',
+                      'outside the app. Shown to drivers simply as '
+                      '"commission" - they never see how it\'s collected.',
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
                     const SizedBox(height: 16),
@@ -475,6 +507,86 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                                   _saveDailyFee(settings, fee);
                                 },
                           child: _isSavingDailyFee
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Save'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Free day incentive',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Automatically rewards a driver with 1 free '
+                      "commission day every time they hit this many "
+                      'completed deliveries - leave blank to turn the '
+                      'automatic rule off. You can also grant free days by '
+                      'hand at any time from Console > Daily Fees, '
+                      'regardless of this setting.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _freeDayThresholdController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText:
+                                  'Deliveries per free day (blank = off)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _isSavingFreeDayThreshold
+                              ? null
+                              : () {
+                                  final text = _freeDayThresholdController.text
+                                      .trim();
+                                  if (text.isEmpty) {
+                                    _saveFreeDayThreshold(null);
+                                    return;
+                                  }
+                                  final threshold = int.tryParse(text);
+                                  if (threshold == null || threshold <= 0) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Enter a positive whole number, or '
+                                          'leave blank to turn it off.',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  _saveFreeDayThreshold(threshold);
+                                },
+                          child: _isSavingFreeDayThreshold
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,

@@ -62,6 +62,13 @@ class _FakeSettingsRepository extends SettingsRepository {
     lastCommissionFlatFee = flatFee;
   }
 
+  int? lastFreeDayThreshold;
+
+  @override
+  Future<void> updateFreeDayThreshold(int? threshold) async {
+    lastFreeDayThreshold = threshold;
+  }
+
   double? lastDriverDailyFee;
 
   @override

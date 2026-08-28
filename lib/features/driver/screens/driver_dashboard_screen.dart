@@ -96,6 +96,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         ref.watch(appSettingsProvider).valueOrNull?.driverDailyFee ?? 0;
     final currency = ref.watch(appSettingsProvider).valueOrNull?.currency;
     final todaysFee = ref.watch(todaysDailyFeeProvider).valueOrNull;
+    final freeDayBalance = ref.watch(freeDayBalanceProvider).valueOrNull ?? 0;
 
     // A driver's own delivery list re-emits the full set on every change -
     // only ids that weren't there last time are a genuinely new assignment.
@@ -144,6 +145,8 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
               status: todaysFee?.status,
               driverPhone: profile?.phone,
             ),
+          if (dailyFeeAmount > 0 && freeDayBalance > 0)
+            _FreeDayBalanceStrip(balance: freeDayBalance),
           Expanded(child: _DeliveryList(deliveries: deliveries)),
         ],
       ),
@@ -216,6 +219,45 @@ class _FrozenBanner extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 fontSize: 12.5,
               ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A driver's incentive-earned free commission days, not yet spent - see
+/// `driver_free_day_credits` in `0032_commission_free_days.sql`. Shown
+/// even when today's own fee has already been covered (by a credit or a
+/// real payment), so a driver who's built up a balance for later can see
+/// it - a reward should be visible, not just quietly applied.
+class _FreeDayBalanceStrip extends StatelessWidget {
+  const _FreeDayBalanceStrip({required this.balance});
+
+  final int balance;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      color: AppTheme.success.withValues(alpha: 0.08),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.card_giftcard_outlined,
+            size: 16,
+            color: AppTheme.success,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'You have $balance free commission day${balance == 1 ? '' : 's'} '
+            'banked',
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 12.5,
+              color: AppTheme.success,
             ),
           ),
         ],

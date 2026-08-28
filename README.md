@@ -79,6 +79,7 @@ supabase/
     0029_commission_payments.sql            flat per-delivery driver commission, auto-recorded to a ledger when a delivery is marked delivered
     0030_scheduled_delivery.sql              lets a customer pick a future date/time instead of ASAP, and skips auto-assignment for anything scheduled well ahead
     0031_driver_daily_fee.sql                flat daily Mobile Money platform fee per driver - a hard block on new deliveries until paid or waived
+    0032_commission_free_days.sql            free-day incentive credits (automatic by delivery count, or granted by hand) that transparently excuse a day's commission
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -906,14 +907,22 @@ same-zone assignment inside `submit_delivery_request`. The Console's
 driver picker also filters them out up front, so a dispatcher sees the
 restriction before hitting the error, not after.
 
+**Drivers never see the word "Hubtel," or any other payment-gateway
+name** - the app only ever shows them "commission" and a Mobile Money
+prompt. Internally it's still tracked as the daily fee described here
+(`driver_daily_fees`, `app_settings.driver_daily_fee`, Console > Daily
+Fees) - "commission" is purely the label a driver sees, chosen so they
+never need to know or care which gateway is doing the collecting.
+
 A driver sees a banner on their dashboard the moment they owe today's
-fee, with two ways to clear it, both landing in the same
+commission, with two ways to clear it, both landing in the same
 `driver_daily_fees` ledger:
 
 1. **Pay via Mobile Money, right now** - the driver enters their number
-   and network (MTN/Vodafone/AirtelTigo), and the app charges them
-   through **Hubtel's Receive Money API**
-   (`supabase/functions/hubtel-daily-fee-charge`): a prompt appears on
+   and network (MTN/Vodafone/AirtelTigo) and taps "Pay via Mobile
+   Money"; behind the scenes the app charges them through **Hubtel's
+   Receive Money API** (`supabase/functions/hubtel-daily-fee-charge`,
+   never named as such anywhere the driver can see): a prompt appears on
    their phone to approve, and Hubtel's callback
    (`supabase/functions/hubtel-daily-fee-webhook`) flips the record to
    paid the moment it resolves - the driver's banner disappears live,
@@ -929,6 +938,36 @@ fee, with two ways to clear it, both landing in the same
 A dispatcher/super admin can also **waive** a specific driver's fee for a
 given day from Console > Daily Fees - a free first day, a goodwill
 gesture, or an escape hatch if Hubtel is down - with no payment involved.
+
+### Free-day incentive
+
+A driver can also clear a day's commission by spending a **free day
+credit** instead of paying - an incentive reward, tracked in its own
+`driver_free_day_credits` table (`0032_commission_free_days.sql`) rather
+than as a column on `profiles`, specifically so it needs no changes to
+the existing "a user can update their own profile" policy. A credit is
+earned two ways:
+
+- **Automatically** - a super admin sets "every N completed deliveries"
+  from Console > Settings (blank = off); the moment a driver's lifetime
+  completed-delivery count crosses a multiple of N, they're credited one
+  free day, no admin action needed.
+- **Manually** - a dispatcher/super admin grants any number of free days
+  to a specific driver at their own discretion from **Console > Daily
+  Fees**, which also shows each driver's completed-delivery count right
+  alongside the "Grant" button for context. Works regardless of whether
+  the automatic rule is configured.
+
+A credit is spent transparently the moment it's needed - a driver never
+has to ask for it or do anything differently. `claim_free_day_credit()`
+is the one place a credit is actually consumed, called from exactly the
+places where that's safe to do exactly once: the delivery-assignment
+triggers (so it fires once per real assignment, never once per candidate
+a query merely weighs while picking a driver) and the driver's own
+dashboard load (so an earned reward is visible the instant they open the
+app, not only once dispatch happens to try assigning them something). A
+driver with an unspent balance sees a small "X free commission days
+banked" strip on their dashboard even on a day they don't need it yet.
 
 **Setting up real Hubtel collection** (optional - everything above works
 through the manual-confirm path with zero setup):
@@ -1408,9 +1447,11 @@ back out of. What shows up in the nav is role-based:
     owe for the delivery (see **Driver commission** below): outstanding
     vs collected vs waived per currency, a per-driver "owed" breakdown,
     and a recent-commission feed with a one-tap "Mark paid" action.
-  - **Daily Fees** - the flat daily Mobile Money platform fee (see
-    **Driver daily fee** above): who hasn't paid today (with a one-tap
-    "Waive today" per driver), Mobile Money references awaiting
+  - **Daily Fees** - the flat daily Mobile Money platform fee, shown to
+    drivers as "commission" (see **Driver daily fee** above): who hasn't
+    paid today (with a one-tap "Waive today" per driver), each driver's
+    banked free-day balance and completed-delivery count with a "Grant"
+    button (see **Free-day incentive**), Mobile Money references awaiting
     confirmation from the manual-pay fallback, and a recent-payments
     feed.
   - **Audit log** - a chronological record of who did what: role changes,

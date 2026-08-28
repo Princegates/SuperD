@@ -122,6 +122,70 @@ class DriverDailyFeeRepository {
     return rows.map((id) => id as String).toSet();
   }
 
+  /// The signed-in driver's own banked free-day balance - see
+  /// `driver_free_day_credits` in `0032_commission_free_days.sql`. 0 if
+  /// they've never earned or been granted one.
+  Future<int> fetchFreeDayBalance(String driverId) async {
+    final row = await _client
+        .from('driver_free_day_credits')
+        .select('balance')
+        .eq('driver_id', driverId)
+        .maybeSingle();
+    return (row?['balance'] as num?)?.toInt() ?? 0;
+  }
+
+  /// Live version of [fetchFreeDayBalance] - updates the moment a credit
+  /// is earned, granted, or spent.
+  Stream<int> watchFreeDayBalance(String driverId) {
+    return _client
+        .from('driver_free_day_credits')
+        .stream(primaryKey: ['driver_id'])
+        .eq('driver_id', driverId)
+        .map(
+          (rows) =>
+              rows.isEmpty ? 0 : (rows.first['balance'] as num?)?.toInt() ?? 0,
+        );
+  }
+
+  /// Every driver's current free-day balance - the raw data behind
+  /// Console > Daily Fees' incentive section.
+  Future<Map<String, int>> fetchAllFreeDayBalances() async {
+    final rows = await _client.from('driver_free_day_credits').select();
+    return {
+      for (final r in rows)
+        r['driver_id'] as String: (r['balance'] as num).toInt(),
+    };
+  }
+
+  /// Proactively spends a banked credit against today's fee if the driver
+  /// has one and hasn't already paid/been waived - see
+  /// `claim_free_day_credit()`. Safe to call anytime (including when
+  /// there's nothing to claim); called once whenever the driver's own
+  /// dashboard loads, so an earned reward shows up immediately rather
+  /// than only once dispatch tries to assign them something.
+  Future<void> claimFreeDayIfAvailable(String driverId) async {
+    await _client.rpc(
+      'claim_free_day_credit',
+      params: {'p_driver_id': driverId},
+    );
+  }
+
+  /// Dispatcher/super admin manually awards [days] free days on top of
+  /// whatever the automatic rule gives - see `grant_free_day_credits()`.
+  Future<void> grantFreeDays({
+    required String driverId,
+    required int days,
+  }) async {
+    try {
+      await _client.rpc(
+        'grant_free_day_credits',
+        params: {'p_driver_id': driverId, 'p_days': days},
+      );
+    } on PostgrestException catch (e) {
+      throw DailyFeeException(e.message);
+    }
+  }
+
   String _messageFrom(FunctionException e) {
     final details = e.details;
     if (details is Map && details['error'] is String) {

@@ -40,7 +40,7 @@ class DailyFeeBanner extends StatelessWidget {
       DailyFeeStatus.failed =>
         "Today's payment didn't go through - try again below.",
       _ =>
-        "You haven't paid today's platform fee yet - pay to receive new "
+        "You haven't paid today's commission yet - pay to receive new "
             'deliveries.',
     };
 
@@ -61,7 +61,8 @@ class DailyFeeBanner extends StatelessWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  "Today's fee: $currency ${feeAmount.toStringAsFixed(2)}",
+                  "Today's commission: $currency "
+                  '${feeAmount.toStringAsFixed(2)}',
                   style: TextStyle(fontWeight: FontWeight.w700, color: color),
                 ),
               ),
@@ -200,7 +201,7 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Text(
-              "Pay today's fee",
+              "Pay today's commission",
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
             ),
             const SizedBox(height: 4),

@@ -5,7 +5,9 @@ import 'package:intl/intl.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/daily_fee_status.dart';
+import '../../../models/delivery_status.dart';
 import '../../../models/driver_daily_fee.dart';
+import '../../../models/profile.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../admin/providers/admin_providers.dart';
 import '../providers/console_providers.dart';
@@ -37,13 +39,79 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
     ref.invalidate(allDriverDailyFeesProvider);
   }
 
+  Future<void> _grantFreeDays(
+    BuildContext context,
+    WidgetRef ref,
+    Profile driver,
+  ) async {
+    final controller = TextEditingController(text: '1');
+    final days = await showDialog<int>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Grant free days to ${driver.displayName}'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Number of free days'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () =>
+                Navigator.of(context).pop(int.tryParse(controller.text.trim())),
+            child: const Text('Grant'),
+          ),
+        ],
+      ),
+    );
+    if (days == null || days <= 0 || !context.mounted) return;
+
+    await ref
+        .read(driverDailyFeeRepositoryProvider)
+        .grantFreeDays(driverId: driver.id, days: days);
+    ref.invalidate(allFreeDayBalancesProvider);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Granted $days free day${days == 1 ? '' : 's'} to '
+            '${driver.displayName}',
+          ),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final feesState = ref.watch(allDriverDailyFeesProvider);
     final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
     final dailyFeeSetting =
         ref.watch(appSettingsProvider).valueOrNull?.driverDailyFee ?? 0;
+    final freeDayThreshold = ref
+        .watch(appSettingsProvider)
+        .valueOrNull
+        ?.freeDayDeliveryThreshold;
+    final freeDayBalances =
+        ref.watch(allFreeDayBalancesProvider).valueOrNull ?? {};
+    final allDeliveries = ref.watch(allDeliveriesProvider).valueOrNull ?? [];
     final driverNames = {for (final d in drivers) d.id: d.displayName};
+
+    final deliveredCounts = <String, int>{};
+    for (final d in allDeliveries) {
+      if (d.status != DeliveryStatus.delivered || d.assignedDriverId == null) {
+        continue;
+      }
+      deliveredCounts.update(
+        d.assignedDriverId!,
+        (c) => c + 1,
+        ifAbsent: () => 1,
+      );
+    }
 
     return AsyncValueView<List<DriverDailyFee>>(
       value: feesState,
@@ -141,6 +209,81 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
               ),
               const SizedBox(height: 16),
             ],
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Free day credits',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      freeDayThreshold == null
+                          ? 'The automatic rule is off - set one in '
+                                'Console > Settings, or grant free days by '
+                                'hand below.'
+                          : 'Automatically earned every $freeDayThreshold '
+                                'completed deliveries. You can also grant '
+                                'extra days by hand.',
+                      style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    for (final driver in drivers)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${driver.displayName} · '
+                                '${deliveredCounts[driver.id] ?? 0} delivered',
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            if ((freeDayBalances[driver.id] ?? 0) > 0)
+                              Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.success.withValues(
+                                    alpha: 0.12,
+                                  ),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  '${freeDayBalances[driver.id]} banked',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.success,
+                                  ),
+                                ),
+                              ),
+                            TextButton(
+                              onPressed: () =>
+                                  _grantFreeDays(context, ref, driver),
+                              child: const Text('Grant'),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             if (pendingManual.isNotEmpty) ...[
               Card(
                 child: Padding(

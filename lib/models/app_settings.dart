@@ -13,6 +13,7 @@ class AppSettings {
     this.pricePerKm = 1.5,
     this.commissionFlatFee = 0,
     this.driverDailyFee = 0,
+    this.freeDayDeliveryThreshold,
   });
 
   final String currency;
@@ -45,6 +46,14 @@ class AppSettings {
   /// otherwise always between 10 and 100.
   final double driverDailyFee;
 
+  /// Automatic free-day incentive: every this many completed deliveries
+  /// earns a driver 1 free commission day, credited to
+  /// `driver_free_day_credits` and spent automatically - see
+  /// `0032_commission_free_days.sql`. Null means the automatic rule is
+  /// off (a dispatcher/super admin can still grant free days by hand
+  /// either way).
+  final int? freeDayDeliveryThreshold;
+
   factory AppSettings.fromMap(Map<String, dynamic> map) {
     return AppSettings(
       currency: map['currency'] as String? ?? 'GHS',
@@ -54,6 +63,8 @@ class AppSettings {
       pricePerKm: (map['price_per_km'] as num?)?.toDouble() ?? 1.5,
       commissionFlatFee: (map['commission_flat_fee'] as num?)?.toDouble() ?? 0,
       driverDailyFee: (map['driver_daily_fee'] as num?)?.toDouble() ?? 0,
+      freeDayDeliveryThreshold: (map['free_day_delivery_threshold'] as num?)
+          ?.toInt(),
     );
   }
 

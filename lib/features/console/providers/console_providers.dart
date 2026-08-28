@@ -30,6 +30,12 @@ final allDriverDailyFeesProvider = FutureProvider<List<DriverDailyFee>>((ref) {
   return ref.watch(driverDailyFeeRepositoryProvider).fetchAll();
 });
 
+/// Every driver's current free-day balance, keyed by driver id - the raw
+/// data behind Console > Daily Fees' incentive section.
+final allFreeDayBalancesProvider = FutureProvider<Map<String, int>>((ref) {
+  return ref.watch(driverDailyFeeRepositoryProvider).fetchAllFreeDayBalances();
+});
+
 /// The most recent audit log entries - only resolves any rows for a
 /// super admin, since RLS hides everything from anyone else.
 final auditLogProvider = FutureProvider<List<AuditLogEntry>>((ref) {

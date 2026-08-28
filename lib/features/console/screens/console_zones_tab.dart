@@ -529,6 +529,14 @@ class _ZoneCardState extends ConsumerState<_ZoneCard> {
                     ),
                     const SizedBox(width: 10),
                     OutlinedButton(
+                      // Reset the app-wide full-width minimum size (meant
+                      // for a lone button stretched across a Column) -
+                      // left as-is here, it demands unbounded width and
+                      // squeezes the two Expanded fields above/beside it
+                      // down to almost nothing. See console_reports_tab.dart.
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(64, 40),
+                      ),
                       onPressed: _isSavingPricing ? null : _savePricing,
                       child: _isSavingPricing
                           ? const SizedBox(

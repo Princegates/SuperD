@@ -11,3 +11,11 @@
   # two keys are intentionally public; it still flags anything else
   # (a service_role key, say) that shows up unexpectedly.
   SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_ANON_KEY"
+  # `_flutter/` is the Flutter SDK the build command clones fresh each
+  # run (Netlify's own image doesn't have Flutter installed) - it's
+  # third-party vendored code, not ours, and its own binaries can
+  # contain strings that look like API keys (e.g. a Google API key
+  # pattern baked into dartdev_aot.dart.snapshot). Excluding this path
+  # only skips scanning the vendored SDK; our own code and env vars are
+  # still scanned normally.
+  SECRETS_SCAN_OMIT_PATHS = "_flutter/**"

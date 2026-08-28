@@ -317,10 +317,8 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Telephone number',
                   ),
-                  validator: _isDriver
-                      ? null
-                      : (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 if (!_isDriver) ...[
                   const SizedBox(height: 14),

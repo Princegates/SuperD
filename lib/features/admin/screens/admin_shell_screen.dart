@@ -20,6 +20,7 @@ import '../../console/screens/console_settings_tab.dart';
 import '../../console/screens/console_zones_tab.dart';
 import '../providers/admin_providers.dart';
 import 'admin_dashboard_screen.dart';
+import 'drivers_screen.dart';
 import 'home_screen.dart';
 import 'live_map_screen.dart';
 import 'team_screen.dart';
@@ -37,9 +38,11 @@ class _AdminSection {
   final String label;
   final Widget body;
 
-  /// Reporting/finance/audit/onboarding/zones are super-admin only -
-  /// dispatchers never see these in the nav at all, on top of the RLS that
-  /// already keeps their underlying data out of reach either way.
+  /// Team/reporting/finance/audit/onboarding/zones/settings are
+  /// super-admin only - dispatchers never see these in the nav at all, on
+  /// top of the RLS that already keeps their underlying data out of reach
+  /// either way. Also decides where `_NavList` draws its "ADMIN CONSOLE"
+  /// divider - see the ordering note on `_restOfSections`.
   final bool superAdminOnly;
 }
 
@@ -47,12 +50,16 @@ class _AdminSection {
 /// dispatcher or super admin can reach, behind a single persistent
 /// navigation surface instead of separate full-screen pages you push into
 /// and back out of. What shows up in the nav is role-based - a dispatcher
-/// sees Deliveries/Team/Vendors/Commission/Daily Fees (confirming what a
-/// driver owes/has paid is routine dispatch work, not a super-admin-only
-/// decision - matching the RLS on `commission_payments`/
-/// `driver_daily_fees`, which already allow either role); a super admin
-/// also sees the remaining Console sections (Overview, Reports, Finance,
-/// Audit log, Onboarding, Zones, Settings).
+/// sees Deliveries/Drivers/Vendors/Commission/Daily Fees (confirming what
+/// a driver owes/has paid, and managing the driver roster itself, is
+/// routine dispatch work, not a super-admin-only decision - matching the
+/// RLS on `commission_payments`/`driver_daily_fees`, which already allow
+/// either role); a super admin also sees Team (dispatcher/super-admin
+/// management is exclusive to a super admin, so this is the one roster
+/// screen kept off a dispatcher's nav - see [DriversScreen] for why the
+/// driver roster is split out into its own section instead) and the
+/// remaining Console sections (Overview, Reports, Finance, Audit log,
+/// Onboarding, Zones, Settings).
 class AdminShellScreen extends StatefulWidget {
   const AdminShellScreen({super.key});
 
@@ -63,15 +70,35 @@ class AdminShellScreen extends StatefulWidget {
 class _AdminShellScreenState extends State<AdminShellScreen> {
   int _index = 0;
 
+  // _NavList relies on every non-superAdminOnly section coming first,
+  // contiguously, followed by every superAdminOnly one - that's what
+  // decides where its "ADMIN CONSOLE" divider lands (see opsCount there).
+  // So order matters here, not just each entry's own flag.
   static const _restOfSections = [
     _AdminSection(
       Icons.local_shipping_outlined,
       'Deliveries',
       AdminDashboardScreen(),
     ),
-    _AdminSection(Icons.groups_outlined, 'Team', TeamScreen()),
+    _AdminSection(Icons.two_wheeler_outlined, 'Drivers', DriversScreen()),
     _AdminSection(Icons.storefront_outlined, 'Vendors', VendorsScreen()),
     _AdminSection(Icons.near_me_outlined, 'Live Map', LiveMapScreen()),
+    _AdminSection(
+      Icons.request_quote_outlined,
+      'Commission',
+      ConsoleCommissionTab(),
+    ),
+    _AdminSection(
+      Icons.calendar_today_outlined,
+      'Daily Fees',
+      ConsoleDailyFeesTab(),
+    ),
+    _AdminSection(
+      Icons.badge_outlined,
+      'Team',
+      TeamScreen(),
+      superAdminOnly: true,
+    ),
     _AdminSection(
       Icons.insights_outlined,
       'Overview',
@@ -89,16 +116,6 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       'Finance',
       ConsoleFinanceTab(),
       superAdminOnly: true,
-    ),
-    _AdminSection(
-      Icons.request_quote_outlined,
-      'Commission',
-      ConsoleCommissionTab(),
-    ),
-    _AdminSection(
-      Icons.calendar_today_outlined,
-      'Daily Fees',
-      ConsoleDailyFeesTab(),
     ),
     _AdminSection(
       Icons.receipt_long_outlined,

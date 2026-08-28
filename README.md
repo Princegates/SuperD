@@ -171,10 +171,11 @@ exception.) For the very first account, create it straight from Supabase:
    ```
 
 From then on, that account can promote/demote anyone else (to `driver`,
-`dispatcher`, or `super_admin`) right from the app's Team screen — no more
-SQL needed except for this one bootstrap step. Roles can't be changed from
-within the app by anyone but a super admin; a database trigger enforces
-this even if a client is compromised or modified.
+`dispatcher`, or `super_admin`) right from the app's Team or Drivers
+screen — no more SQL needed except for this one bootstrap step. Roles
+can't be changed from within the app by anyone but a super admin; a
+database trigger enforces this even if a client is compromised or
+modified.
 
 ### Enable "Forgot password?"
 
@@ -424,7 +425,7 @@ This is a dashboard for dispatchers and super admins, not a driver app -
 so on **web** specifically, a driver account signing in gets signed
 straight back out, with a message explaining why. Drivers still exist as
 a role (a dispatcher/super admin still creates and manages them from
-Team), they just can't sign in through this particular deployment; a
+Drivers), they just can't sign in through this particular deployment; a
 native mobile build wouldn't have this restriction, once one exists.
 
 A super admin can temporarily lift this from **Console > Settings**
@@ -460,7 +461,7 @@ password immediately, no temporary one to change later.
 
 That account starts **inactive**, though - pending approval - and can't
 be assigned any deliveries until a dispatcher or super admin approves it
-from the Team screen (the same toggle used to deactivate any existing
+from the Drivers screen (the same toggle used to deactivate any existing
 driver later). Until then, signing in shows a "pending approval" screen
 instead of the driver dashboard. Recently self-signed-up drivers also show
 a "Pending approval" badge on the Console's Onboarding tab, alongside the
@@ -470,7 +471,7 @@ spot new signups needing a look.
 This is safe against a spoofed client: what decides whether a new account
 starts active or pending is `raw_app_meta_data`, which can only be set
 server-side with the service-role key (by the `admin-create-driver` Edge
-Function, for accounts a dispatcher creates from Team) - never by
+Function, for accounts a dispatcher creates from Drivers) - never by
 `user_metadata` a signing-up client controls. See
 `supabase/migrations/0014_driver_self_signup.sql`.
 
@@ -485,7 +486,7 @@ the row.
 - **Application submitted** - the moment a driver self-signs-up, two
   emails go out from the same trigger: every active dispatcher and super
   admin is emailed the applicant's name, email, and phone with a nudge to
-  review them from Team, and the applicant themselves gets a short
+  review them from Drivers, and the applicant themselves gets a short
   receipt ("we've received your application, a dispatcher will review it
   soon"). An admin-created driver never triggers either (they land
   already active).
@@ -635,20 +636,27 @@ notify-driver-application` / `notify-driver-approved`).
 ## Staff management
 
 Dispatchers and super admins can add, edit, and remove drivers straight from
-the Team screen — Full name, email, telephone number, residential address,
-Ghana card number, and vehicle number. Super admins can also add, edit, and
-remove **dispatchers** the same way — Full name, date of birth, email,
-telephone number, and residential address are all required for a
-dispatcher (checked both in the form and server-side). Dispatcher
+the **Drivers** screen — Full name, email, telephone number, residential
+address, Ghana card number, and vehicle number, grouped by vehicle type.
+It's its own section, separate from **Team**, precisely so driver-specific
+settings (approve/deactivate, freeze, and anything added later - e.g. a
+daily-fee tier pin from Console > Daily Fees) have a dedicated home instead
+of being buried in a general staff list; both dispatchers and super admins
+can reach it, since managing the driver roster is routine dispatch work.
+
+Super admins can also add, edit, and remove **dispatchers** from the
+**Team** screen the same way — Full name, date of birth, email, telephone
+number, and residential address are all required for a dispatcher (checked
+both in the form and server-side). Team is super-admin-only: dispatcher
 management is exclusive to the super admin role, since dispatchers managing
 other dispatchers would be a peer managing peers. A super admin's own
-account can't be removed from this screen either way; that's not a roster
-edit.
+account can't be removed from either screen either way; that's not a
+roster edit.
 
-The same screen has a toggle to approve a driver who signed themselves up
-(see **Driver self-signup** above) or deactivate any existing driver or
-dispatcher - an inactive driver shows a "Pending approval" badge and can't
-be assigned deliveries until switched on.
+Both screens have a toggle to deactivate an existing driver/dispatcher; on
+Drivers, the same toggle also approves a driver who signed themselves up
+(see **Driver self-signup** above) - an inactive driver shows a "Pending
+approval" badge and can't be assigned deliveries until switched on.
 
 Creating or deleting a login needs Supabase's admin API, which requires the
 project's service-role key. That key must never be embedded in the app
@@ -1196,19 +1204,19 @@ Three more per-driver fields, all added in
 `0025_driver_categories_and_status.sql`:
 
 - **Vehicle type** — Motorbike, Car, Van/Truck, or Tricycle. Set from the
-  Add/Edit driver form (**Team**) or a driver's own self-signup form; both
-  are optional, so a driver can stay unset until edited. The **Team**
-  screen groups drivers by this (with an "Unspecified vehicle" group for
-  anyone without one), separately from dispatchers and super admins.
+  Add/Edit driver form (**Drivers**) or a driver's own self-signup form;
+  both are optional, so a driver can stay unset until edited. The
+  **Drivers** screen groups drivers by this (with an "Unspecified vehicle"
+  group for anyone without one).
 - **Online/offline** — a driver's own "available for new deliveries"
   toggle, shown as a bar at the top of their dashboard, and as an
-  "Online"/"Offline" badge on their row in **Team** so a dispatcher/super
+  "Online"/"Offline" badge on their row in **Drivers** so a dispatcher/super
   admin can see it too. It's also what the zone auto-assignment algorithm
   (above) checks before handing a driver a new customer request - one
   who's offline is skipped, same as one who's inactive or frozen.
 - **Frozen** — a super-admin-only control (e.g. for unpaid commission),
-  toggled from **Team** with a confirmation prompt and a "Frozen" badge on
-  the driver's row. A frozen driver keeps full access to whatever's
+  toggled from **Drivers** with a confirmation prompt and a "Frozen" badge
+  on the driver's row. A frozen driver keeps full access to whatever's
   already assigned to them - they can still work it to completion - but
   can't accept a delivery still sitting at `assigned`, and can't be newly
   assigned another one either (both blocked server-side, not just in the
@@ -1360,8 +1368,8 @@ updates the same row rather than adding a second one, so a customer can
 always come back and revise their rating.
 
 There's no dispatcher/admin screen surfacing these yet (a driver's average
-rating in **Console > Team** is a reasonable next step) - for now, reading
-them means querying `delivery_ratings` directly.
+rating on their row in **Drivers** is a reasonable next step) - for now,
+reading them means querying `delivery_ratings` directly.
 
 ## Vendors, zones, and public delivery requests
 
@@ -1563,7 +1571,7 @@ has no real orders against it yet.
 driver can see who's actually nearby, price customer requests by area, and
 auto-assign a driver without a dispatcher at all when one's available (see
 **Automatic same-zone driver assignment** above). Assign a driver to one
-from their edit screen in **Team**, and a vendor to one when they're
+from their edit screen in **Drivers**, and a vendor to one when they're
 registered.
 
 Only a super admin can create a zone or change what it covers - that
@@ -1638,13 +1646,32 @@ back out of. What shows up in the nav is role-based:
   row of quick-glance KPI cards, all deliveries broken down by status, and
   one-tap links into every other section this role can reach), **Deliveries**
   (the live job board: filter by status, create one, tap in for details),
-  **Team** (add/edit/remove drivers, and dispatchers if you're a super
-  admin), **Vendors** (register/edit vendors, copy their links,
-  activate/deactivate), and **Live Map** (every driver currently sharing
-  their location, live on Google Maps - see **Live driver tracking**
-  below).
+  **Drivers** (add/edit/remove drivers, grouped by vehicle type - split out
+  from Team into its own section so driver-specific settings, e.g. freeze
+  or a daily-fee tier pin, have a dedicated home), **Vendors** (register/edit
+  vendors, copy their links, activate/deactivate), **Live Map** (every
+  driver currently sharing their location, live on Google Maps - see
+  **Live driver tracking** below), **Commission** (what drivers owe the
+  business, not what customers owe for the delivery - see **Driver
+  commission** below: outstanding vs collected vs waived per currency, a
+  per-driver "owed" breakdown, and a recent-commission feed with a one-tap
+  "Mark paid" action), and **Daily Fees** (the tiered daily Mobile Money
+  platform fee, shown to drivers as "commission" - see **Driver daily
+  fee** below: who hasn't paid today with a one-tap "Waive today" per
+  driver, each driver's banked free-day balance and completed-delivery
+  count with a "Grant" button, Mobile Money references awaiting
+  confirmation from the manual-pay fallback, and a recent-payments feed.
+  A super admin additionally sees a "Tier overrides" section here to pin
+  a specific driver to one tier, overriding the automatic
+  delivery-count calculation for them - see **Driver daily fee** below).
+  Confirming what a driver owes/has paid is routine dispatch work, not a
+  super-admin-only decision.
 - **Super admins additionally see**, grouped under an "Admin Console"
   header in the nav:
+  - **Team** - add/edit/remove dispatchers and other super admins.
+    Exclusive to a super admin: dispatcher management is a peer managing
+    peers, so it's kept off a dispatcher's nav entirely (unlike Drivers
+    above).
   - **Overview** - reporting/analytics computed live from existing data,
     all-time and always current (no date filter - see **Reports** below
     for that): total deliveries by status, completion/cancellation rate,
@@ -1667,17 +1694,6 @@ back out of. What shows up in the nav is role-based:
     recorded: collected vs outstanding (and failed/refunded, when
     present) per currency, a breakdown by payment method, and a
     recent-payments feed.
-  - **Commission** - what drivers owe the business, not what customers
-    owe for the delivery (see **Driver commission** below): outstanding
-    vs collected vs waived per currency, a per-driver "owed" breakdown,
-    and a recent-commission feed with a one-tap "Mark paid" action.
-  - **Daily Fees** - the flat daily Mobile Money platform fee, shown to
-    drivers as "commission" (see **Driver daily fee** above): who hasn't
-    paid today (with a one-tap "Waive today" per driver), each driver's
-    banked free-day balance and completed-delivery count with a "Grant"
-    button (see **Free-day incentive**), Mobile Money references awaiting
-    confirmation from the manual-pay fallback, and a recent-payments
-    feed.
   - **Audit log** - a chronological record of who did what: role changes,
     staff added/removed, vendors registered/edited/(de)activated, drivers
     assigned, deliveries created, and payments marked paid. Entries are
@@ -1689,8 +1705,8 @@ back out of. What shows up in the nav is role-based:
   - **Onboarding** - a single triage view of recently added staff and
     vendors, flagging what's incomplete (a driver who hasn't set their
     own password yet, a vendor with no zone or a deactivated link) with a
-    direct link into the Team/Vendors edit forms to fix it. It doesn't
-    duplicate those forms - just surfaces who needs attention.
+    direct link into the Drivers/Team/Vendors edit forms to fix it. It
+    doesn't duplicate those forms - just surfaces who needs attention.
   - **Zones** - create, rename, or delete zones (the fixed list drivers
     and vendors pick from elsewhere), and define what each one covers by
     pinning named locations within it. Deleting a zone still in use by a
@@ -1704,12 +1720,13 @@ back out of. What shows up in the nav is role-based:
     changed it. All of these are backed by the single-row `app_settings`
     table.
 
-A dispatcher literally has no way to reach the Admin Console sections -
-they're not just hidden, there's no route for them to type into the
-address bar either, since they live as plain in-app navigation state
-rather than their own URLs. The underlying data is independently
-RLS-protected regardless (e.g. `audit_log`'s select policy is
-`is_super_admin()` only), so it's not relying on the UI alone.
+A dispatcher literally has no way to reach the super-admin-only Admin
+Console sections (Team, Overview, Reports, Finance, Audit log,
+Onboarding, Zones, Settings) - they're not just hidden, there's no route
+for them to type into the address bar either, since they live as plain
+in-app navigation state rather than their own URLs. The underlying data
+is independently RLS-protected regardless (e.g. `audit_log`'s select
+policy is `is_super_admin()` only), so it's not relying on the UI alone.
 
 ### Live driver tracking
 

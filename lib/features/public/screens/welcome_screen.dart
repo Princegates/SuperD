@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
@@ -13,14 +16,39 @@ import '../../../shared/utils/vendor_link.dart';
 /// "Marketing landing page" section), built this way instead of a
 /// hosting-specific redirect so it's the first thing shown identically on
 /// every host and in local dev (`flutter run`), not just on Netlify.
-class WelcomeScreen extends StatelessWidget {
+class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
 
+  @override
+  State<WelcomeScreen> createState() => _WelcomeScreenState();
+}
+
+class _WelcomeScreenState extends State<WelcomeScreen>
+    with SingleTickerProviderStateMixin {
   static const _capabilities = [
     (Icons.bolt_outlined, 'Real-time dispatch'),
     (Icons.map_outlined, 'Live tracking'),
     (Icons.verified_outlined, 'Secure payments'),
   ];
+
+  /// Drives the drifting logo watermark behind the content - one slow,
+  /// looping clock the whole page reads its position off of.
+  late final AnimationController _driftController;
+
+  @override
+  void initState() {
+    super.initState();
+    _driftController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 26),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _driftController.dispose();
+    super.dispose();
+  }
 
   /// Vendor registration and staff/driver login are their own separate
   /// journeys from this marketing page, so both open in a new tab on web
@@ -54,13 +82,14 @@ class WelcomeScreen extends StatelessWidget {
                   center: const Alignment(0, -0.5),
                   radius: 1.1,
                   colors: [
-                    AppTheme.accent.withValues(alpha: 0.12),
+                    AppTheme.accent.withValues(alpha: 0.10),
                     Colors.white,
                   ],
                 ),
               ),
             ),
           ),
+          _DriftingLogoShadow(controller: _driftController),
           SafeArea(
             child: Center(
               child: ConstrainedBox(
@@ -81,6 +110,13 @@ class WelcomeScreen extends StatelessWidget {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(22),
                           border: Border.all(color: const Color(0xFFE7EAEE)),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AppTheme.primary.withValues(alpha: 0.14),
+                              blurRadius: 26,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
                         ),
                         child: Image.asset('assets/icon/icon.png'),
                       ),
@@ -88,10 +124,10 @@ class WelcomeScreen extends StatelessWidget {
                       RichText(
                         textAlign: TextAlign.center,
                         text: TextSpan(
-                          style: const TextStyle(
-                            fontSize: 40,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: -0.5,
+                          style: GoogleFonts.poppins(
+                            fontSize: 42,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.8,
                             height: 1.1,
                           ),
                           children: [
@@ -112,7 +148,7 @@ class WelcomeScreen extends StatelessWidget {
                         'businesses - connecting vendors, dispatchers, and '
                         'riders from order to doorstep.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: GoogleFonts.inter(
                           color: Colors.grey.shade700,
                           fontSize: 16,
                           height: 1.5,
@@ -124,49 +160,57 @@ class WelcomeScreen extends StatelessWidget {
                         spacing: 16,
                         runSpacing: 16,
                         children: [
-                          FilledButton(
-                            style: FilledButton.styleFrom(
-                              backgroundColor: AppTheme.accent,
-                              foregroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 28,
-                                vertical: 16,
+                          _AnimatedCta(
+                            glowColor: AppTheme.accent,
+                            borderRadius: BorderRadius.circular(999),
+                            child: FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: AppTheme.accent,
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 30,
+                                  vertical: 17,
+                                ),
+                                shape: const StadiumBorder(),
+                                textStyle: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
                               ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                            onPressed: () => _open(context, '/vendor'),
-                            child: const Text(
-                              'Register your business',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w600,
-                                fontSize: 15,
-                              ),
+                              onPressed: () => _open(context, '/vendor'),
+                              child: const Text('Register your business'),
                             ),
                           ),
-                          TextButton(
-                            style: TextButton.styleFrom(
-                              foregroundColor: AppTheme.primary,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 20,
-                                vertical: 16,
-                              ),
-                            ),
-                            onPressed: () => _open(context, '/login'),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  'Staff & driver login',
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 15,
+                          _AnimatedCta(
+                            glowColor: AppTheme.primary,
+                            borderRadius: BorderRadius.circular(999),
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primary,
+                                side: BorderSide(
+                                  color: AppTheme.primary.withValues(
+                                    alpha: 0.35,
                                   ),
                                 ),
-                                SizedBox(width: 4),
-                                Icon(Icons.arrow_forward, size: 17),
-                              ],
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 26,
+                                  vertical: 17,
+                                ),
+                                shape: const StadiumBorder(),
+                                textStyle: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              onPressed: () => _open(context, '/login'),
+                              child: const Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text('Staff & driver login'),
+                                  SizedBox(width: 6),
+                                  Icon(Icons.arrow_forward, size: 17),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -185,7 +229,7 @@ class WelcomeScreen extends StatelessWidget {
                                 const SizedBox(width: 8),
                                 Text(
                                   label,
-                                  style: TextStyle(
+                                  style: GoogleFonts.inter(
                                     color: Colors.grey.shade600,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
@@ -200,7 +244,7 @@ class WelcomeScreen extends StatelessWidget {
                         "Already a customer? Use the tracking link your "
                         'vendor sent you after you placed your order.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: GoogleFonts.inter(
                           color: Colors.grey.shade400,
                           fontSize: 13,
                         ),
@@ -212,6 +256,113 @@ class WelcomeScreen extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A single large, low-opacity copy of the app mark, drifting slowly on a
+/// gentle Lissajous-style path behind the page content with a soft sway -
+/// "the logo moving in shadows," not a fully rendered logo competing with
+/// the foreground. [controller] is the parent's single looping clock, kept
+/// external so this stays a cheap [StatelessWidget] with no ticker of its
+/// own - same pattern as [GlowOrbsBackground] elsewhere in the app.
+class _DriftingLogoShadow extends StatelessWidget {
+  const _DriftingLogoShadow({required this.controller});
+
+  final AnimationController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: ClipRect(
+        child: AnimatedBuilder(
+          animation: controller,
+          builder: (context, _) {
+            final t = controller.value * 2 * math.pi;
+            final dx = 0.5 + 0.16 * math.sin(t * 0.6);
+            final dy = 0.4 + 0.09 * math.cos(t * 0.42);
+            final angle = 0.07 * math.sin(t * 0.5);
+            return Align(
+              alignment: Alignment(dx * 2 - 1, dy * 2 - 1),
+              child: Transform.rotate(
+                angle: angle,
+                child: Opacity(
+                  opacity: 0.07,
+                  child: Image.asset(
+                    'assets/icon/icon.png',
+                    width: 620,
+                    height: 620,
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// Wraps [child] (a call-to-action button) with a snappy hover/press
+/// animation for desktop/web pointers - a small scale-up plus a soft glow
+/// in [glowColor] on hover, and a quick scale-down on press. Purely
+/// cosmetic on top of whatever the button already does on tap.
+class _AnimatedCta extends StatefulWidget {
+  const _AnimatedCta({
+    required this.child,
+    required this.glowColor,
+    required this.borderRadius,
+  });
+
+  final Widget child;
+  final Color glowColor;
+  final BorderRadius borderRadius;
+
+  @override
+  State<_AnimatedCta> createState() => _AnimatedCtaState();
+}
+
+class _AnimatedCtaState extends State<_AnimatedCta> {
+  bool _hovering = false;
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final scale = _pressed ? 0.96 : (_hovering ? 1.045 : 1.0);
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() {
+        _hovering = false;
+        _pressed = false;
+      }),
+      child: Listener(
+        onPointerDown: (_) => setState(() => _pressed = true),
+        onPointerUp: (_) => setState(() => _pressed = false),
+        onPointerCancel: (_) => setState(() => _pressed = false),
+        child: AnimatedScale(
+          scale: scale,
+          duration: const Duration(milliseconds: 160),
+          curve: Curves.easeOutCubic,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            decoration: BoxDecoration(
+              borderRadius: widget.borderRadius,
+              boxShadow: _hovering
+                  ? [
+                      BoxShadow(
+                        color: widget.glowColor.withValues(alpha: 0.38),
+                        blurRadius: 26,
+                        spreadRadius: 1,
+                      ),
+                    ]
+                  : const [],
+            ),
+            child: widget.child,
+          ),
+        ),
       ),
     );
   }

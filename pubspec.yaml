@@ -76,6 +76,10 @@ dependencies:
   # widget is showing the pin.
   http: ^1.2.0
 
+  # Custom display/body fonts for the marketing welcome screen (Poppins/
+  # Inter) - fetched once and cached on-device, no API key needed.
+  google_fonts: ^6.2.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

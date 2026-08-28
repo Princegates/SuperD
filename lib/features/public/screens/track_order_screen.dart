@@ -185,15 +185,24 @@ class _LiveTrackingSheet extends ConsumerWidget {
               style: TextStyle(color: Colors.grey.shade600),
             ),
             const SizedBox(height: 14),
-            if (order?.hasDriverLocation ?? false)
+            if (order?.hasDriverLocation ?? false) ...[
               MapPreview(
                 pickup: LatLng(order!.driverLat!, order.driverLng!),
                 dropoff: order.dropoffLat != null && order.dropoffLng != null
                     ? LatLng(order.dropoffLat!, order.dropoffLng!)
                     : null,
                 height: 260,
-              )
-            else
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => launchMapView(
+                  lat: order.driverLat!,
+                  lng: order.driverLng!,
+                ),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Open in Google Maps'),
+              ),
+            ] else
               const SizedBox(
                 height: 120,
                 child: Center(child: Text('No live location yet')),

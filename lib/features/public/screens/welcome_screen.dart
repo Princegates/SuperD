@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
-import '../../../shared/widgets/glow_orbs_background.dart';
 
 /// The app's actual front door - reachable at the bare root (`/`), before
 /// any session/role check runs (see the `'/'` exemption in the router's
@@ -14,53 +13,67 @@ import '../../../shared/widgets/glow_orbs_background.dart';
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
+  static const _capabilities = [
+    (Icons.bolt_outlined, 'Real-time dispatch'),
+    (Icons.map_outlined, 'Live tracking'),
+    (Icons.verified_outlined, 'Secure payments'),
+  ];
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.primary,
       body: Stack(
         children: [
+          // A single, static, understated glow behind the wordmark - not
+          // the drifting multi-color orbs used on the splash screen. This
+          // page is meant to read as a corporate product homepage, not a
+          // playful loading moment.
           Positioned.fill(
-            child: GlowOrbsBackground(
-              colors: [Colors.white24, AppTheme.accent, AppTheme.accent],
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: RadialGradient(
+                  center: const Alignment(0, -0.5),
+                  radius: 1.1,
+                  colors: [
+                    AppTheme.accent.withValues(alpha: 0.16),
+                    AppTheme.primary,
+                  ],
+                ),
+              ),
             ),
           ),
           SafeArea(
             child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
+                constraints: const BoxConstraints(maxWidth: 560),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 32,
+                    horizontal: 32,
+                    vertical: 40,
                   ),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Container(
-                        width: 108,
-                        height: 108,
-                        padding: const EdgeInsets.all(14),
+                        width: 88,
+                        height: 88,
+                        padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: Colors.white,
-                          borderRadius: BorderRadius.circular(28),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.accent.withValues(alpha: 0.35),
-                              blurRadius: 24,
-                              spreadRadius: 2,
-                            ),
-                          ],
+                          borderRadius: BorderRadius.circular(22),
                         ),
                         child: Image.asset('assets/icon/icon.png'),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 36),
                       RichText(
                         textAlign: TextAlign.center,
                         text: TextSpan(
                           style: const TextStyle(
-                            fontSize: 30,
-                            fontWeight: FontWeight.w800,
+                            fontSize: 40,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: -0.5,
+                            height: 1.1,
                           ),
                           children: [
                             const TextSpan(
@@ -74,65 +87,108 @@ class WelcomeScreen extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'Delivering More. Connecting Better. — a free, '
-                        'open-source delivery management platform for local '
-                        'vendors, their dispatchers, and the riders who get '
-                        'it there.',
+                      const SizedBox(height: 20),
+                      Text(
+                        'The delivery management platform for local '
+                        'businesses - connecting vendors, dispatchers, and '
+                        'riders from order to doorstep.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white70, height: 1.4),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.72),
+                          fontSize: 16,
+                          height: 1.5,
+                        ),
                       ),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 40),
                       Wrap(
                         alignment: WrapAlignment.center,
-                        spacing: 12,
-                        runSpacing: 12,
+                        spacing: 16,
+                        runSpacing: 16,
                         children: [
                           FilledButton(
                             style: FilledButton.styleFrom(
                               backgroundColor: AppTheme.accent,
                               foregroundColor: Colors.black,
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
+                                horizontal: 28,
                                 vertical: 16,
                               ),
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
+                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
                             onPressed: () => context.push('/vendor'),
                             child: const Text(
                               'Register your business',
-                              style: TextStyle(fontWeight: FontWeight.w700),
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 15,
+                              ),
                             ),
                           ),
-                          OutlinedButton(
-                            style: OutlinedButton.styleFrom(
+                          TextButton(
+                            style: TextButton.styleFrom(
                               foregroundColor: Colors.white,
-                              side: const BorderSide(color: Colors.white38),
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
+                                horizontal: 20,
                                 vertical: 16,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(30),
                               ),
                             ),
                             onPressed: () => context.push('/login'),
-                            child: const Text(
-                              'Staff & driver login',
-                              style: TextStyle(fontWeight: FontWeight.w700),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Staff & driver login',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                                SizedBox(width: 4),
+                                Icon(Icons.arrow_forward, size: 17),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
-                      const Text(
+                      const SizedBox(height: 56),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 32,
+                        runSpacing: 16,
+                        children: [
+                          for (final (icon, label) in _capabilities)
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  icon,
+                                  size: 17,
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  label,
+                                  style: TextStyle(
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 40),
+                      Text(
                         "Already a customer? Use the tracking link your "
                         'vendor sent you after you placed your order.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white54, fontSize: 13),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.4),
+                          fontSize: 13,
+                        ),
                       ),
                     ],
                   ),

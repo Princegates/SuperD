@@ -47,9 +47,12 @@ class _AdminSection {
 /// dispatcher or super admin can reach, behind a single persistent
 /// navigation surface instead of separate full-screen pages you push into
 /// and back out of. What shows up in the nav is role-based - a dispatcher
-/// sees Deliveries/Team/Vendors; a super admin also sees the Console
-/// sections (Overview, Reports, Finance, Commission, Daily Fees, Audit
-/// log, Onboarding, Zones).
+/// sees Deliveries/Team/Vendors/Commission/Daily Fees (confirming what a
+/// driver owes/has paid is routine dispatch work, not a super-admin-only
+/// decision - matching the RLS on `commission_payments`/
+/// `driver_daily_fees`, which already allow either role); a super admin
+/// also sees the remaining Console sections (Overview, Reports, Finance,
+/// Audit log, Onboarding, Zones, Settings).
 class AdminShellScreen extends StatefulWidget {
   const AdminShellScreen({super.key});
 
@@ -91,13 +94,11 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       Icons.request_quote_outlined,
       'Commission',
       ConsoleCommissionTab(),
-      superAdminOnly: true,
     ),
     _AdminSection(
       Icons.calendar_today_outlined,
       'Daily Fees',
       ConsoleDailyFeesTab(),
-      superAdminOnly: true,
     ),
     _AdminSection(
       Icons.receipt_long_outlined,

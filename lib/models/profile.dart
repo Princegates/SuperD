@@ -12,6 +12,11 @@ class Profile {
   final DateTime? dateOfBirth;
   final String? residentialAddress;
   final String? zoneId;
+
+  /// Super-admin-only pin to one specific `driver_daily_fee_tiers` row -
+  /// see `daily_fee_tier_override_id` in `0038_daily_fee_tier_overrides.sql`.
+  /// Null means the normal automatic tier-by-delivery-count behavior.
+  final String? dailyFeeTierOverrideId;
   final UserRole role;
   final bool isActive;
   final bool isOnline;
@@ -34,6 +39,7 @@ class Profile {
     this.dateOfBirth,
     this.residentialAddress,
     this.zoneId,
+    this.dailyFeeTierOverrideId,
     this.isActive = true,
     this.isOnline = false,
     this.isFrozen = false,
@@ -58,6 +64,7 @@ class Profile {
           : DateTime.tryParse(map['date_of_birth'] as String),
       residentialAddress: map['residential_address'] as String?,
       zoneId: map['zone_id'] as String?,
+      dailyFeeTierOverrideId: map['daily_fee_tier_override_id'] as String?,
       role: UserRole.fromString(map['role'] as String? ?? 'driver'),
       isActive: map['is_active'] as bool? ?? true,
       isOnline: map['is_online'] as bool? ?? false,

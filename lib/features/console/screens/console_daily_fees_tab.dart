@@ -9,6 +9,7 @@ import '../../../models/delivery_status.dart';
 import '../../../models/driver_daily_fee.dart';
 import '../../../models/driver_daily_fee_tier.dart';
 import '../../../models/profile.dart';
+import '../../../models/user_role.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../admin/providers/admin_providers.dart';
 import '../providers/console_providers.dart';
@@ -39,6 +40,17 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
   Future<void> _waive(WidgetRef ref, String driverId) async {
     await ref.read(driverDailyFeeRepositoryProvider).waiveToday(driverId);
     ref.invalidate(allDriverDailyFeesProvider);
+  }
+
+  Future<void> _setTierOverride(
+    WidgetRef ref,
+    String driverId,
+    String? tierId,
+  ) async {
+    await ref
+        .read(profileRepositoryProvider)
+        .setDailyFeeTierOverride(driverId, tierId);
+    ref.invalidate(driversListProvider);
   }
 
   Future<void> _grantFreeDays(
@@ -93,6 +105,9 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
     final feesState = ref.watch(allDriverDailyFeesProvider);
     final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
     final tiers = ref.watch(dailyFeeTiersProvider).valueOrNull ?? [];
+    final isSuperAdmin =
+        ref.watch(currentProfileProvider).valueOrNull?.role ==
+        UserRole.superAdmin;
     final freeDayThreshold = ref
         .watch(appSettingsProvider)
         .valueOrNull
@@ -237,6 +252,15 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
                     ],
                   ),
                 ),
+              ),
+              const SizedBox(height: 16),
+            ],
+            if (isSuperAdmin && tiers.isNotEmpty) ...[
+              _TierOverridesCard(
+                drivers: drivers,
+                tiers: tiers,
+                onChanged: (driverId, tierId) =>
+                    _setTierOverride(ref, driverId, tierId),
               ),
               const SizedBox(height: 16),
             ],
@@ -579,6 +603,86 @@ class _FeeRow extends StatelessWidget {
             style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Super-admin-only: pins a driver to one specific tier, overriding the
+/// normal automatic tier-by-delivery-count calculation for them entirely -
+/// see `daily_fee_tier_override_id` in `0038_daily_fee_tier_overrides.sql`.
+/// Only shown once at least one tier is configured (nothing to pin to
+/// otherwise).
+class _TierOverridesCard extends StatelessWidget {
+  const _TierOverridesCard({
+    required this.drivers,
+    required this.tiers,
+    required this.onChanged,
+  });
+
+  final List<Profile> drivers;
+  final List<DriverDailyFeeTier> tiers;
+  final void Function(String driverId, String? tierId) onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Tier overrides',
+              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              "Pin a driver to one tier regardless of how many deliveries "
+              "they complete - overrides the automatic calculation for "
+              'them entirely until set back to Automatic.',
+              style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5),
+            ),
+            const SizedBox(height: 12),
+            for (final driver in drivers)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        driver.displayName,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    DropdownButton<String?>(
+                      value: tiers.any(
+                            (t) => t.id == driver.dailyFeeTierOverrideId,
+                          )
+                          ? driver.dailyFeeTierOverrideId
+                          : null,
+                      underline: const SizedBox.shrink(),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('Automatic'),
+                        ),
+                        for (final tier in tiers)
+                          DropdownMenuItem<String?>(
+                            value: tier.id,
+                            child: Text(
+                              '${tier.minDeliveries}+ - '
+                              '${tier.amount.toStringAsFixed(2)}',
+                            ),
+                          ),
+                      ],
+                      onChanged: (tierId) => onChanged(driver.id, tierId),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

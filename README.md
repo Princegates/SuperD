@@ -85,6 +85,7 @@ supabase/
     0035_super_admin_delete_deliveries.sql    restricts permanently deleting a delivery to a super admin (a dispatcher could before, just had no button for it)
     0036_driver_cancel_and_incident_reporting.sql   a driver rejecting or cancelling mid-trip now records a full explanation for the Console's incident report; cancelling also auto-reassigns to another driver and alerts an admin
     0037_tiered_daily_fee.sql                 replaces the flat driver daily fee with admin-defined tiers priced by how many deliveries a driver has completed that day, re-evaluated live
+    0038_daily_fee_tier_overrides.sql          lets a super admin pin a specific driver to one daily-fee tier, overriding the automatic delivery-count calculation for them
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -1006,6 +1007,22 @@ crossing into a higher tier means a second payment):
 A dispatcher/super admin can also **waive** a specific driver's fee for a
 given day from Console > Daily Fees - a free first day, a goodwill
 gesture, or an escape hatch if Hubtel is down - with no payment involved.
+
+A **super admin** (not a dispatcher) can also pin a specific driver to one
+tier from the same screen's "Tier overrides" section - "this driver always
+owes tier 2's amount," regardless of how many deliveries they actually
+complete that day. This overrides the automatic calculation entirely for
+that driver until set back to "Automatic" - see
+`daily_fee_tier_override_id` in `0038_daily_fee_tier_overrides.sql`.
+
+### Confirming payments: dispatcher and super admin alike
+
+Marking a commission or daily fee paid/waived, and approving or rejecting
+a driver's manually-submitted Mobile Money reference, is routine dispatch
+work - both the **Commission** and **Daily Fees** Console sections are
+open to a dispatcher, not just a super admin (defining the commission
+rate, the daily-fee tiers themselves, and tier overrides stays
+super-admin-only, in **Console > Settings**/the section above).
 
 ### Free-day incentive
 

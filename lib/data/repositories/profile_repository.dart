@@ -123,6 +123,19 @@ class ProfileRepository {
         .eq('id', userId);
   }
 
+  /// Super-admin only - enforced server-side by `enforce_profile_role_change()`
+  /// (same protection as `role`/`is_frozen`), not just this client. Pins
+  /// this driver to [tierId]'s daily-fee tier regardless of how many
+  /// deliveries they complete - null clears the pin, back to the normal
+  /// automatic tier-by-delivery-count behavior. See
+  /// `daily_fee_tier_override_id` in `0038_daily_fee_tier_overrides.sql`.
+  Future<void> setDailyFeeTierOverride(String userId, String? tierId) async {
+    await _client
+        .from('profiles')
+        .update({'daily_fee_tier_override_id': tierId})
+        .eq('id', userId);
+  }
+
   /// A driver's own "available for new deliveries" toggle, shown on their
   /// dashboard. Purely informational for dispatch/auto-assignment - not an
   /// access control (unlike [setFrozen]), so a driver may set it on

@@ -95,7 +95,7 @@ supabase/
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
     hubtel-daily-fee-charge/       Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Hubtel
     hubtel-daily-fee-webhook/      Edge Function: Hubtel's callback once a daily-fee charge resolves (public, no Supabase session)
-    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link at creation, and both customer + vendor when a driver is assigned
+    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, and both customer + vendor when a driver is assigned
     notify-vendor-registered/      Edge Function: emails a vendor their link when they register
     notify-driver-application/     Edge Function: emails staff when a driver signs themselves up
     notify-driver-approved/        Edge Function: emails a driver once their signup is approved
@@ -1263,7 +1263,7 @@ itself, outside the remounted widget tree.
 Adding a 7th theme is a matter of adding one more `ThemePreset` entry to
 `kThemePresets` - nothing else needs to change.
 
-## Delivery notifications (tracking link + driver assigned + cancellation alert)
+## Delivery notifications (tracking link + new order + driver assigned + cancellation alert)
 
 One Edge Function, `notify-delivery-events`, handles three separate
 moments in a delivery's life - both by SMS via
@@ -1275,7 +1275,15 @@ moments in a delivery's life - both by SMS via
    SMS, and by email too if they gave one on the request form (an
    optional field - see `deliveries.customer_email`,
    `0034_notifications_tracking_ratings.sql`) - so they have a way back
-   to it even if they close the page they submitted from.
+   to it even if they close the page they submitted from. In the same
+   instant, if the order came in through a vendor's public link, the
+   **vendor** gets a new-order notice too - the customer's name, the
+   drop-off address, and a link to their own private orders page
+   (`/vendor-orders/<ordersCode>`) - by SMS (every vendor has a phone on
+   file, required at registration) and by email wherever one's on file.
+   This is separate from and earlier than notification 2 below - a
+   vendor hears about the order right away, not only once a driver
+   happens to be assigned.
 2. **The moment a driver is assigned** - whether that's immediate
    (auto-assignment, see **Automatic same-zone driver assignment**
    above), set later from the delivery detail screen, or an automatic

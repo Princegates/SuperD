@@ -143,7 +143,7 @@ Deno.serve(async (req) => {
     const { data: delivery, error: deliveryError } = await admin
       .from("deliveries")
       .select(
-        "tracking_code, customer_name, customer_phone, customer_email, assigned_driver_id, vendor_id",
+        "tracking_code, customer_name, customer_phone, customer_email, dropoff_address, assigned_driver_id, vendor_id",
       )
       .eq("id", deliveryId)
       .single();
@@ -169,15 +169,35 @@ Deno.serve(async (req) => {
       | null
       | undefined;
 
+    // Fetched once, up front - both the new-order notice (1b) and the
+    // driver-assigned notice (2) message the vendor, and neither needs
+    // anything from the other's context.
+    let vendor:
+      | {
+        vendor_name: string;
+        phone: string | null;
+        email: string | null;
+        orders_code: string;
+      }
+      | null = null;
+    if (delivery.vendor_id) {
+      const { data } = await admin
+        .from("vendors")
+        .select("vendor_name, phone, email, orders_code")
+        .eq("id", delivery.vendor_id)
+        .maybeSingle();
+      vendor = data ?? null;
+    }
+
+    const appBaseUrl = Deno.env.get("APP_BASE_URL");
+    const base = appBaseUrl ? appBaseUrl.replace(/\/+$/, "") : null;
+
     const results: Record<string, boolean> = {};
 
     // 1. Tracking link - once, at creation, regardless of whether a
     // driver ended up assigned in the same instant.
     if (isInsert) {
-      const appBaseUrl = Deno.env.get("APP_BASE_URL");
-      const trackingLink = appBaseUrl
-        ? `${appBaseUrl.replace(/\/+$/, "")}/t/${delivery.tracking_code}`
-        : null;
+      const trackingLink = base ? `${base}/t/${delivery.tracking_code}` : null;
 
       if (delivery.customer_phone) {
         results.trackingSms = await sendSms(
@@ -204,6 +224,47 @@ Deno.serve(async (req) => {
       } else if (delivery.customer_email && !trackingLink) {
         console.error("notify-delivery-events: APP_BASE_URL is not set");
       }
+
+      // 1b. New order notice - to the vendor themselves, so they hear
+      // about it the same instant the customer does rather than only
+      // once a driver happens to be assigned. Every vendor has a phone
+      // on file (required at registration), so this always attempts SMS;
+      // email is sent too wherever an address is on file.
+      if (vendor) {
+        const vendorOrdersLink = base
+          ? `${base}/vendor-orders/${vendor.orders_code}`
+          : null;
+
+        if (vendor.phone) {
+          results.newOrderVendorSms = await sendSms(
+            vendor.phone,
+            `SuperD: new order ${delivery.tracking_code} from ` +
+              `${delivery.customer_name}, drop-off: ` +
+              `${delivery.dropoff_address}.` +
+              (vendorOrdersLink ? ` Track it: ${vendorOrdersLink}` : ""),
+          );
+        }
+        if (vendor.email) {
+          results.newOrderVendorEmail = await sendEmail(
+            vendor.email,
+            `New order received - ${delivery.tracking_code}`,
+            `
+              <p>Hi ${vendor.vendor_name},</p>
+              <p>You've received a new order:</p>
+              <p>
+                <strong>Order:</strong> ${delivery.tracking_code}<br>
+                <strong>Customer:</strong> ${delivery.customer_name}<br>
+                <strong>Drop-off:</strong> ${delivery.dropoff_address}
+              </p>
+              ${
+              vendorOrdersLink
+                ? `<p>Track it any time here: <a href="${vendorOrdersLink}">${vendorOrdersLink}</a></p>`
+                : ""
+            }
+            `,
+          );
+        }
+      }
     }
 
     // 2. Driver assigned - to the customer and the vendor, whenever a
@@ -216,18 +277,6 @@ Deno.serve(async (req) => {
         .single();
       if (driverError || !driver) {
         return jsonResponse({ ...results, error: "Driver not found" }, 404);
-      }
-
-      let vendor:
-        | { vendor_name: string; phone: string | null; email: string | null }
-        | null = null;
-      if (delivery.vendor_id) {
-        const { data } = await admin
-          .from("vendors")
-          .select("vendor_name, phone, email")
-          .eq("id", delivery.vendor_id)
-          .maybeSingle();
-        vendor = data ?? null;
       }
 
       const driverLine =

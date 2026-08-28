@@ -92,11 +92,12 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   Widget build(BuildContext context) {
     final deliveries = ref.watch(myDeliveriesProvider);
     final profile = ref.watch(currentProfileProvider).valueOrNull;
-    final dailyFeeAmount =
-        ref.watch(appSettingsProvider).valueOrNull?.driverDailyFee ?? 0;
+    final dailyFeeBalance = ref.watch(dailyFeeBalanceProvider);
     final currency = ref.watch(appSettingsProvider).valueOrNull?.currency;
-    final todaysFee = ref.watch(todaysDailyFeeProvider).valueOrNull;
+    final latestAttempt = ref.watch(dailyFeeLatestAttemptProvider);
     final freeDayBalance = ref.watch(freeDayBalanceProvider).valueOrNull ?? 0;
+    final dailyFeeOn =
+        ref.watch(dailyFeeTiersProvider).valueOrNull?.isNotEmpty ?? false;
 
     // A driver's own delivery list re-emits the full set on every change -
     // only ids that weren't there last time are a genuinely new assignment.
@@ -138,14 +139,14 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         children: [
           if (profile != null) _AvailabilityBar(profile: profile),
           if (profile?.isFrozen ?? false) const _FrozenBanner(),
-          if (dailyFeeAmount > 0 && !(todaysFee?.isCleared ?? false))
+          if (dailyFeeBalance > 0)
             DailyFeeBanner(
-              feeAmount: dailyFeeAmount,
+              feeAmount: dailyFeeBalance,
               currency: currency ?? 'GHS',
-              status: todaysFee?.status,
+              status: latestAttempt?.status,
               driverPhone: profile?.phone,
             ),
-          if (dailyFeeAmount > 0 && freeDayBalance > 0)
+          if (dailyFeeOn && freeDayBalance > 0)
             _FreeDayBalanceStrip(balance: freeDayBalance),
           Expanded(child: _DeliveryList(deliveries: deliveries)),
         ],

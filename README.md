@@ -84,6 +84,7 @@ supabase/
     0034_notifications_tracking_ratings.sql   optional customer email + support phone for notifications, driver location/drop-off point for vendor tracking, and delivery_ratings
     0035_super_admin_delete_deliveries.sql    restricts permanently deleting a delivery to a super admin (a dispatcher could before, just had no button for it)
     0036_driver_cancel_and_incident_reporting.sql   a driver rejecting or cancelling mid-trip now records a full explanation for the Console's incident report; cancelling also auto-reassigns to another driver and alerts an admin
+    0037_tiered_daily_fee.sql                 replaces the flat driver daily fee with admin-defined tiers priced by how many deliveries a driver has completed that day, re-evaluated live
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -954,14 +955,20 @@ person, weekly, however the business runs it).
 
 ### Driver daily fee
 
-A separate flat fee from commission above: instead of per-delivery, a
-super admin sets one app-wide **daily** platform fee (GHS 10–100, or `0`
-to turn it off entirely) from **Console > Settings**. Unlike every other
-"fee" in this app, this one is a real, enforced gate, not just a record:
-**a driver who hasn't paid today's fee cannot be given a new delivery at
-all** - not a warning, an actual `raise exception` in the database (see
-`enforce_delivery_update()`/`enforce_delivery_insert()` in
-`0031_driver_daily_fee.sql`) that fires no matter how the assignment is
+A separate fee from commission above: instead of per-delivery, a super
+admin defines **tiers** for an app-wide **daily** platform fee from
+**Console > Settings** - "a driver who's completed at least N deliveries
+today owes X" - any number of them, priced by however many deliveries the
+driver has completed *that day* so far. No tiers at all turns the whole
+thing off. The amount owed re-evaluates live as the driver completes more
+deliveries during the day - a driver who crosses into a higher tier owes
+the difference, and pays it the same two ways described below. Unlike
+every other "fee" in this app, this one is a real, enforced gate, not just
+a record: **a driver who hasn't paid up to their current tier cannot be
+given a new delivery at all** - not a warning, an actual `raise exception`
+in the database (see `enforce_delivery_update()`/`enforce_delivery_insert()`
+and `driver_daily_fee_paid()`/`driver_daily_fee_balance()` in
+`0037_tiered_daily_fee.sql`) that fires no matter how the assignment is
 attempted - a dispatcher picking them manually, or the automatic
 same-zone assignment inside `submit_delivery_request`. The Console's
 driver picker also filters them out up front, so a dispatcher sees the
@@ -970,13 +977,14 @@ restriction before hitting the error, not after.
 **Drivers never see the word "Hubtel," or any other payment-gateway
 name** - the app only ever shows them "commission" and a Mobile Money
 prompt. Internally it's still tracked as the daily fee described here
-(`driver_daily_fees`, `app_settings.driver_daily_fee`, Console > Daily
-Fees) - "commission" is purely the label a driver sees, chosen so they
-never need to know or care which gateway is doing the collecting.
+(`driver_daily_fees`, `driver_daily_fee_tiers`, Console > Daily Fees) -
+"commission" is purely the label a driver sees, chosen so they never need
+to know or care which gateway is doing the collecting.
 
-A driver sees a banner on their dashboard the moment they owe today's
-commission, with two ways to clear it, both landing in the same
-`driver_daily_fees` ledger:
+A driver sees a banner on their dashboard the moment they owe part of
+today's commission, with two ways to clear it, both landing in the same
+`driver_daily_fees` ledger (possibly more than one row a day now, since
+crossing into a higher tier means a second payment):
 
 1. **Pay via Mobile Money, right now** - the driver enters their number
    and network (MTN/Vodafone/AirtelTigo) and taps "Pay via Mobile

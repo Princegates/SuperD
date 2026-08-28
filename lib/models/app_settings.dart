@@ -12,7 +12,6 @@ class AppSettings {
     this.baseFare = 5,
     this.pricePerKm = 1.5,
     this.commissionFlatFee = 0,
-    this.driverDailyFee = 0,
     this.freeDayDeliveryThreshold,
     this.zoneAutoAssignCap = 5,
     this.supportPhone,
@@ -43,12 +42,6 @@ class AppSettings {
   /// `commission_payments` in `0029_commission_payments.sql`. 0 means
   /// commission tracking is effectively off.
   final double commissionFlatFee;
-
-  /// Flat daily Mobile Money fee every driver owes the business - see
-  /// `driver_daily_fees` in `0031_driver_daily_fee.sql`. 0 means the whole
-  /// feature is off (no driver is blocked from getting deliveries);
-  /// otherwise always between 10 and 100.
-  final double driverDailyFee;
 
   /// Automatic free-day incentive: every this many completed deliveries
   /// earns a driver 1 free commission day, credited to
@@ -89,7 +82,6 @@ class AppSettings {
       baseFare: (map['base_fare'] as num?)?.toDouble() ?? 5,
       pricePerKm: (map['price_per_km'] as num?)?.toDouble() ?? 1.5,
       commissionFlatFee: (map['commission_flat_fee'] as num?)?.toDouble() ?? 0,
-      driverDailyFee: (map['driver_daily_fee'] as num?)?.toDouble() ?? 0,
       freeDayDeliveryThreshold: (map['free_day_delivery_threshold'] as num?)
           ?.toInt(),
       zoneAutoAssignCap: (map['zone_auto_assign_cap'] as num?)?.toInt() ?? 5,

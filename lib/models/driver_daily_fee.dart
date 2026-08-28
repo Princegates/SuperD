@@ -1,9 +1,11 @@
 import 'daily_fee_status.dart';
 
-/// One driver's payment record for a single calendar day's platform fee -
-/// see `driver_daily_fees` in `0031_driver_daily_fee.sql`. No row for a
-/// given day means that day is simply unpaid/not yet attempted; this
-/// class only represents a row that exists.
+/// One driver's payment/waiver attempt toward a single calendar day's
+/// tiered platform fee - see `driver_daily_fees` in
+/// `0031_driver_daily_fee.sql` and `0037_tiered_daily_fee.sql`. A driver
+/// can have more than one row for the same day now (a top-up after
+/// crossing into a higher tier); no rows at all for a given day means
+/// nothing has been paid toward it yet.
 class DriverDailyFee {
   final String id;
   final String driverId;

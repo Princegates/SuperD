@@ -70,30 +70,45 @@ Deno.serve(async (req) => {
 
     const { data: settings } = await admin
       .from("app_settings")
-      .select("driver_daily_fee, currency")
+      .select("currency")
       .limit(1)
       .single();
-    const amount = Number(settings?.driver_daily_fee ?? 0);
-    if (!(amount > 0)) {
+
+    // Never trust a client-supplied amount - the balance is always
+    // computed server-side from the tier the driver's today's completed
+    // count falls into, minus whatever they've already paid/been waived
+    // today (see driver_daily_fee_balance() in 0037_tiered_daily_fee.sql).
+    const { data: amountData, error: amountError } = await admin.rpc(
+      "driver_daily_fee_balance",
+      { p_driver_id: driverId },
+    );
+    if (amountError) {
+      console.error(
+        "hubtel-daily-fee-charge: driver_daily_fee_balance failed -",
+        amountError,
+      );
       return jsonResponse(
-        { error: "Daily fee collection is not enabled" },
-        400,
+        { error: "Could not work out what's owed. Please try again." },
+        500,
       );
     }
-
-    const today = new Date().toISOString().slice(0, 10);
-    const { data: existing } = await admin
-      .from("driver_daily_fees")
-      .select("id, status")
-      .eq("driver_id", driverId)
-      .eq("fee_date", today)
-      .maybeSingle();
-    if (existing?.status === "paid" || existing?.status === "waived") {
+    const amount = Number(amountData ?? 0);
+    if (!(amount > 0)) {
       return jsonResponse(
         { error: "Today's fee is already settled" },
         400,
       );
     }
+
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: existingPending } = await admin
+      .from("driver_daily_fees")
+      .select("id")
+      .eq("driver_id", driverId)
+      .eq("fee_date", today)
+      .eq("status", "pending")
+      .eq("payment_method", "hubtel_momo")
+      .maybeSingle();
 
     const clientId = Deno.env.get("HUBTEL_CLIENT_ID");
     const clientSecret = Deno.env.get("HUBTEL_CLIENT_SECRET");
@@ -152,26 +167,28 @@ Deno.serve(async (req) => {
 
     // Record the attempt as pending regardless of Hubtel's exact response
     // shape - the webhook is the source of truth for the final outcome.
-    // upsert so a retried charge for the same day replaces the previous
-    // pending attempt's reference rather than violating the unique
-    // (driver_id, fee_date) constraint.
-    const { error: upsertError } = await admin
-      .from("driver_daily_fees")
-      .upsert(
-        {
-          driver_id: driverId,
-          fee_date: today,
-          amount,
-          currency: settings?.currency ?? "GHS",
-          status: "pending",
-          payment_method: "hubtel_momo",
-          hubtel_client_reference: clientReference,
-          hubtel_transaction_id: hubtelData?.Data?.TransactionId ?? null,
-        },
-        { onConflict: "driver_id,fee_date" },
-      );
-    if (upsertError) {
-      console.error("hubtel-daily-fee-charge: upsert failed -", upsertError);
+    // A driver can have more than one row per day now (a top-up after
+    // crossing a tier), so this updates the existing pending hubtel_momo
+    // row for today if there is one (a retried charge), rather than
+    // inserting a duplicate.
+    const record = {
+      driver_id: driverId,
+      fee_date: today,
+      amount,
+      currency: settings?.currency ?? "GHS",
+      status: "pending",
+      payment_method: "hubtel_momo",
+      hubtel_client_reference: clientReference,
+      hubtel_transaction_id: hubtelData?.Data?.TransactionId ?? null,
+    };
+    const { error: writeError } = existingPending
+      ? await admin
+        .from("driver_daily_fees")
+        .update(record)
+        .eq("id", existingPending.id)
+      : await admin.from("driver_daily_fees").insert(record);
+    if (writeError) {
+      console.error("hubtel-daily-fee-charge: write failed -", writeError);
       return jsonResponse(
         { error: "Could not record the payment attempt. Please try again." },
         500,

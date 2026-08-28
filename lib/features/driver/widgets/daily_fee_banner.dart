@@ -6,12 +6,15 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/driver_daily_fee_repository.dart';
 import '../../../models/daily_fee_status.dart';
 
-/// Shown at the top of the driver dashboard whenever today's platform fee
-/// (Console > Settings > Driver daily fee) hasn't been paid yet - the UI
-/// side of a hard block enforced in the database (see
-/// `0031_driver_daily_fee.sql`): a driver in this state simply cannot be
+/// Shown at the top of the driver dashboard whenever today's tiered
+/// platform fee (Console > Settings > Driver daily fee) has a balance
+/// still owed - the UI side of a hard block enforced in the database (see
+/// `0037_tiered_daily_fee.sql`): a driver in this state simply cannot be
 /// given a new delivery, so this exists to make the reason obvious and
-/// give them a way to fix it on the spot.
+/// give them a way to fix it on the spot. [feeAmount] is the live balance
+/// still due, not necessarily the full tier amount - it can shrink to 0
+/// after a partial payment, or grow again after crossing into a higher
+/// tier.
 class DailyFeeBanner extends StatelessWidget {
   const DailyFeeBanner({
     super.key,

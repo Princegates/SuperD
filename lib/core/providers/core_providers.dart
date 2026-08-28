@@ -11,6 +11,7 @@ import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/vendor_repository.dart';
 import '../../models/app_settings.dart';
+import '../../models/driver_daily_fee_tier.dart';
 import '../../models/profile.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
@@ -87,6 +88,23 @@ final driverWebLoginAllowedProvider = FutureProvider<bool>((ref) async {
 /// drivers use the mobile app). The login screen watches this to show a
 /// one-time explanation, then resets it.
 final driverWebBlockedProvider = StateProvider<bool>((ref) => false);
+
+/// Every configured driver daily-fee tier, live, sorted ascending by
+/// [DriverDailyFeeTier.minDeliveries] - empty means the whole feature is
+/// off. Shared between the driver dashboard (to work out what today's fee
+/// is) and Console > Settings/Daily Fees (to manage and enforce the tier
+/// list) - see `driver_daily_fee_tiers` in `0037_tiered_daily_fee.sql`.
+final dailyFeeTiersProvider = StreamProvider<List<DriverDailyFeeTier>>((ref) {
+  return ref
+      .watch(driverDailyFeeRepositoryProvider)
+      .watchTiers()
+      .map(
+        (tiers) =>
+            [...tiers]..sort(
+              (a, b) => a.minDeliveries.compareTo(b.minDeliveries),
+            ),
+      );
+});
 
 /// The signed-in user's app profile (role, name, ...), kept live so a role
 /// change by an admin is picked up without a restart.

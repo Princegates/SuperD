@@ -4,9 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:superd/core/providers/core_providers.dart';
+import 'package:superd/data/repositories/driver_daily_fee_repository.dart';
 import 'package:superd/data/repositories/settings_repository.dart';
 import 'package:superd/features/console/screens/console_settings_tab.dart';
 import 'package:superd/models/app_settings.dart';
+import 'package:superd/models/driver_daily_fee_tier.dart';
 
 /// Records what was asked of it instead of touching the network, so the
 /// currency dropdown's behavior can be tested without a live Supabase
@@ -96,12 +98,28 @@ class _FakeSettingsRepository extends SettingsRepository {
   Future<void> updateAdminAlertPhone(String? phone) async {
     lastAdminAlertPhone = phone;
   }
+}
 
-  double? lastDriverDailyFee;
+/// Records tier add/edit/remove calls instead of touching the network -
+/// same purpose as [_FakeSettingsRepository].
+class _FakeDriverDailyFeeRepository extends DriverDailyFeeRepository {
+  _FakeDriverDailyFeeRepository() : super(_testClient());
 
   @override
-  Future<void> updateDriverDailyFee(double fee) async {
-    lastDriverDailyFee = fee;
+  Stream<List<DriverDailyFeeTier>> watchTiers() => Stream.value(const []);
+
+  DriverDailyFeeTier? lastAdded;
+
+  @override
+  Future<void> addTier({
+    required int minDeliveries,
+    required double amount,
+  }) async {
+    lastAdded = DriverDailyFeeTier(
+      id: 'fake',
+      minDeliveries: minDeliveries,
+      amount: amount,
+    );
   }
 }
 
@@ -123,6 +141,9 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(fakeRepo),
+          driverDailyFeeRepositoryProvider.overrideWithValue(
+            _FakeDriverDailyFeeRepository(),
+          ),
           supabaseClientProvider.overrideWithValue(_testClient()),
         ],
         child: const MaterialApp(home: Scaffold(body: ConsoleSettingsTab())),
@@ -153,6 +174,9 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(fakeRepo),
+          driverDailyFeeRepositoryProvider.overrideWithValue(
+            _FakeDriverDailyFeeRepository(),
+          ),
           supabaseClientProvider.overrideWithValue(_testClient()),
         ],
         child: const MaterialApp(home: Scaffold(body: ConsoleSettingsTab())),
@@ -189,6 +213,9 @@ void main() {
       ProviderScope(
         overrides: [
           settingsRepositoryProvider.overrideWithValue(fakeRepo),
+          driverDailyFeeRepositoryProvider.overrideWithValue(
+            _FakeDriverDailyFeeRepository(),
+          ),
           supabaseClientProvider.overrideWithValue(_testClient()),
         ],
         child: const MaterialApp(home: Scaffold(body: ConsoleSettingsTab())),

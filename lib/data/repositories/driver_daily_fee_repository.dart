@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/driver_daily_fee.dart';
+import '../../models/driver_daily_fee_tier.dart';
 
 /// Thrown when a daily-fee action fails, with a message safe to show
 /// directly to the driver or dispatcher.
@@ -18,36 +19,91 @@ class DriverDailyFeeRepository {
   final SupabaseClient _client;
 
   static const _table = 'driver_daily_fees';
+  static const _tiersTable = 'driver_daily_fee_tiers';
 
   String get _today => DateTime.now().toIso8601String().substring(0, 10);
 
-  /// The signed-in driver's own record for today, or null if they haven't
-  /// attempted payment yet (which itself means "still unpaid" - see
-  /// `driver_daily_fee_paid()` in the migration).
-  Future<DriverDailyFee?> fetchToday(String driverId) async {
-    final row = await _client
+  /// The signed-in driver's own records for today - now possibly more than
+  /// one, since crossing into a higher tier mid-day means a second payment.
+  /// Empty means nothing attempted yet today (still unpaid - see
+  /// `driver_daily_fee_paid()` in `0037_tiered_daily_fee.sql`).
+  Future<List<DriverDailyFee>> fetchTodayRecords(String driverId) async {
+    final rows = await _client
         .from(_table)
         .select()
         .eq('driver_id', driverId)
-        .eq('fee_date', _today)
-        .maybeSingle();
-    return row == null ? null : DriverDailyFee.fromMap(row);
+        .eq('fee_date', _today);
+    return rows.map(DriverDailyFee.fromMap).toList();
   }
 
-  /// Live version of [fetchToday] - so a driver's "pay now" screen updates
-  /// itself the moment Hubtel's webhook confirms payment, with no polling.
-  Stream<DriverDailyFee?> watchToday(String driverId) {
+  /// Live version of [fetchTodayRecords] - so a driver's "pay now" screen
+  /// updates itself the moment Hubtel's webhook confirms payment, with no
+  /// polling.
+  Stream<List<DriverDailyFee>> watchTodayRecords(String driverId) {
     return _client
         .from(_table)
         .stream(primaryKey: ['id'])
         .eq('driver_id', driverId)
         .map((rows) {
           final today = _today;
-          final todaysRows = rows.where((r) => r['fee_date'] == today);
-          return todaysRows.isEmpty
-              ? null
-              : DriverDailyFee.fromMap(todaysRows.first);
+          return rows
+              .where((r) => r['fee_date'] == today)
+              .map(DriverDailyFee.fromMap)
+              .toList();
         });
+  }
+
+  /// Every configured tier, in whatever order Postgres returns them - see
+  /// `driver_daily_fee_tiers`. Callers sort by [DriverDailyFeeTier.minDeliveries].
+  Future<List<DriverDailyFeeTier>> fetchTiers() async {
+    final rows = await _client.from(_tiersTable).select();
+    return rows.map(DriverDailyFeeTier.fromMap).toList();
+  }
+
+  /// Live version of [fetchTiers] - so a driver's/dispatcher's screen
+  /// updates the moment a super admin adds/edits/removes a tier.
+  Stream<List<DriverDailyFeeTier>> watchTiers() {
+    return _client
+        .from(_tiersTable)
+        .stream(primaryKey: ['id'])
+        .map((rows) => rows.map(DriverDailyFeeTier.fromMap).toList());
+  }
+
+  /// Adds a new tier - only takes effect if the caller is a super admin,
+  /// enforced by RLS, not just this client.
+  Future<void> addTier({
+    required int minDeliveries,
+    required double amount,
+  }) async {
+    try {
+      await _client.from(_tiersTable).insert({
+        'min_deliveries': minDeliveries,
+        'amount': amount,
+      });
+    } on PostgrestException catch (e) {
+      throw DailyFeeException(e.message);
+    }
+  }
+
+  /// Changes an existing tier's threshold/amount.
+  Future<void> updateTier({
+    required String id,
+    required int minDeliveries,
+    required double amount,
+  }) async {
+    try {
+      await _client
+          .from(_tiersTable)
+          .update({'min_deliveries': minDeliveries, 'amount': amount})
+          .eq('id', id);
+    } on PostgrestException catch (e) {
+      throw DailyFeeException(e.message);
+    }
+  }
+
+  /// Removes a tier entirely.
+  Future<void> deleteTier(String id) async {
+    await _client.from(_tiersTable).delete().eq('id', id);
   }
 
   /// Every daily fee record ever created - the raw data behind Console >
@@ -62,8 +118,8 @@ class DriverDailyFeeRepository {
 
   /// Starts a real-time Mobile Money charge via the
   /// `hubtel-daily-fee-charge` Edge Function - the driver approves a
-  /// prompt on their phone, and the row updates itself (see [watchToday])
-  /// once Hubtel's webhook resolves it.
+  /// prompt on their phone, and the row updates itself (see
+  /// [watchTodayRecords]) once Hubtel's webhook resolves it.
   Future<String> chargeViaHubtel({
     required String phone,
     required String network,

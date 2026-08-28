@@ -20,6 +20,7 @@ import '../../features/public/screens/customer_request_screen.dart';
 import '../../features/public/screens/track_order_screen.dart';
 import '../../features/public/screens/vendor_orders_screen.dart';
 import '../../features/public/screens/vendor_signup_screen.dart';
+import '../../features/public/screens/welcome_screen.dart';
 import '../../models/profile.dart';
 import '../../models/user_role.dart';
 import '../../models/vendor.dart';
@@ -77,13 +78,14 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final loc = state.matchedLocation;
 
-      // Public, no-login pages: a vendor's self-signup form, the customer
-      // request page behind a vendor's public code, a vendor's own orders
-      // page behind their PRIVATE ordersCode, and a customer's single-
-      // order tracking page behind their tracking code. These must work
-      // for a completely anonymous visitor, so they're exempt from every
-      // session/role check below.
-      if (loc == '/vendor-signup' ||
+      // Public, no-login pages: the bare-root welcome screen, a vendor's
+      // self-signup form, the customer request page behind a vendor's
+      // public code, a vendor's own orders page behind their PRIVATE
+      // ordersCode, and a customer's single-order tracking page behind
+      // their tracking code. These must work for a completely anonymous
+      // visitor, so they're exempt from every session/role check below.
+      if (loc == '/' ||
+          loc == '/vendor-signup' ||
           loc.startsWith('/v/') ||
           loc.startsWith('/vendor-orders/') ||
           loc.startsWith('/t/')) {
@@ -176,6 +178,11 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
+      GoRoute(
+        path: '/',
+        pageBuilder: (context, state) =>
+            fadeSlidePage(key: state.pageKey, child: const WelcomeScreen()),
+      ),
       GoRoute(
         path: '/splash',
         pageBuilder: (context, state) =>

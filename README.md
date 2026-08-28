@@ -369,41 +369,28 @@ takes effect.
 Once it's live, set `APP_BASE_URL` to that exact domain (see **Getting the
 link's domain right** below) so vendor links and their emails point at it.
 
-### Marketing landing page
+### Landing page
 
-`web/welcome/index.html` is a small, self-contained static HTML page (no
-Flutter, no build step of its own) - a public-facing front door you can
-link to from social media or ads, with an animated logo, a features
-section that fades in on scroll, and buttons into **Register your
-business** (`/vendor-signup`) and **Staff & driver login** (`/login`).
+The bare root (`/`) is `WelcomeScreen`
+(`lib/features/public/screens/welcome_screen.dart`) - the app's actual
+front door, shown before any session/role check runs (it's in the
+router's public-route exemption list alongside `/vendor-signup` and the
+other no-login pages). It's what a visitor sees first at
+`https://your-domain.example/`, and identically the first thing you see
+running locally with `flutter run` - being a real route rather than a
+hosting-specific redirect trick, it behaves the same everywhere with no
+extra server config. It links into **Register your business**
+(`/vendor-signup`) and **Staff & driver login** (`/login`).
 
-`web/_redirects` routes the bare root (`/`) to this page instead of
-straight into the Flutter app, so it's what a visitor sees first at
-`https://your-domain.example/`:
-```
-/     /welcome/index.html   200!
-/*    /index.html   200
-```
-The `!` forces it to win over the real `index.html` file that would
-otherwise be served at `/` directly (Netlify serves an existing file
-before falling back to a redirect). Every other path - `/vendor-signup`,
-`/login`, `/v/<code>`, `/t/<trackingCode>`, ... - still falls through to
-the second, catch-all rule and goes straight into the Flutter app as
-before; this only changes what's at the bare root. It's also directly
-reachable at `/welcome` on its own if you'd rather link to it explicitly
-instead of relying on the root redirect.
-
-It's plain HTML/CSS with a few lines of JS (no external dependencies
-besides a Google Fonts stylesheet), and `flutter build web` copies it
-into `build/web/welcome/index.html` automatically since it lives under
-`web/` - it deploys with the rest of the site and needs no separate
-hosting step.
-
-**Note for local testing**: `flutter run -d chrome` doesn't consult
-`_redirects` (that's a Netlify-specific file, only applied on Netlify's
-own servers) - locally, the bare root always goes straight into the
-Flutter app, same as before. To see this page while testing locally,
-visit `/welcome/` on your local dev URL explicitly.
+`web/welcome/index.html` is a separate, small, self-contained static
+HTML page (no Flutter, no build step of its own, not the app's root) -
+covering the same two links plus a fuller features section, meant for
+linking from social media/ads/anywhere you'd rather send someone to a
+plain fast-loading page than the Flutter bundle. `flutter build web`
+copies it into `build/web/welcome/index.html` automatically since it
+lives under `web/`, reachable at `/welcome` once deployed - it needs no
+separate hosting step, but also isn't shown automatically; nothing
+routes there on its own.
 
 ### Web dashboard is back-office only
 

@@ -152,6 +152,20 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                         child: const Text('Clear'),
                       ),
                     OutlinedButton(
+                      // The app-wide OutlinedButton theme sets a
+                      // full-width minimum size (Size.fromHeight(52)) for
+                      // the common case of a lone button stretched across
+                      // a Column (forms, dialogs). Inside a plain Row like
+                      // this one, that same "infinite width" minimum
+                      // starves the sibling Expanded Text down to almost
+                      // nothing instead - it wraps one letter per line
+                      // rather than fitting "All time"/the date range.
+                      // Resetting it back to a normal compact size here
+                      // fixes that without touching the theme everywhere
+                      // else it's actually wanted.
+                      style: OutlinedButton.styleFrom(
+                        minimumSize: const Size(64, 40),
+                      ),
                       onPressed: _pickRange,
                       child: const Text('Choose range'),
                     ),

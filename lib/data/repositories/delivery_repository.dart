@@ -110,6 +110,21 @@ class DeliveryRepository {
         .eq('id', deliveryId);
   }
 
+  /// Corrects a delivery's zone by hand - e.g. automatic detection got it
+  /// wrong, or a dispatcher just disagrees. Doesn't retroactively re-price
+  /// or reassign anything already done; it only affects driver-suggestion
+  /// matching and zone reporting going forward. See
+  /// `0040_zone_detection_radius_and_override.sql`.
+  Future<void> setZone({
+    required String deliveryId,
+    required String? zoneId,
+  }) async {
+    await _client
+        .from(_table)
+        .update({'zone_id': zoneId})
+        .eq('id', deliveryId);
+  }
+
   Future<void> updateStatus({
     required String deliveryId,
     required DeliveryStatus status,

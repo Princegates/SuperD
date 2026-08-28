@@ -14,6 +14,7 @@ class AppSettings {
     this.commissionFlatFee = 0,
     this.freeDayDeliveryThreshold,
     this.zoneAutoAssignCap = 5,
+    this.zoneDetectionRadiusKm = 5,
     this.supportPhone,
     this.adminAlertEmail,
     this.adminAlertPhone,
@@ -58,6 +59,13 @@ class AppSettings {
   /// `0033_zone_auto_recognition_and_cap.sql`. Always 3-20.
   final int zoneAutoAssignCap;
 
+  /// How close (km) a delivery's drop-off must be to a zone's pinned
+  /// reference location for `detect_zone_for_point()` to trust it and use
+  /// that zone - see `0040_zone_detection_radius_and_override.sql`.
+  /// Beyond this, detection falls back to the vendor's own registered
+  /// zone. Always 1-50.
+  final double zoneDetectionRadiusKm;
+
   /// Business support/customer-service number, included in the
   /// driver-assigned SMS/email to the customer and vendor - see
   /// `0034_notifications_tracking_ratings.sql`. Null means it's just left
@@ -85,6 +93,8 @@ class AppSettings {
       freeDayDeliveryThreshold: (map['free_day_delivery_threshold'] as num?)
           ?.toInt(),
       zoneAutoAssignCap: (map['zone_auto_assign_cap'] as num?)?.toInt() ?? 5,
+      zoneDetectionRadiusKm:
+          (map['zone_detection_radius_km'] as num?)?.toDouble() ?? 5,
       supportPhone: map['support_phone'] as String?,
       adminAlertEmail: map['admin_alert_email'] as String?,
       adminAlertPhone: map['admin_alert_phone'] as String?,

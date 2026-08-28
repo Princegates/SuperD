@@ -117,6 +117,21 @@ class SettingsRepository {
         .eq('id', true);
   }
 
+  /// Changes the automatic zone-detection radius - see
+  /// [AppSettings.zoneDetectionRadiusKm]. The database itself also
+  /// enforces 1-to-50 (see `app_settings_zone_detection_radius_km_check`
+  /// in `0040_zone_detection_radius_and_override.sql`), this is just the
+  /// friendlier client-side check.
+  Future<void> updateZoneDetectionRadius(double km) async {
+    if (km < 1 || km > 50) {
+      throw ArgumentError('The radius must be between 1 and 50 km.');
+    }
+    await _client
+        .from(_table)
+        .update({'zone_detection_radius_km': km})
+        .eq('id', true);
+  }
+
   /// Changes (or clears) the support number included in the
   /// driver-assigned SMS/email - see [AppSettings.supportPhone].
   Future<void> updateSupportPhone(String? phone) async {

@@ -87,6 +87,7 @@ supabase/
     0037_tiered_daily_fee.sql                 replaces the flat driver daily fee with admin-defined tiers priced by how many deliveries a driver has completed that day, re-evaluated live
     0038_daily_fee_tier_overrides.sql          lets a super admin pin a specific driver to one daily-fee tier, overriding the automatic delivery-count calculation for them
     0039_customer_live_tracking.sql            adds the driver's live position and the drop-off point to get_delivery_by_tracking_code(), so a customer's own tracking page can show a live map too, same as a vendor's orders page already could
+    0040_zone_detection_radius_and_override.sql   moves the zone-detection radius into app_settings (was hardcoded) and lets a dispatcher/super admin correct a specific delivery's zone by hand
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -905,15 +906,24 @@ the moment they're not. `detect_zone_for_point()`
 (`0033_zone_auto_recognition_and_cap.sql`) instead looks at the
 **customer's actual drop-off coordinates** and finds the nearest named
 zone location (the reference points a super admin pins in **Console >
-Zones**) within 5km. If one's close enough, that location's zone is used
-for the delivery - for pricing (any zone-specific rate override) and for
-auto-assignment (below) alike. If nothing is close enough (or the
-request has no coordinates at all), it falls back to the vendor's own
-zone; if that's also unset, the delivery simply has no zone, same as
-before.
+Zones**) within a configurable radius (**Console > Settings > Zone
+detection radius**, 1-50km, default 5 - see
+`0040_zone_detection_radius_and_override.sql`). If one's close enough,
+that location's zone is used for the delivery - for pricing (any
+zone-specific rate override) and for auto-assignment (below) alike. If
+nothing is close enough (or the request has no coordinates at all), it
+falls back to the vendor's own zone; if that's also unset, the delivery
+simply has no zone, same as before.
 
 This makes zone accuracy a direct function of how many locations a zone
 has pinned - see **Zones** below for adding many at once.
+
+If detection (or the vendor's own zone) still gets it wrong, a
+dispatcher/super admin can correct a specific delivery's zone by hand
+from its detail screen in the Console - a plain "Zone" dropdown next to
+"Assigned driver". This doesn't retroactively re-price the delivery or
+touch its driver assignment; it only affects driver-suggestion matching
+and zone reporting going forward.
 
 ### Automatic same-zone driver assignment
 
@@ -1712,7 +1722,8 @@ back out of. What shows up in the nav is role-based:
     pinning named locations within it. Deleting a zone still in use by a
     vendor, driver, or delivery is rejected (reassign those first).
   - **Settings** - app-wide settings: currency (see **Payments** above),
-    the UI theme, delivery pricing (see **Delivery pricing** above), and
+    the UI theme, delivery pricing (see **Delivery pricing** above), the
+    zone-detection radius (see **Automatic zone recognition** above), and
     whether drivers may sign in on web (see **Web dashboard is
     back-office only**). Six built-in color themes (Navy & Gold, Ocean
     Blue, Forest Green, Sunset Orange, Royal Purple, Charcoal) - picking

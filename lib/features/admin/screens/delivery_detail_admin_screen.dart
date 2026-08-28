@@ -10,6 +10,7 @@ import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
+import '../../../models/zone.dart';
 import '../../../shared/providers/delivery_detail_providers.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/navigation_launcher.dart';
@@ -99,7 +100,8 @@ class DeliveryDetailAdminScreen extends ConsumerWidget {
             return const Center(child: Text('Delivery not found'));
           }
           final drivers = ref.watch(rankedDriversProvider(delivery.zoneId));
-          return _DetailBody(delivery: delivery, drivers: drivers);
+          final zones = ref.watch(zonesProvider).valueOrNull ?? [];
+          return _DetailBody(delivery: delivery, drivers: drivers, zones: zones);
         },
       ),
     );
@@ -107,10 +109,15 @@ class DeliveryDetailAdminScreen extends ConsumerWidget {
 }
 
 class _DetailBody extends ConsumerWidget {
-  const _DetailBody({required this.delivery, required this.drivers});
+  const _DetailBody({
+    required this.delivery,
+    required this.drivers,
+    required this.zones,
+  });
 
   final Delivery delivery;
   final List<Profile> drivers;
+  final List<Zone> zones;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -255,6 +262,64 @@ class _DetailBody extends ConsumerWidget {
                                 '#${delivery.trackingCode} to $driverName',
                           );
                         },
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Zone',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Auto-detected from the drop-off location, or copied "
+                  "from the vendor's own zone - correct it here if that "
+                  "got it wrong.",
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                ),
+                const SizedBox(height: 10),
+                DropdownButtonFormField<String?>(
+                  initialValue: delivery.zoneId,
+                  decoration: const InputDecoration(labelText: 'Zone'),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('No zone'),
+                    ),
+                    for (final zone in zones)
+                      DropdownMenuItem<String?>(
+                        value: zone.id,
+                        child: Text(zone.name),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    ref
+                        .read(deliveryRepositoryProvider)
+                        .setZone(deliveryId: delivery.id, zoneId: value);
+                    final zoneName = value == null
+                        ? 'No zone'
+                        : zones.firstWhere((z) => z.id == value).name;
+                    logAuditEvent(
+                      ref.read(supabaseClientProvider),
+                      action: 'zone_corrected',
+                      entityType: 'delivery',
+                      entityId: delivery.id,
+                      summary:
+                          'Set zone for delivery '
+                          '#${delivery.trackingCode} to $zoneName',
+                    );
+                  },
                 ),
               ],
             ),

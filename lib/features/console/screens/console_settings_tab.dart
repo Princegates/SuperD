@@ -25,6 +25,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   final _commissionFeeController = TextEditingController();
   final _freeDayThresholdController = TextEditingController();
   final _zoneAutoAssignCapController = TextEditingController();
+  final _zoneDetectionRadiusController = TextEditingController();
   final _supportPhoneController = TextEditingController();
   final _adminAlertEmailController = TextEditingController();
   final _adminAlertPhoneController = TextEditingController();
@@ -33,6 +34,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   bool _isSavingCommission = false;
   bool _isSavingFreeDayThreshold = false;
   bool _isSavingZoneAutoAssignCap = false;
+  bool _isSavingZoneDetectionRadius = false;
   bool _isSavingSupportPhone = false;
   bool _isSavingAdminAlerts = false;
 
@@ -43,6 +45,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     _commissionFeeController.dispose();
     _freeDayThresholdController.dispose();
     _zoneAutoAssignCapController.dispose();
+    _zoneDetectionRadiusController.dispose();
     _supportPhoneController.dispose();
     _adminAlertEmailController.dispose();
     _adminAlertPhoneController.dispose();
@@ -175,6 +178,26 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     }
   }
 
+  Future<void> _saveZoneDetectionRadius(double km) async {
+    setState(() => _isSavingZoneDetectionRadius = true);
+    try {
+      await ref.read(settingsRepositoryProvider).updateZoneDetectionRadius(km);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'zone_detection_radius_changed',
+        entityType: 'app_settings',
+        summary: 'Changed the zone-detection radius to ${km.toStringAsFixed(1)} km',
+      );
+    } on ArgumentError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingZoneDetectionRadius = false);
+    }
+  }
+
   Future<void> _saveSupportPhone(String? phone) async {
     setState(() => _isSavingSupportPhone = true);
     try {
@@ -222,7 +245,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
             '${settings.baseFare}|${settings.pricePerKm}|'
             '${settings.commissionFlatFee}|'
             '${settings.freeDayDeliveryThreshold}|'
-            '${settings.zoneAutoAssignCap}|${settings.supportPhone}|'
+            '${settings.zoneAutoAssignCap}|${settings.zoneDetectionRadiusKm}|'
+            '${settings.supportPhone}|'
             '${settings.adminAlertEmail}|${settings.adminAlertPhone}';
         if (_syncedFromSettings != syncKey) {
           _syncedFromSettings = syncKey;
@@ -234,6 +258,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
               settings.freeDayDeliveryThreshold?.toString() ?? '';
           _zoneAutoAssignCapController.text = settings.zoneAutoAssignCap
               .toString();
+          _zoneDetectionRadiusController.text = settings.zoneDetectionRadiusKm
+              .toStringAsFixed(1);
           _supportPhoneController.text = settings.supportPhone ?? '';
           _adminAlertEmailController.text = settings.adminAlertEmail ?? '';
           _adminAlertPhoneController.text = settings.adminAlertPhone ?? '';
@@ -610,6 +636,81 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                                   _saveZoneAutoAssignCap(cap);
                                 },
                           child: _isSavingZoneAutoAssignCap
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Save'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Zone detection radius',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "A customer-submitted delivery's zone is detected "
+                      "from their drop-off location - the nearest pinned "
+                      'zone location (Console > Zones) within this radius '
+                      "wins. Beyond it, the vendor's own registered zone "
+                      'is used instead. Must be between 1 and 50 km.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _zoneDetectionRadiusController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Radius in km (1-50)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _isSavingZoneDetectionRadius
+                              ? null
+                              : () {
+                                  final km = double.tryParse(
+                                    _zoneDetectionRadiusController.text.trim(),
+                                  );
+                                  if (km == null || km < 1 || km > 50) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Enter a number between 1 and 50.',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  _saveZoneDetectionRadius(km);
+                                },
+                          child: _isSavingZoneDetectionRadius
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,

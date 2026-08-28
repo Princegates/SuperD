@@ -14,7 +14,7 @@ import '../../admin/providers/admin_providers.dart';
 
 /// Public, no-login page where a business registers itself as a vendor and
 /// gets back a unique link to share with its own customers. Reachable at
-/// `/vendor-signup` from anywhere - no SuperD account needed.
+/// `/vendor` from anywhere - no SuperD account needed.
 class VendorSignupScreen extends ConsumerStatefulWidget {
   const VendorSignupScreen({super.key});
 

@@ -101,7 +101,7 @@ class WelcomeScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(30),
                               ),
                             ),
-                            onPressed: () => context.push('/vendor-signup'),
+                            onPressed: () => context.push('/vendor'),
                             child: const Text(
                               'Register your business',
                               style: TextStyle(fontWeight: FontWeight.w700),

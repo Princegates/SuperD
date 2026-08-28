@@ -308,7 +308,7 @@ screen instead of crashing.
 
 ### Hosting the web build
 
-Vendor and customer links (`/vendor-signup`, `/v/<code>`) only make sense
+Vendor and customer links (`/vendor`, `/v/<code>`) only make sense
 as a **web** page - that's what you hand a customer, not an app they
 install. Build it with:
 
@@ -396,13 +396,13 @@ fixing, not silencing.
 The bare root (`/`) is `WelcomeScreen`
 (`lib/features/public/screens/welcome_screen.dart`) - the app's actual
 front door, shown before any session/role check runs (it's in the
-router's public-route exemption list alongside `/vendor-signup` and the
+router's public-route exemption list alongside `/vendor` and the
 other no-login pages). It's what a visitor sees first at
 `https://your-domain.example/`, and identically the first thing you see
 running locally with `flutter run` - being a real route rather than a
 hosting-specific redirect trick, it behaves the same everywhere with no
 extra server config. It links into **Register your business**
-(`/vendor-signup`) and **Staff & driver login** (`/login`).
+(`/vendor`) and **Staff & driver login** (`/login`).
 
 `web/welcome/index.html` is a separate, small, self-contained static
 HTML page (no Flutter, no build step of its own, not the app's root) -
@@ -1439,7 +1439,7 @@ driver assignments - backed by realtime on the `vendors` table
 (`0020_vendors_realtime.sql`), not the webhook, so it fires even if
 `RESEND_API_KEY`/`APP_BASE_URL` were never configured at all.
 
-To register as a vendor yourself, visit `/vendor-signup` - no dispatcher
+To register as a vendor yourself, visit `/vendor` - no dispatcher
 needed. To register one on a vendor's behalf instead, open **Vendors**
 from the dashboard's nav → **Add vendor**.
 

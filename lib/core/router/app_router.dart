@@ -93,7 +93,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       // their tracking code. These must work for a completely anonymous
       // visitor, so they're exempt from every session/role check below.
       if (loc == '/' ||
-          loc == '/vendor-signup' ||
+          loc == '/vendor' ||
           loc.startsWith('/v/') ||
           loc.startsWith('/vendor-orders/') ||
           loc.startsWith('/t/')) {
@@ -217,7 +217,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       GoRoute(
-        path: '/vendor-signup',
+        path: '/vendor',
         pageBuilder: (context, state) => fadeSlidePage(
           key: state.pageKey,
           child: const VendorSignupScreen(),

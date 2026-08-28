@@ -47,10 +47,10 @@ class VendorsScreen extends ConsumerWidget {
                         base.isEmpty
                             ? 'No vendors yet. Tap "Add vendor" to register '
                                   'one, or share the self-signup link from '
-                                  'the web build: /vendor-signup'
+                                  'the web build: /vendor'
                             : 'No vendors yet. Tap "Add vendor" to register '
                                   'one, or share the self-signup link: '
-                                  '$base/vendor-signup',
+                                  '$base/vendor',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.grey.shade600),
                       ),

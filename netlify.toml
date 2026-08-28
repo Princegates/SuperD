@@ -1,3 +1,13 @@
 [build]
   command = "rm -rf _flutter && git clone https://github.com/flutter/flutter.git -b stable --depth 1 _flutter && export PATH=\"$PATH:$PWD/_flutter/bin\" && flutter config --no-analytics && flutter build web --no-web-resources-cdn --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
   publish = "build/web"
+
+[build.environment]
+  # SUPABASE_URL/SUPABASE_ANON_KEY are meant to be public client-side
+  # values (protected by RLS, not secrecy) - Flutter compiles them
+  # straight into build/web's JS via --dart-define above, which is
+  # expected and safe, but Netlify's secrets scanner otherwise flags
+  # that as a leak and blocks the deploy. This tells the scanner these
+  # two keys are intentionally public; it still flags anything else
+  # (a service_role key, say) that shows up unexpectedly.
+  SECRETS_SCAN_OMIT_KEYS = "SUPABASE_URL,SUPABASE_ANON_KEY"

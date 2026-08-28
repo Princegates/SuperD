@@ -369,6 +369,17 @@ takes effect.
 Once it's live, set `APP_BASE_URL` to that exact domain (see **Getting the
 link's domain right** below) so vendor links and their emails point at it.
 
+**Secrets scanning**: Netlify scans every build's output for anything that
+looks like a leaked secret, and `SUPABASE_URL`/`SUPABASE_ANON_KEY` - baked
+straight into `build/web`'s JS by the `--dart-define`s above - will trip
+it. `netlify.toml` already sets `SECRETS_SCAN_OMIT_KEYS` for exactly these
+two keys, since they're meant to be public client-side values (protected
+by RLS, not secrecy) - a build failing with "secret values found in build
+output" naming these two is expected and safe to allow through this way.
+If Netlify ever flags something else, don't add it to that list without
+checking first - a real secret (e.g. a `service_role` key) landing in the
+web build would actually need fixing, not silencing.
+
 ### Landing page
 
 The bare root (`/`) is `WelcomeScreen`

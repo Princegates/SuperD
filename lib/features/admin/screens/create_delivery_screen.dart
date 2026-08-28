@@ -25,6 +25,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   final _formKey = GlobalKey<FormState>();
   final _customerNameController = TextEditingController();
   final _customerPhoneController = TextEditingController();
+  final _customerEmailController = TextEditingController();
   final _pickupController = TextEditingController();
   final _dropoffController = TextEditingController();
   final _packageController = TextEditingController();
@@ -49,6 +50,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   void dispose() {
     _customerNameController.dispose();
     _customerPhoneController.dispose();
+    _customerEmailController.dispose();
     _pickupController.dispose();
     _dropoffController.dispose();
     _packageController.dispose();
@@ -169,6 +171,9 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
           .createDelivery(
             customerName: _customerNameController.text.trim(),
             customerPhone: _customerPhoneController.text.trim(),
+            customerEmail: _customerEmailController.text.trim().isEmpty
+                ? null
+                : _customerEmailController.text.trim(),
             pickupAddress: _pickupController.text.trim(),
             pickupLat: _pickupLat,
             pickupLng: _pickupLng,
@@ -249,6 +254,14 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                   ),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _customerEmailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Customer email (optional)',
+                  ),
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Pickup'),

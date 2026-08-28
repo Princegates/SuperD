@@ -15,6 +15,7 @@ class AppSettings {
     this.driverDailyFee = 0,
     this.freeDayDeliveryThreshold,
     this.zoneAutoAssignCap = 5,
+    this.supportPhone,
   });
 
   final String currency;
@@ -62,6 +63,12 @@ class AppSettings {
   /// `0033_zone_auto_recognition_and_cap.sql`. Always 3-20.
   final int zoneAutoAssignCap;
 
+  /// Business support/customer-service number, included in the
+  /// driver-assigned SMS/email to the customer and vendor - see
+  /// `0034_notifications_tracking_ratings.sql`. Null means it's just left
+  /// out of those messages.
+  final String? supportPhone;
+
   factory AppSettings.fromMap(Map<String, dynamic> map) {
     return AppSettings(
       currency: map['currency'] as String? ?? 'GHS',
@@ -74,6 +81,7 @@ class AppSettings {
       freeDayDeliveryThreshold: (map['free_day_delivery_threshold'] as num?)
           ?.toInt(),
       zoneAutoAssignCap: (map['zone_auto_assign_cap'] as num?)?.toInt() ?? 5,
+      supportPhone: map['support_phone'] as String?,
     );
   }
 

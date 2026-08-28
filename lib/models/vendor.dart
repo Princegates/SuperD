@@ -99,18 +99,29 @@ class VendorPublicInfo {
   }
 }
 
-/// One row of a vendor's own order history, returned by the
-/// `get_vendor_deliveries` RPC.
+/// One row of a vendor's own order history (from `get_vendor_deliveries`)
+/// or a customer's own tracked delivery (from
+/// `get_delivery_by_tracking_code`) - the two functions return
+/// overlapping but not identical columns, so every field beyond the
+/// shared core is nullable and simply absent from whichever didn't
+/// return it.
 class VendorDelivery {
   final String id;
   final String trackingCode;
   final String status;
   final String customerName;
   final String dropoffAddress;
+  final double? dropoffLat;
+  final double? dropoffLng;
   final String? driverName;
   final String? driverPhone;
+  final double? driverLat;
+  final double? driverLng;
+  final DateTime? driverLocationUpdatedAt;
   final DateTime createdAt;
   final DateTime? scheduledAt;
+  final int? rating;
+  final String? ratingComment;
 
   const VendorDelivery({
     required this.id,
@@ -119,9 +130,16 @@ class VendorDelivery {
     required this.customerName,
     required this.dropoffAddress,
     required this.createdAt,
+    this.dropoffLat,
+    this.dropoffLng,
     this.driverName,
     this.driverPhone,
+    this.driverLat,
+    this.driverLng,
+    this.driverLocationUpdatedAt,
     this.scheduledAt,
+    this.rating,
+    this.ratingComment,
   });
 
   factory VendorDelivery.fromMap(Map<String, dynamic> map) {
@@ -131,14 +149,25 @@ class VendorDelivery {
       status: map['status'] as String? ?? 'pending',
       customerName: map['customer_name'] as String? ?? '',
       dropoffAddress: map['dropoff_address'] as String? ?? '',
+      dropoffLat: (map['dropoff_lat'] as num?)?.toDouble(),
+      dropoffLng: (map['dropoff_lng'] as num?)?.toDouble(),
       driverName: map['driver_name'] as String?,
       driverPhone: map['driver_phone'] as String?,
+      driverLat: (map['driver_lat'] as num?)?.toDouble(),
+      driverLng: (map['driver_lng'] as num?)?.toDouble(),
+      driverLocationUpdatedAt: map['driver_location_updated_at'] == null
+          ? null
+          : DateTime.parse(map['driver_location_updated_at'] as String),
       createdAt: DateTime.parse(map['created_at'] as String),
       scheduledAt: map['scheduled_at'] == null
           ? null
           : DateTime.parse(map['scheduled_at'] as String),
+      rating: (map['rating'] as num?)?.toInt(),
+      ratingComment: map['rating_comment'] as String?,
     );
   }
+
+  bool get hasDriverLocation => driverLat != null && driverLng != null;
 }
 
 /// The tracking code and server-quoted price returned by

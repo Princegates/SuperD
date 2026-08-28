@@ -7,6 +7,7 @@ class Delivery {
 
   final String customerName;
   final String? customerPhone;
+  final String? customerEmail;
 
   final String pickupAddress;
   final double? pickupLat;
@@ -46,6 +47,7 @@ class Delivery {
     required this.updatedAt,
     this.createdBy,
     this.customerPhone,
+    this.customerEmail,
     this.pickupLat,
     this.pickupLng,
     this.dropoffLat,
@@ -72,6 +74,7 @@ class Delivery {
       status: DeliveryStatus.fromString(map['status'] as String? ?? 'pending'),
       customerName: map['customer_name'] as String? ?? '',
       customerPhone: map['customer_phone'] as String?,
+      customerEmail: map['customer_email'] as String?,
       pickupAddress: map['pickup_address'] as String? ?? '',
       pickupLat: (map['pickup_lat'] as num?)?.toDouble(),
       pickupLng: (map['pickup_lng'] as num?)?.toDouble(),

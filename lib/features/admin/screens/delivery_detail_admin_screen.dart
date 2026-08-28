@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -8,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
+import '../../../models/user_role.dart';
 import '../../../shared/providers/delivery_detail_providers.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/navigation_launcher.dart';
@@ -22,12 +24,74 @@ class DeliveryDetailAdminScreen extends ConsumerWidget {
 
   final String deliveryId;
 
+  Future<void> _delete(
+    BuildContext context,
+    WidgetRef ref,
+    Delivery delivery,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete this delivery?'),
+        content: Text(
+          'This permanently erases delivery #${delivery.trackingCode} - '
+          "its status history and recorded payment go with it. This can't "
+          'be undone. To keep the record but stop it, cancel it instead.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Delete permanently',
+              style: TextStyle(color: AppTheme.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    await ref.read(deliveryRepositoryProvider).deleteDelivery(delivery.id);
+    await logAuditEvent(
+      ref.read(supabaseClientProvider),
+      action: 'delivery_deleted',
+      entityType: 'delivery',
+      entityId: delivery.id,
+      summary: 'Deleted delivery #${delivery.trackingCode}',
+    );
+    if (context.mounted) context.pop();
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final deliveryState = ref.watch(deliveryByIdProvider(deliveryId));
+    final isSuperAdmin =
+        ref.watch(currentProfileProvider).valueOrNull?.role ==
+        UserRole.superAdmin;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Delivery')),
+      appBar: AppBar(
+        title: const Text('Delivery'),
+        actions: [
+          if (isSuperAdmin)
+            AsyncValueView<Delivery?>(
+              value: deliveryState,
+              data: (delivery) => delivery == null
+                  ? const SizedBox.shrink()
+                  : IconButton(
+                      tooltip: 'Delete delivery',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _delete(context, ref, delivery),
+                    ),
+              loading: (_) => const SizedBox.shrink(),
+              error: (_) => const SizedBox.shrink(),
+            ),
+        ],
+      ),
       body: AsyncValueView<Delivery?>(
         value: deliveryState,
         data: (delivery) {

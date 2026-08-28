@@ -48,6 +48,7 @@ class DeliveryRepository {
   Future<String> createDelivery({
     required String customerName,
     String? customerPhone,
+    String? customerEmail,
     required String pickupAddress,
     double? pickupLat,
     double? pickupLng,
@@ -65,6 +66,7 @@ class DeliveryRepository {
         .insert({
           'customer_name': customerName,
           'customer_phone': customerPhone,
+          'customer_email': customerEmail,
           'pickup_address': pickupAddress,
           'pickup_lat': pickupLat,
           'pickup_lng': pickupLng,
@@ -112,6 +114,16 @@ class DeliveryRepository {
 
   Future<void> cancel(String deliveryId) =>
       updateStatus(deliveryId: deliveryId, status: DeliveryStatus.cancelled);
+
+  /// Permanently erases the delivery record itself - not the same as
+  /// [cancel], which keeps the record but marks it 'cancelled'. Only a
+  /// super admin's request actually goes through - enforced by RLS (see
+  /// `0035_super_admin_delete_deliveries.sql`), not just this client.
+  /// Its status history and recorded payment go with it (cascade); any
+  /// commission or SMS log entry stays, with this delivery unlinked.
+  Future<void> deleteDelivery(String deliveryId) async {
+    await _client.from(_table).delete().eq('id', deliveryId);
+  }
 
   /// Sends a delivery that's assigned to the calling driver, but not yet
   /// accepted (still 'assigned' - before "Accept & begin trip"), back to

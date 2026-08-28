@@ -70,6 +70,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _emailController = TextEditingController();
   final _addressController = TextEditingController();
   final _packageController = TextEditingController();
 
@@ -101,6 +102,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
+    _emailController.dispose();
     _addressController.dispose();
     _packageController.dispose();
     super.dispose();
@@ -203,6 +205,9 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                 : _packageController.text.trim(),
             roadDistanceKm: _roadDistanceKm,
             scheduledAt: _scheduledAt,
+            customerEmail: _emailController.text.trim().isEmpty
+                ? null
+                : _emailController.text.trim(),
           );
       if (mounted) setState(() => _quote = quote);
     } catch (e) {
@@ -251,6 +256,12 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
               decoration: const InputDecoration(labelText: 'Phone number'),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Required' : null,
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'Email (optional)'),
             ),
             const SizedBox(height: 14),
             TextFormField(

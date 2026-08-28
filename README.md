@@ -81,6 +81,8 @@ supabase/
     0031_driver_daily_fee.sql                flat daily Mobile Money platform fee per driver - a hard block on new deliveries until paid or waived
     0032_commission_free_days.sql            free-day incentive credits (automatic by delivery count, or granted by hand) that transparently excuse a day's commission
     0033_zone_auto_recognition_and_cap.sql    detects a delivery's zone from the customer's drop-off point, and caps how many deliveries auto-assignment can hand one driver
+    0034_notifications_tracking_ratings.sql   optional customer email + support phone for notifications, driver location/drop-off point for vendor tracking, and delivery_ratings
+    0035_super_admin_delete_deliveries.sql    restricts permanently deleting a delivery to a super admin (a dispatcher could before, just had no button for it)
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -88,7 +90,7 @@ supabase/
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
     hubtel-daily-fee-charge/       Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Hubtel
     hubtel-daily-fee-webhook/      Edge Function: Hubtel's callback once a daily-fee charge resolves (public, no Supabase session)
-    notify-driver-assigned/        Edge Function: texts the customer when a driver is assigned
+    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link at creation, and both customer + vendor when a driver is assigned
     notify-vendor-registered/      Edge Function: emails a vendor their link when they register
     notify-driver-application/     Edge Function: emails staff when a driver signs themselves up
     notify-driver-approved/        Edge Function: emails a driver once their signup is approved
@@ -1133,17 +1135,33 @@ itself, outside the remounted widget tree.
 Adding a 7th theme is a matter of adding one more `ThemePreset` entry to
 `kThemePresets` - nothing else needs to change.
 
-## Customer SMS notifications
+## Delivery notifications (tracking link + driver assigned)
 
-The moment a delivery gets a driver assigned - whether that's set right at
-creation or changed later from the delivery detail screen - the customer is
-texted the rider's name and phone number, via
-[Twilio](https://www.twilio.com).
+One Edge Function, `notify-delivery-events`, handles two separate
+moments in a delivery's life - both by SMS via
+[Twilio](https://www.twilio.com), and by email via
+[Resend](https://resend.com) wherever an address is on file:
 
-This isn't triggered from the app itself; it's wired up as a **Supabase
-Database Webhook** on the `deliveries` table, so it fires no matter which
-screen or code path changed `assigned_driver_id` - there's nothing to wire
-up per-screen, and nothing extra to remember if this logic changes later.
+1. **The instant a delivery is created**, the customer gets their
+   **tracking link** (`https://your-app.example/t/<tracking_code>`) by
+   SMS, and by email too if they gave one on the request form (an
+   optional field - see `deliveries.customer_email`,
+   `0034_notifications_tracking_ratings.sql`) - so they have a way back
+   to it even if they close the page they submitted from.
+2. **The moment a driver is assigned** - whether that's immediate
+   (auto-assignment, see **Automatic same-zone driver assignment**
+   above) or set later from the delivery detail screen - both the
+   **customer and the vendor** get the rider's name and phone number.
+   Every one of these messages also includes
+   `app_settings.support_phone` (set from **Console > Settings**), so
+   whoever gets it has a number to call if something's wrong with the
+   delivery or the driver.
+
+Neither is triggered from the app itself; both are wired up as a single
+**Supabase Database Webhook** on the `deliveries` table, so they fire no
+matter which screen or code path created the delivery or changed
+`assigned_driver_id` - there's nothing to wire up per-screen, and nothing
+extra to remember if this logic changes later.
 
 ### 1. Get a Twilio number
 
@@ -1165,24 +1183,27 @@ before real customers can receive these.
 supabase secrets set TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 supabase secrets set TWILIO_AUTH_TOKEN=your_auth_token
 supabase secrets set TWILIO_FROM_NUMBER=+1XXXXXXXXXX
-supabase functions deploy notify-driver-assigned
+supabase functions deploy notify-delivery-events
 ```
 
 (Self-hosted: add those three as environment variables on the `functions`
 container instead of `supabase secrets set`, same as `RESEND_API_KEY`
-earlier.)
+earlier.) The tracking-link email/SMS also needs `APP_BASE_URL` set (see
+**Getting the link's domain right** below) - without it, the customer
+still gets a text, just without a link, since there'd be nothing valid to
+build one from.
 
 ### 3. Create the Database Webhook
 
 In the Supabase dashboard: **Database → Webhooks → Create a new webhook**.
 
 - **Table**: `deliveries`
-- **Events**: `Insert` and `Update` (a driver can be assigned at creation
-  or later)
+- **Events**: `Insert` and `Update` (a tracking link goes out at
+  creation; a driver can be assigned then or later)
 - **Type**: `Supabase Edge Functions` (not "HTTP Request" - this option
   has Supabase attach the right authorization automatically, so there's
   nothing else to configure)
-- **Edge Function**: `notify-driver-assigned`
+- **Edge Function**: `notify-delivery-events`
 - **HTTP Method**: `POST`
 
 That's it - no need to enable `pg_net` yourself on Supabase Cloud, it's
@@ -1192,17 +1213,35 @@ save.
 
 ### Notes
 
-- **Customer phone numbers should be in international format**
-  (`+233XXXXXXXXX`, not `0XXXXXXXXX`) - Twilio rejects anything else, and
-  the dispatcher's create-delivery form doesn't currently enforce that
-  format for them.
-- The function only trusts the delivery's *id* from the webhook payload -
-  everything else (the driver's real name/phone, the customer's real
-  phone) is re-fetched fresh from the database, so a forged request can't
-  be used to text an arbitrary number with made-up content.
-- If the Twilio secrets aren't set, or the send fails, nothing breaks -
-  the assignment itself still goes through; the failure is only visible in
-  the function's logs (`supabase functions logs notify-driver-assigned`).
+- **Customer and vendor phone numbers should be in international
+  format** (`+233XXXXXXXXX`, not `0XXXXXXXXX`) - Twilio rejects anything
+  else, and neither the public request form nor the dispatcher's
+  create-delivery form currently enforce that format.
+- The function only trusts the delivery's *id* and event type from the
+  webhook payload - everything else (the driver's real name/phone, the
+  customer's/vendor's real contact details) is re-fetched fresh from the
+  database, so a forged request can't be used to message an arbitrary
+  number/address with made-up content.
+- If the Twilio/Resend secrets aren't set, or a send fails, nothing
+  breaks - the delivery/assignment itself still goes through; the
+  failure is only visible in the function's logs (`supabase functions
+  logs notify-delivery-events`).
+
+### Rating the driver
+
+Once a delivery shows as **delivered** on the customer's own tracking page
+(`/t/<tracking_code>`), a star rating (1-5, plus an optional comment) shows
+up right there - no login, same page they already have from the tracking
+link. Submitting calls `submit_delivery_rating()`, which checks the
+delivery is actually delivered and belongs to that tracking code before
+writing to `delivery_ratings` (`0034_notifications_tracking_ratings.sql`).
+It's an upsert - reopening the link and changing the stars or comment
+updates the same row rather than adding a second one, so a customer can
+always come back and revise their rating.
+
+There's no dispatcher/admin screen surfacing these yet (a driver's average
+rating in **Console > Team** is a reasonable next step) - for now, reading
+them means querying `delivery_ratings` directly.
 
 ## Vendors, zones, and public delivery requests
 
@@ -1225,7 +1264,14 @@ both at once):
   `https://your-app.example/vendor-orders/QK7RS2T9WXYZ` - for the vendor
   themselves only, **never** the customers. It's a live list of every
   delivery ever placed through their public link, its status, and the
-  assigned driver's name/phone once one's on the way.
+  assigned driver's name/phone once one's on the way. Once a driver is
+  assigned and hasn't delivered or been cancelled yet, a **Track** button
+  appears on that order - opens a bottom sheet with a live map of the
+  driver's last known position and the drop-off point (the same
+  `MapPreview` used elsewhere, reusing the same 5-second poll the order
+  list is already running - opening it doesn't start a second one). It's
+  opt-in per order, not shown by default, since a vendor may only care to
+  watch the odd one that's running late.
 
 These two links are deliberately separate secrets (`vendors.code` vs.
 `vendors.orders_code` - see `0027_separate_vendor_orders_code.sql`).
@@ -1430,6 +1476,21 @@ Skip that migration (or just delete/rename what it adds afterwards from
 Console > Zones) if you're deploying somewhere else. The seeded locations
 have no coordinates - add one from the map for any that are worth pinning
 exactly.
+
+### Deleting a delivery (super admin only)
+
+Cancelling a delivery (from its detail screen) keeps the record - it just
+marks it `cancelled`. **Deleting** one, also from the delivery detail
+screen, erases it outright: a confirmation dialog spells out that this
+can't be undone, and points to cancel instead if the record should stay.
+Only a super admin sees the delete button at all - enforced both by the
+UI and, more importantly, by RLS
+(`0035_super_admin_delete_deliveries.sql` restricts the `deliveries`
+delete policy to `is_super_admin()`; a dispatcher could already do this at
+the database level since `0002`, it just had no button anywhere). Its
+status history and recorded payment go with it (`on delete cascade`); any
+commission or SMS log entry tied to it stays, with `delivery_id` set to
+`null` - those ledgers outlive the delivery they were about.
 
 ### Rider suggestions
 

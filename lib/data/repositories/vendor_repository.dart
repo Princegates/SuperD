@@ -219,6 +219,7 @@ class VendorRepository {
     String? packageDescription,
     double? roadDistanceKm,
     DateTime? scheduledAt,
+    String? customerEmail,
   }) async {
     final rows = await _client.rpc(
       'submit_delivery_request',
@@ -232,6 +233,7 @@ class VendorRepository {
         'package_description': packageDescription,
         'road_distance_km': roadDistanceKm,
         'scheduled_at': scheduledAt?.toIso8601String(),
+        'customer_email': customerEmail,
       },
     ) as List;
     return DeliveryQuote.fromMap(rows.first as Map<String, dynamic>);
@@ -356,5 +358,24 @@ class VendorRepository {
       yield await fetchDeliveryByTrackingCode(trackingCode);
       await Future<void>.delayed(const Duration(seconds: 5));
     }
+  }
+
+  /// A customer rates (or re-rates) the driver on their own delivery,
+  /// scoped to the tracking code they were given - never anyone else's.
+  /// Only accepted once the delivery is actually delivered - see
+  /// `submit_delivery_rating()` in `0034_notifications_tracking_ratings.sql`.
+  Future<void> submitDeliveryRating({
+    required String trackingCode,
+    required int rating,
+    String? comment,
+  }) async {
+    await _client.rpc(
+      'submit_delivery_rating',
+      params: {
+        'p_tracking_code': trackingCode,
+        'p_rating': rating,
+        'p_comment': comment,
+      },
+    );
   }
 }

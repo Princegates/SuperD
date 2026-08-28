@@ -25,12 +25,14 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   final _dailyFeeController = TextEditingController();
   final _freeDayThresholdController = TextEditingController();
   final _zoneAutoAssignCapController = TextEditingController();
+  final _supportPhoneController = TextEditingController();
   String? _syncedFromSettings;
   bool _isSavingPricing = false;
   bool _isSavingCommission = false;
   bool _isSavingDailyFee = false;
   bool _isSavingFreeDayThreshold = false;
   bool _isSavingZoneAutoAssignCap = false;
+  bool _isSavingSupportPhone = false;
 
   @override
   void dispose() {
@@ -40,6 +42,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     _dailyFeeController.dispose();
     _freeDayThresholdController.dispose();
     _zoneAutoAssignCapController.dispose();
+    _supportPhoneController.dispose();
     super.dispose();
   }
 
@@ -192,6 +195,23 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     }
   }
 
+  Future<void> _saveSupportPhone(String? phone) async {
+    setState(() => _isSavingSupportPhone = true);
+    try {
+      await ref.read(settingsRepositoryProvider).updateSupportPhone(phone);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'support_phone_changed',
+        entityType: 'app_settings',
+        summary: phone == null
+            ? 'Removed the support phone number'
+            : 'Changed the support phone number to $phone',
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingSupportPhone = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsState = ref.watch(appSettingsProvider);
@@ -206,7 +226,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
             '${settings.baseFare}|${settings.pricePerKm}|'
             '${settings.commissionFlatFee}|${settings.driverDailyFee}|'
             '${settings.freeDayDeliveryThreshold}|'
-            '${settings.zoneAutoAssignCap}';
+            '${settings.zoneAutoAssignCap}|${settings.supportPhone}';
         if (_syncedFromSettings != syncKey) {
           _syncedFromSettings = syncKey;
           _baseFareController.text = settings.baseFare.toStringAsFixed(2);
@@ -218,10 +238,73 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
               settings.freeDayDeliveryThreshold?.toString() ?? '';
           _zoneAutoAssignCapController.text = settings.zoneAutoAssignCap
               .toString();
+          _supportPhoneController.text = settings.supportPhone ?? '';
         }
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Support phone number',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Included in the SMS/email a customer and vendor get '
+                      'when a driver is assigned, so they have a number to '
+                      'call if something goes wrong with the delivery or '
+                      'the driver. Leave blank to leave it out of those '
+                      'messages.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _supportPhoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Support phone (optional)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _isSavingSupportPhone
+                              ? null
+                              : () => _saveSupportPhone(
+                                  _supportPhoneController.text.trim().isEmpty
+                                      ? null
+                                      : _supportPhoneController.text.trim(),
+                                ),
+                          child: _isSavingSupportPhone
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Save'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),

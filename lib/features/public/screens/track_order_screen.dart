@@ -2,6 +2,7 @@ import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/vendor.dart';
@@ -93,6 +94,16 @@ class TrackOrderScreen extends ConsumerWidget {
                                   : () => launchPhoneCall(order.driverPhone!),
                             ),
                           ],
+                          if (status == DeliveryStatus.delivered) ...[
+                            const SizedBox(height: 16),
+                            const Divider(),
+                            const SizedBox(height: 8),
+                            _RatingSection(
+                              trackingCode: order.trackingCode,
+                              initialRating: order.rating,
+                              initialComment: order.ratingComment,
+                            ),
+                          ],
                           const SizedBox(height: 16),
                           Text(
                             'Placed ${DateFormat('dd MMM, h:mm a').format(order.createdAt.toLocal())}',
@@ -155,6 +166,157 @@ class _Row extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// A star rating for the driver on this one delivery - only shown once it's
+/// delivered. [submitDeliveryRating] is an upsert (see
+/// `0034_notifications_tracking_ratings.sql`), so re-opening this page after
+/// already rating just pre-fills the stars/comment and lets the customer
+/// change their mind.
+class _RatingSection extends ConsumerStatefulWidget {
+  const _RatingSection({
+    required this.trackingCode,
+    required this.initialRating,
+    required this.initialComment,
+  });
+
+  final String trackingCode;
+  final int? initialRating;
+  final String? initialComment;
+
+  @override
+  ConsumerState<_RatingSection> createState() => _RatingSectionState();
+}
+
+class _RatingSectionState extends ConsumerState<_RatingSection> {
+  late int _rating = widget.initialRating ?? 0;
+  late final _commentController = TextEditingController(
+    text: widget.initialComment ?? '',
+  );
+  bool _isSubmitting = false;
+  String? _errorMessage;
+  bool _submitted = false;
+
+  @override
+  void dispose() {
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (_rating < 1) {
+      setState(() => _errorMessage = 'Pick a star rating first.');
+      return;
+    }
+    setState(() {
+      _isSubmitting = true;
+      _errorMessage = null;
+    });
+    try {
+      await ref
+          .read(vendorRepositoryProvider)
+          .submitDeliveryRating(
+            trackingCode: widget.trackingCode,
+            rating: _rating,
+            comment: _commentController.text.trim().isEmpty
+                ? null
+                : _commentController.text.trim(),
+          );
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _submitted = true;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _errorMessage = 'Could not submit your rating. Please try again.';
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasExisting = widget.initialRating != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          hasExisting || _submitted
+              ? 'Your rating of the rider'
+              : 'Rate your rider',
+          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: List.generate(5, (i) {
+            final starIndex = i + 1;
+            return IconButton(
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+              visualDensity: VisualDensity.compact,
+              onPressed: () => setState(() {
+                _rating = starIndex;
+                _errorMessage = null;
+              }),
+              icon: Icon(
+                starIndex <= _rating ? Icons.star : Icons.star_border,
+                color: AppTheme.warning,
+                size: 28,
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: _commentController,
+          minLines: 1,
+          maxLines: 3,
+          decoration: const InputDecoration(
+            labelText: 'Comment (optional)',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+        ),
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            _errorMessage!,
+            style: const TextStyle(color: AppTheme.danger, fontSize: 12),
+          ),
+        ],
+        if (_submitted) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Thanks for your feedback!',
+            style: TextStyle(
+              color: AppTheme.success,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton(
+            onPressed: _isSubmitting ? null : _submit,
+            child: _isSubmitting
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Text(
+                    hasExisting || _submitted
+                        ? 'Update rating'
+                        : 'Submit rating',
+                  ),
+          ),
+        ),
+      ],
     );
   }
 }

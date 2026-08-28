@@ -130,4 +130,10 @@ class SettingsRepository {
         .update({'zone_auto_assign_cap': cap})
         .eq('id', true);
   }
+
+  /// Changes (or clears) the support number included in the
+  /// driver-assigned SMS/email - see [AppSettings.supportPhone].
+  Future<void> updateSupportPhone(String? phone) async {
+    await _client.from(_table).update({'support_phone': phone}).eq('id', true);
+  }
 }

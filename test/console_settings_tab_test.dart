@@ -76,6 +76,13 @@ class _FakeSettingsRepository extends SettingsRepository {
     lastZoneAutoAssignCap = cap;
   }
 
+  String? lastSupportPhone;
+
+  @override
+  Future<void> updateSupportPhone(String? phone) async {
+    lastSupportPhone = phone;
+  }
+
   double? lastDriverDailyFee;
 
   @override
@@ -135,7 +142,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // All 6 presets show up as swatches, including the current one.
+    // All 6 presets show up as swatches, including the current one. The
+    // new support-phone card above them can push them out of the initial
+    // viewport, so scroll to one before asserting/tapping.
+    await tester.ensureVisible(find.text('Ocean Blue'));
+    await tester.pumpAndSettle();
     expect(find.text('Navy & Gold'), findsOneWidget);
     expect(find.text('Ocean Blue'), findsOneWidget);
     expect(find.text('Charcoal'), findsOneWidget);

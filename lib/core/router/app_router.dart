@@ -60,7 +60,15 @@ final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ref.watch(_routerRefreshProvider);
 
   return GoRouter(
-    initialLocation: '/splash',
+    // No initialLocation: go_router's own _effectiveInitialLocation()
+    // swaps the platform's actual URL for initialLocation specifically
+    // when that URL is the bare root ('/') - which would silently boot
+    // every fresh visit to '/' at '/splash' instead of ever reaching the
+    // WelcomeScreen route below. Every other path (e.g. a direct visit to
+    // '/admin' or '/login') is unaffected either way - this only changes
+    // what happens for the bare root, where WelcomeScreen doesn't need
+    // the splash-then-redirect dance since it doesn't care about auth
+    // state at all.
     refreshListenable: refresh,
     redirect: (context, state) {
       // Read fresh every time this runs (triggered by refreshListenable),

@@ -1106,6 +1106,19 @@ refresh. Individual delivery cards get a matching pulsing badge with the
 scheduled time, everywhere a `Delivery` is listed. See
 `0030_scheduled_delivery.sql`.
 
+## Driver delivery history
+
+A driver's dashboard shows both their active jobs and a "Completed"
+history of everything they've delivered or had cancelled - but once a
+delivery lands in that history, its pickup details (the vendor's name and
+location, for a vendor-submitted delivery) are replaced with "Pickup
+details hidden" and the map pin for it disappears. The real pickup
+address is still shown normally for anything still active - a driver
+needs it to actually do the job - this only applies once a delivery is
+done and there's no operational reason left to keep showing which
+business it was. A dispatcher/super admin is unaffected either way; see
+[`Delivery.withPickupHiddenIfHistory`](lib/models/delivery.dart).
+
 ## Driver actions: reject, cancel, and undo
 
 - **Reject** - a full-size button right next to "Accept & begin trip" while

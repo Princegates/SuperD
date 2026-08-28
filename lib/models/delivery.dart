@@ -100,6 +100,47 @@ class Delivery {
   bool get hasPickupCoordinates => pickupLat != null && pickupLng != null;
   bool get hasDropoffCoordinates => dropoffLat != null && dropoffLng != null;
 
+  /// A copy with the pickup identity - the vendor's name/location for a
+  /// vendor-submitted delivery - stripped out, once this delivery is done
+  /// (delivered or cancelled). A driver still needs the real pickup
+  /// details while a delivery is active to actually do the job; once it's
+  /// history, there's no operational reason to keep showing which
+  /// business it was. Only ever applied on the driver-facing side (see
+  /// `DeliveryRepository.watchDriverDeliveries()` and
+  /// `DeliveryDetailDriverScreen`) - a dispatcher/super admin still sees
+  /// the real pickup details everywhere, including their own reports.
+  Delivery get withPickupHiddenIfHistory {
+    if (status != DeliveryStatus.delivered &&
+        status != DeliveryStatus.cancelled) {
+      return this;
+    }
+    return Delivery(
+      id: id,
+      trackingCode: trackingCode,
+      status: status,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      customerEmail: customerEmail,
+      pickupAddress: 'Pickup details hidden',
+      dropoffAddress: dropoffAddress,
+      dropoffLat: dropoffLat,
+      dropoffLng: dropoffLng,
+      packageDescription: packageDescription,
+      notes: notes,
+      proofOfDeliveryUrl: proofOfDeliveryUrl,
+      createdBy: createdBy,
+      assignedDriverId: assignedDriverId,
+      vendorId: vendorId,
+      zoneId: zoneId,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      assignedAt: assignedAt,
+      pickedUpAt: pickedUpAt,
+      deliveredAt: deliveredAt,
+      scheduledAt: scheduledAt,
+    );
+  }
+
   /// Still needs a driver (or hasn't been picked up yet) and its scheduled
   /// time is within [threshold] of now - the condition the animated
   /// dispatch reminder on the admin dashboard watches for.

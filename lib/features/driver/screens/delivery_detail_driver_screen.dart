@@ -166,7 +166,12 @@ class _DeliveryDetailDriverScreenState
           if (delivery == null) {
             return const Center(child: Text('Delivery not found'));
           }
-          return _DriverDetailBody(delivery: delivery);
+          // Same treatment as the dashboard list (see
+          // DeliveryRepository.watchDriverDeliveries()) - this provider is
+          // shared with the dispatcher/super-admin detail screen, which
+          // still needs the real pickup details, so the masking happens
+          // here rather than in the shared provider itself.
+          return _DriverDetailBody(delivery: delivery.withPickupHiddenIfHistory);
         },
       ),
     );

@@ -23,14 +23,21 @@ class DeliveryRepository {
         .map((rows) => rows.map(Delivery.fromMap).toList());
   }
 
-  /// Only the deliveries assigned to [driverId]. Used by the driver dashboard.
+  /// Only the deliveries assigned to [driverId]. Used by the driver
+  /// dashboard - a completed/cancelled one has its pickup (vendor) details
+  /// stripped, see [Delivery.withPickupHiddenIfHistory].
   Stream<List<Delivery>> watchDriverDeliveries(String driverId) {
     return _client
         .from(_table)
         .stream(primaryKey: ['id'])
         .eq('assigned_driver_id', driverId)
         .order('created_at', ascending: false)
-        .map((rows) => rows.map(Delivery.fromMap).toList());
+        .map(
+          (rows) => rows
+              .map(Delivery.fromMap)
+              .map((d) => d.withPickupHiddenIfHistory)
+              .toList(),
+        );
   }
 
   Stream<Delivery?> watchById(String id) {

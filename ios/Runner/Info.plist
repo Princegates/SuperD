@@ -30,6 +30,12 @@
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>SuperD uses your location to pin pickup/drop-off points on the map and to show your position to dispatch while delivering.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Allow "Always" so SuperD can keep sharing your position with dispatch and customers while you're delivering, even if the app is in the background or your phone is locked.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>SuperD uses the camera to capture a proof-of-delivery photo.</string>
 	<key>UIApplicationSceneManifest</key>

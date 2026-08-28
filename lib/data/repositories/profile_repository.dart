@@ -59,10 +59,12 @@ class ProfileRepository {
         .map((rows) => rows.map(Profile.fromMap).toList());
   }
 
-  /// Called every ~15s by a driver's own app, only while it's open and
-  /// location is granted - see DriverDashboardScreen. No background
-  /// tracking; the position just goes stale (and drops off the Live Map)
-  /// once updates stop.
+  /// Called roughly every ~15s (or on a meaningful move) by a driver's own
+  /// app, for as long as location is granted - see DriverDashboardScreen.
+  /// Keeps flowing while the app is backgrounded/the phone is locked if
+  /// the driver granted "Allow all the time"; with just "while in use" it
+  /// pauses once the app leaves the foreground. Either way, the position
+  /// just goes stale (and drops off the Live Map) once updates stop.
   Future<void> updateLiveLocation({
     required String userId,
     required double lat,

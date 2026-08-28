@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
@@ -26,7 +28,7 @@ class DriverDashboardScreen extends ConsumerStatefulWidget {
 }
 
 class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
-  Timer? _locationTimer;
+  StreamSubscription<Position>? _positionSubscription;
 
   @override
   void initState() {
@@ -36,14 +38,19 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
 
   @override
   void dispose() {
-    _locationTimer?.cancel();
+    _positionSubscription?.cancel();
     super.dispose();
   }
 
-  /// Shares this driver's position with dispatch every 15s for as long as
-  /// this screen stays open and location is granted - no background
-  /// tracking, nothing persists once the app is closed. A transient GPS or
-  /// network failure is silently ignored; it just tries again next tick.
+  /// Shares this driver's position with dispatch for as long as this
+  /// screen stays mounted (i.e. they're signed in as a driver) and
+  /// location is granted - including while the app is backgrounded or the
+  /// phone is locked, as long as they've granted "Allow all the time" (see
+  /// `_requestBackgroundPermissionIfPossible`). With only "while in use"
+  /// granted, updates still work but pause once the app leaves the
+  /// foreground - same as before this used a stream. Either way, nothing
+  /// persists once the app is fully closed, and a transient GPS/network
+  /// failure on one update is silently skipped, not fatal.
   Future<void> _startSharingLocation() async {
     if (!await Geolocator.isLocationServiceEnabled()) {
       debugPrint(
@@ -61,18 +68,105 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
       debugPrint('SuperD: location permission not granted ($permission).');
       return;
     }
-    _pushLocation();
-    _locationTimer = Timer.periodic(
-      const Duration(seconds: 15),
-      (_) => _pushLocation(),
+
+    if (permission == LocationPermission.whileInUse) {
+      permission = await _requestBackgroundPermissionIfPossible();
+    }
+
+    _positionSubscription = Geolocator.getPositionStream(
+      locationSettings: _locationSettingsFor(
+        backgroundAllowed: permission == LocationPermission.always,
+      ),
+    ).listen(
+      _pushLocation,
+      onError: (Object e) =>
+          debugPrint('SuperD: live location stream error: $e'),
     );
   }
 
-  Future<void> _pushLocation() async {
+  /// Asks for "Allow all the time" on top of the "while in use" grant
+  /// they've already given - needed for location updates to keep flowing
+  /// once the app is backgrounded/the phone is locked. On Android 11+ and
+  /// most iOS versions the OS won't show a second permission dialog for
+  /// this (a platform restriction, not something this app controls) - the
+  /// driver has to flip it on from system Settings instead, so this points
+  /// them there rather than silently giving up. Foreground-only tracking
+  /// (the previous behaviour) still works fine either way.
+  Future<LocationPermission> _requestBackgroundPermissionIfPossible() async {
+    final permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.always || !mounted) {
+      return permission;
+    }
+
+    final openSettings = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Keep sharing location in the background?'),
+        content: const Text(
+          'Right now dispatch and customers only see your position while '
+          'SuperD is open on screen. To keep sharing it while the app is '
+          'in the background or your phone is locked, allow location '
+          'access "All the time" in Settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Open settings'),
+          ),
+        ],
+      ),
+    );
+    if (openSettings ?? false) {
+      await Geolocator.openAppSettings();
+    }
+    return permission;
+  }
+
+  /// Platform-specific tuning for the live position stream. On Android,
+  /// [backgroundAllowed] runs a foreground service (with the required
+  /// persistent notification) so updates keep flowing once the app is
+  /// backgrounded; on iOS, it enables the equivalent background delivery -
+  /// both no-ops if the driver only granted "while in use", which is fine,
+  /// updates just pause in the background same as before. See
+  /// `AndroidManifest.xml`/`Info.plist` for the permissions this depends on.
+  LocationSettings _locationSettingsFor({required bool backgroundAllowed}) {
+    if (defaultTargetPlatform == TargetPlatform.android) {
+      return AndroidSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 0,
+        intervalDuration: const Duration(seconds: 15),
+        foregroundNotificationConfig: backgroundAllowed
+            ? const ForegroundNotificationConfig(
+                notificationTitle: 'SuperD',
+                notificationText: 'Sharing your location with dispatch',
+                enableWakeLock: true,
+              )
+            : null,
+      );
+    }
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return AppleSettings(
+        accuracy: LocationAccuracy.high,
+        activityType: ActivityType.otherNavigation,
+        distanceFilter: 0,
+        pauseLocationUpdatesAutomatically: false,
+        showBackgroundLocationIndicator: backgroundAllowed,
+      );
+    }
+    return const LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 0,
+    );
+  }
+
+  Future<void> _pushLocation(Position position) async {
     final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
     if (userId == null) return;
     try {
-      final position = await Geolocator.getCurrentPosition();
       await ref
           .read(profileRepositoryProvider)
           .updateLiveLocation(
@@ -81,9 +175,10 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
             lng: position.longitude,
           );
     } catch (e) {
-      // Best-effort - skip this tick, try again on the next one. Logged
-      // (not shown to the driver) so a persistent failure is visible in
-      // `flutter run` output instead of silently never updating.
+      // Best-effort - skip this update, the next one from the stream will
+      // try again. Logged (not shown to the driver) so a persistent
+      // failure is visible in `flutter run` output instead of silently
+      // never updating.
       debugPrint('SuperD: live location update failed: $e');
     }
   }

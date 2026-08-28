@@ -417,6 +417,17 @@ class _PersonCard extends StatelessWidget {
                             ),
                           if (person.isFrozen)
                             _Badge(label: 'Frozen', color: AppTheme.danger),
+                          // Only drivers have an online/offline concept -
+                          // it's their own "available for new deliveries"
+                          // toggle (see DriverDashboardScreen), meaningless
+                          // for a dispatcher/super admin's own profile.
+                          if (person.role == UserRole.driver)
+                            _Badge(
+                              label: person.isOnline ? 'Online' : 'Offline',
+                              color: person.isOnline
+                                  ? AppTheme.success
+                                  : Colors.grey.shade500,
+                            ),
                         ],
                       ),
                       const SizedBox(height: 2),

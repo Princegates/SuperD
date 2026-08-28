@@ -83,6 +83,7 @@ supabase/
     0033_zone_auto_recognition_and_cap.sql    detects a delivery's zone from the customer's drop-off point, and caps how many deliveries auto-assignment can hand one driver
     0034_notifications_tracking_ratings.sql   optional customer email + support phone for notifications, driver location/drop-off point for vendor tracking, and delivery_ratings
     0035_super_admin_delete_deliveries.sql    restricts permanently deleting a delivery to a super admin (a dispatcher could before, just had no button for it)
+    0036_driver_cancel_and_incident_reporting.sql   a driver rejecting or cancelling mid-trip now records a full explanation for the Console's incident report; cancelling also auto-reassigns to another driver and alerts an admin
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -1080,7 +1081,7 @@ refresh. Individual delivery cards get a matching pulsing badge with the
 scheduled time, everywhere a `Delivery` is listed. See
 `0030_scheduled_delivery.sql`.
 
-## Driver actions: reject and undo
+## Driver actions: reject, cancel, and undo
 
 - **Reject** - a full-size button right next to "Accept & begin trip" while
   the delivery is still `assigned` (i.e. before the driver has accepted it) -
@@ -1091,21 +1092,64 @@ scheduled time, everywhere a `Delivery` is listed. See
   driver's side. The dispatcher/super admin console gets a "Delivery #... is
   unassigned and needs a new driver" notification the moment this happens,
   the same way a brand-new customer request does.
-- **Undo** - tucked in the "⋮" menu (top right) once the driver has moved
-  past `assigned` (`in_transit`, `picked_up`, or `delivered`), for walking
-  back one step if they tapped the wrong button: `in_transit` → `assigned`,
+- **Cancel trip** - in the "⋮" menu, only once the driver has actually
+  accepted the job (`picked_up` or `in_transit`) - for when they can't
+  finish it (a breakdown, an emergency, ...). Prompts for confirmation and
+  an optional reason, then tries to hand the delivery straight to another
+  available driver in the same zone (same eligibility rules as
+  auto-assignment on a new request - online, active, not frozen, paid up on
+  today's fee, under the zone's cap); if nobody qualifies, it falls back to
+  `pending` for a dispatcher to assign by hand. Either way, an admin can
+  still reassign it themselves at any point from the delivery detail
+  screen's driver dropdown, same as any other delivery - this doesn't lock
+  anything in.
+- **Undo** - tucked in the same "⋮" menu once the driver has moved past
+  `assigned` (`in_transit`, `picked_up`, or `delivered`), for walking back
+  one step if they tapped the wrong button: `in_transit` → `assigned`,
   `picked_up` → `in_transit`, `delivered` → `picked_up`. Kept out of the way
   since it's a correction, not part of the main flow.
 
-Rejecting needs a small, deliberately narrow exception in
-`enforce_delivery_update()` (`0023_driver_reject_and_undo.sql`): normally a
-driver can never change `assigned_driver_id` (that's what stops them
-reassigning jobs to themselves or anyone else), but this carves out the one
-case of a driver clearing *their own* assignment while it's still
-`assigned` - re-checked server-side in `driver_reject_delivery()`, not just
-trusted from the client. Undo needs no schema change at all - a driver can
-already freely set `status` on their own assigned deliveries, so it's just
-the same status-update call with the previous status.
+Both reject and cancel need a small, deliberately narrow exception in
+`enforce_delivery_update()`: normally a driver can never change
+`assigned_driver_id` (that's what stops them reassigning jobs to themselves
+or anyone else), but this carves out the two specific transitions a driver
+can trigger on their own delivery - clearing their own assignment while
+still `assigned` (reject, `0023_driver_reject_and_undo.sql`), or handing an
+already-accepted one to a replacement driver or back to the pool (cancel,
+`0036_driver_cancel_and_incident_reporting.sql`) - both re-checked
+server-side in `driver_reject_delivery()`/`driver_cancel_delivery()`, never
+just trusted from the client. Undo needs no schema change at all - a driver
+can already freely set `status` on their own assigned deliveries, so it's
+just the same status-update call with the previous status.
+
+### Rejection & cancellation reporting
+
+Both actions write a full sentence to `delivery_status_history.note` naming
+the driver and what happened (e.g. "Cancelled by Kwame mid-trip - reassigned
+to Ama.") - see `log_delivery_status_change()` in
+`0036_driver_cancel_and_incident_reporting.sql`. **Console > Overview**
+shows the most recent of these as a "Rejections & cancellations" feed (the
+section only appears once there's at least one), so a dispatcher/super
+admin doesn't have to go digging through individual delivery detail screens
+to notice a pattern with one driver or one zone.
+
+A driver cancelling mid-trip additionally alerts an admin by email/SMS -
+see **Delivery notifications** below for how to configure where that goes.
+
+A rejected/cancelled delivery also disappears from the rejecting/cancelling
+driver's own dashboard right away. That needs a small explicit step rather
+than happening automatically: both actions clear or change
+`assigned_driver_id` away from that driver, which means their own RLS read
+access to the row disappears in the very same update - Supabase Realtime
+checks RLS against a row's *new* state, so it never delivers that change to
+a subscriber who can no longer see the row at all, and the dashboard's
+cached copy would otherwise sit stuck at its last-known (still-assigned)
+state. Both `_confirmReject()`/`_confirmCancel()` in
+`delivery_detail_driver_screen.dart` explicitly invalidate
+`myDeliveriesProvider` right after a successful call, forcing a fresh fetch
+that re-applies RLS from scratch instead of relying on the realtime stream
+noticing on its own. No other status change on this screen needs this -
+only reject/cancel ever touch `assigned_driver_id`.
 
 ## Driver categories and availability
 
@@ -1118,11 +1162,11 @@ Three more per-driver fields, all added in
   screen groups drivers by this (with an "Unspecified vehicle" group for
   anyone without one), separately from dispatchers and super admins.
 - **Online/offline** — a driver's own "available for new deliveries"
-  toggle, shown as a bar at the top of their dashboard. Purely
-  informational for dispatch, except that it's also what the zone
-  auto-assignment algorithm (above) checks before handing them a new
-  customer request - a driver who's offline is skipped, same as one who's
-  inactive or frozen.
+  toggle, shown as a bar at the top of their dashboard, and as an
+  "Online"/"Offline" badge on their row in **Team** so a dispatcher/super
+  admin can see it too. It's also what the zone auto-assignment algorithm
+  (above) checks before handing a driver a new customer request - one
+  who's offline is skipped, same as one who's inactive or frozen.
 - **Frozen** — a super-admin-only control (e.g. for unpaid commission),
   toggled from **Team** with a confirmation prompt and a "Frozen" badge on
   the driver's row. A frozen driver keeps full access to whatever's
@@ -1162,9 +1206,9 @@ itself, outside the remounted widget tree.
 Adding a 7th theme is a matter of adding one more `ThemePreset` entry to
 `kThemePresets` - nothing else needs to change.
 
-## Delivery notifications (tracking link + driver assigned)
+## Delivery notifications (tracking link + driver assigned + cancellation alert)
 
-One Edge Function, `notify-delivery-events`, handles two separate
+One Edge Function, `notify-delivery-events`, handles three separate
 moments in a delivery's life - both by SMS via
 [Twilio](https://www.twilio.com), and by email via
 [Resend](https://resend.com) wherever an address is on file:
@@ -1177,18 +1221,28 @@ moments in a delivery's life - both by SMS via
    to it even if they close the page they submitted from.
 2. **The moment a driver is assigned** - whether that's immediate
    (auto-assignment, see **Automatic same-zone driver assignment**
-   above) or set later from the delivery detail screen - both the
-   **customer and the vendor** get the rider's name and phone number.
-   Every one of these messages also includes
-   `app_settings.support_phone` (set from **Console > Settings**), so
-   whoever gets it has a number to call if something's wrong with the
-   delivery or the driver.
+   above), set later from the delivery detail screen, or an automatic
+   reassignment after a cancellation (below) - both the **customer and
+   the vendor** get the rider's name and phone number. Every one of
+   these messages also includes `app_settings.support_phone` (set from
+   **Console > Settings**), so whoever gets it has a number to call if
+   something's wrong with the delivery or the driver.
+3. **A driver cancels a delivery already under way** (`picked_up` or
+   `in_transit` - see **Driver actions: reject, cancel, and undo**
+   above) - an **admin** gets an alert naming the delivery, the driver
+   who cancelled, and the outcome (reassigned to someone else, or left
+   unassigned and needing manual dispatch). Sent to
+   `app_settings.admin_alert_email`/`admin_alert_phone` (**Console >
+   Settings** - "Internal alerts"), separate from `support_phone`, which
+   is what customers/vendors call, not an internal channel. Leave either
+   blank to skip that channel - if both are unset, nothing is sent, but
+   the cancellation is still fully recorded either way.
 
-Neither is triggered from the app itself; both are wired up as a single
-**Supabase Database Webhook** on the `deliveries` table, so they fire no
-matter which screen or code path created the delivery or changed
-`assigned_driver_id` - there's nothing to wire up per-screen, and nothing
-extra to remember if this logic changes later.
+None of these are triggered from the app itself; all three are wired up
+as a single **Supabase Database Webhook** on the `deliveries` table, so
+they fire no matter which screen or code path created the delivery or
+changed `assigned_driver_id` - there's nothing to wire up per-screen, and
+nothing extra to remember if this logic changes later.
 
 ### 1. Get a Twilio number
 
@@ -1558,7 +1612,9 @@ back out of. What shows up in the nav is role-based:
     (collected/pending per currency), staff (counts by role, plus
     online/pending/frozen driver counts), vendors (active/inactive), and
     zone pricing (which zones override the app-wide base fare/per-km
-    rate).
+    rate) - plus, once there's at least one, a "Rejections &
+    cancellations" feed of the most recent driver rejections/cancellations
+    (see **Driver actions: reject, cancel, and undo** above).
   - **Reports** - the same numbers as Overview, but for a date range you
     pick (or all time), with a **CSV export** of the underlying raw
     records - deliveries, payments, commission, or daily fees - for that

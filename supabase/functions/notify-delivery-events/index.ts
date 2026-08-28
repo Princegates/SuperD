@@ -1,4 +1,4 @@
-// Two notifications around a delivery's lifecycle, both triggered by the
+// Three notifications around a delivery's lifecycle, all triggered by the
 // same Database Webhook (Database -> Webhooks in the dashboard) on the
 // "deliveries" table for INSERT and UPDATE - see the README for the exact
 // setup steps:
@@ -8,11 +8,18 @@
 //      too if they gave one on the request form - so they have a way
 //      back to it even if they close the page they submitted from.
 //   2. Whenever a driver is assigned (at creation, if auto-assigned
-//      immediately, or later), both the CUSTOMER and the VENDOR get the
-//      rider's name and phone number - SMS always, plus email wherever
-//      an address is on file. Every message includes the business's
-//      support number so either side has someone to call about a
-//      problem.
+//      immediately, or later - including a reassignment after case 3
+//      below), both the CUSTOMER and the VENDOR get the rider's name and
+//      phone number - SMS always, plus email wherever an address is on
+//      file. Every message includes the business's support number so
+//      either side has someone to call about a problem.
+//   3. Whenever a driver cancels a delivery already under way
+//      (picked_up/in_transit -> assigned/pending with a different
+//      driver - see driver_cancel_delivery() in
+//      0036_driver_cancel_and_incident_reporting.sql), an ADMIN gets an
+//      alert by email/SMS naming the delivery, the driver who cancelled,
+//      and the outcome (reassigned to someone else, or unassigned and
+//      needs manual dispatch).
 //
 // Runs with the service-role key, same reasoning as the other admin-*
 // functions. Deploy with `supabase functions deploy notify-delivery-events`.
@@ -109,9 +116,23 @@ Deno.serve(async (req) => {
       ? Boolean(newDriverId)
       : Boolean(newDriverId) && newDriverId !== oldDriverId;
 
-    if (!isInsert && !isNewAssignment) {
+    // Shape-based, like isNewAssignment above - the webhook payload has no
+    // "who"/"why", just old/new column values, so this infers "a driver
+    // cancelled mid-trip" from the transition itself: already
+    // picked_up/in_transit, handed to someone else (or back to the
+    // unassigned pool) in the same update. driver_cancel_delivery() is the
+    // only code path that produces this exact shape.
+    const oldStatus = payload?.old_record?.status as string | undefined;
+    const newStatus = payload?.record?.status as string | undefined;
+    const isDriverCancellation = !isInsert &&
+      Boolean(oldDriverId) &&
+      ["picked_up", "in_transit"].includes(oldStatus ?? "") &&
+      ["assigned", "pending"].includes(newStatus ?? "") &&
+      newDriverId !== oldDriverId;
+
+    if (!isInsert && !isNewAssignment && !isDriverCancellation) {
       // An update that didn't touch assigned_driver_id (status, notes,
-      // ...) - nothing either notification cares about.
+      // ...) - nothing any of the three notifications care about.
       return jsonResponse({ skipped: true });
     }
 
@@ -132,13 +153,21 @@ Deno.serve(async (req) => {
 
     const { data: settings } = await admin
       .from("app_settings")
-      .select("support_phone")
+      .select("support_phone, admin_alert_email, admin_alert_phone")
       .limit(1)
       .single();
     const supportPhone = settings?.support_phone as string | null | undefined;
     const supportLine = supportPhone
       ? ` Problem with this delivery? Call ${supportPhone}.`
       : "";
+    const adminAlertEmail = settings?.admin_alert_email as
+      | string
+      | null
+      | undefined;
+    const adminAlertPhone = settings?.admin_alert_phone as
+      | string
+      | null
+      | undefined;
 
     const results: Record<string, boolean> = {};
 
@@ -255,6 +284,48 @@ Deno.serve(async (req) => {
               ? `<p>If there's a problem with this delivery, call ${supportPhone}.</p>`
               : ""
           }
+          `,
+        );
+      }
+    }
+
+    // 3. Driver cancelled mid-trip - alert an admin, whichever way it went.
+    if (isDriverCancellation && oldDriverId) {
+      const { data: oldDriver } = await admin
+        .from("profiles")
+        .select("full_name")
+        .eq("id", oldDriverId)
+        .maybeSingle();
+      const oldDriverName = oldDriver?.full_name ?? "A driver";
+
+      let outcomeLine: string;
+      if (newDriverId) {
+        const { data: newDriver } = await admin
+          .from("profiles")
+          .select("full_name")
+          .eq("id", newDriverId)
+          .maybeSingle();
+        outcomeLine = `reassigned to ${newDriver?.full_name ?? "another driver"}`;
+      } else {
+        outcomeLine = "unassigned - needs manual reassignment";
+      }
+
+      if (adminAlertPhone) {
+        results.cancellationSms = await sendSms(
+          adminAlertPhone,
+          `SuperD: order ${delivery.tracking_code} was cancelled mid-trip ` +
+            `by ${oldDriverName} - ${outcomeLine}.`,
+        );
+      }
+      if (adminAlertEmail) {
+        results.cancellationEmail = await sendEmail(
+          adminAlertEmail,
+          `Driver cancelled mid-trip - order ${delivery.tracking_code}`,
+          `
+            <p>${oldDriverName} cancelled order
+            <strong>${delivery.tracking_code}</strong>
+            (${delivery.customer_name}) after already picking it up.</p>
+            <p>Outcome: ${outcomeLine}.</p>
           `,
         );
       }

@@ -136,4 +136,22 @@ class SettingsRepository {
   Future<void> updateSupportPhone(String? phone) async {
     await _client.from(_table).update({'support_phone': phone}).eq('id', true);
   }
+
+  /// Changes (or clears) where an internal alert (a driver cancelling
+  /// mid-trip) is emailed - see [AppSettings.adminAlertEmail].
+  Future<void> updateAdminAlertEmail(String? email) async {
+    await _client
+        .from(_table)
+        .update({'admin_alert_email': email})
+        .eq('id', true);
+  }
+
+  /// Changes (or clears) where the same internal alert is texted - see
+  /// [AppSettings.adminAlertPhone].
+  Future<void> updateAdminAlertPhone(String? phone) async {
+    await _client
+        .from(_table)
+        .update({'admin_alert_phone': phone})
+        .eq('id', true);
+  }
 }

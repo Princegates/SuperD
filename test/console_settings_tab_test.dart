@@ -83,6 +83,20 @@ class _FakeSettingsRepository extends SettingsRepository {
     lastSupportPhone = phone;
   }
 
+  String? lastAdminAlertEmail;
+
+  @override
+  Future<void> updateAdminAlertEmail(String? email) async {
+    lastAdminAlertEmail = email;
+  }
+
+  String? lastAdminAlertPhone;
+
+  @override
+  Future<void> updateAdminAlertPhone(String? phone) async {
+    lastAdminAlertPhone = phone;
+  }
+
   double? lastDriverDailyFee;
 
   @override
@@ -116,7 +130,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The dropdown starts on whatever appSettingsProvider reports.
+    // The dropdown starts on whatever appSettingsProvider reports. The
+    // internal-alerts card above it can push it out of the initial
+    // viewport, so scroll to it before asserting/tapping.
+    await tester.ensureVisible(find.byType(DropdownButtonFormField<String>));
+    await tester.pumpAndSettle();
     expect(find.text('Ghana Cedi (GHS)'), findsOneWidget);
 
     // Open the dropdown and pick a different currency.
@@ -143,9 +161,16 @@ void main() {
     await tester.pumpAndSettle();
 
     // All 6 presets show up as swatches, including the current one. The
-    // new support-phone card above them can push them out of the initial
-    // viewport, so scroll to one before asserting/tapping.
-    await tester.ensureVisible(find.text('Ocean Blue'));
+    // cards above them (support phone, internal alerts) push them well
+    // past the ListView's initial render/cache extent, so - unlike a
+    // widget merely off-screen but still mounted - it doesn't exist in
+    // the tree yet for a plain ensureVisible to find; drag repeatedly
+    // until it's actually built.
+    await tester.dragUntilVisible(
+      find.text('Ocean Blue'),
+      find.byType(Scrollable).first,
+      const Offset(0, -200),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Navy & Gold'), findsOneWidget);
     expect(find.text('Ocean Blue'), findsOneWidget);

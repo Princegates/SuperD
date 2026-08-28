@@ -16,6 +16,8 @@ class AppSettings {
     this.freeDayDeliveryThreshold,
     this.zoneAutoAssignCap = 5,
     this.supportPhone,
+    this.adminAlertEmail,
+    this.adminAlertPhone,
   });
 
   final String currency;
@@ -69,6 +71,16 @@ class AppSettings {
   /// out of those messages.
   final String? supportPhone;
 
+  /// Where an internal alert - e.g. a driver cancelling a delivery
+  /// mid-trip - is emailed. Separate from [supportPhone], which
+  /// customers/vendors call, not an internal channel. Null means no
+  /// email alert is sent - see `0036_driver_cancel_and_incident_reporting.sql`.
+  final String? adminAlertEmail;
+
+  /// Where the same internal alert is texted. Null means no SMS alert is
+  /// sent.
+  final String? adminAlertPhone;
+
   factory AppSettings.fromMap(Map<String, dynamic> map) {
     return AppSettings(
       currency: map['currency'] as String? ?? 'GHS',
@@ -82,6 +94,8 @@ class AppSettings {
           ?.toInt(),
       zoneAutoAssignCap: (map['zone_auto_assign_cap'] as num?)?.toInt() ?? 5,
       supportPhone: map['support_phone'] as String?,
+      adminAlertEmail: map['admin_alert_email'] as String?,
+      adminAlertPhone: map['admin_alert_phone'] as String?,
     );
   }
 

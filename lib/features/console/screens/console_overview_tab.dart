@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../models/commission_payment.dart';
 import '../../../models/commission_status.dart';
 import '../../../models/daily_fee_status.dart';
 import '../../../models/delivery.dart';
+import '../../../models/delivery_incident.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/driver_daily_fee.dart';
 import '../../../models/payment.dart';
@@ -37,6 +39,7 @@ class ConsoleOverviewTab extends ConsumerWidget {
     final commission =
         ref.watch(allCommissionPaymentsProvider).valueOrNull ?? [];
     final dailyFees = ref.watch(allDriverDailyFeesProvider).valueOrNull ?? [];
+    final incidents = ref.watch(deliveryIncidentsProvider).valueOrNull ?? [];
 
     return AsyncValueView<List<Delivery>>(
       value: deliveriesState,
@@ -54,6 +57,9 @@ class ConsoleOverviewTab extends ConsumerWidget {
         final driverNames = {for (final d in drivers) d.id: d.displayName};
         final vendorNames = {for (final v in vendors) v.id: v.vendorName};
         final zoneNames = {for (final z in zones) z.id: z.name};
+        final trackingCodes = {
+          for (final d in deliveries) d.id: d.trackingCode,
+        };
 
         final deliveredByDriver = <String, int>{};
         final byZone = <String, int>{};
@@ -203,6 +209,22 @@ class ConsoleOverviewTab extends ConsumerWidget {
             _VendorSummaryCard(vendors: vendors),
             const SizedBox(height: 16),
             _ZonePricingSummaryCard(zones: zones),
+            if (incidents.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _SectionCard(
+                title: 'Rejections & cancellations',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final incident in incidents)
+                      _IncidentRow(
+                        incident: incident,
+                        trackingCode: trackingCodes[incident.deliveryId] ?? '?',
+                      ),
+                  ],
+                ),
+              ),
+            ],
           ],
         );
       },
@@ -664,6 +686,58 @@ class _MiniStat extends StatelessWidget {
           Text(
             label,
             style: TextStyle(color: Colors.grey.shade700, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One driver-rejected or driver-cancelled delivery - [incident.note]
+/// already reads as a full sentence naming the driver and what happened
+/// (see `driver_reject_delivery()`/`driver_cancel_delivery()` in
+/// `0036_driver_cancel_and_incident_reporting.sql`), so this just adds the
+/// tracking code and when it happened.
+class _IncidentRow extends StatelessWidget {
+  const _IncidentRow({required this.incident, required this.trackingCode});
+
+  final DeliveryIncident incident;
+  final String trackingCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final isCancellation = incident.note.startsWith('Cancelled');
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            isCancellation ? Icons.report_problem_outlined : Icons.block,
+            size: 18,
+            color: isCancellation ? AppTheme.danger : AppTheme.neutral,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '#$trackingCode',
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  incident.note,
+                  style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            DateFormat('d MMM, h:mm a').format(incident.createdAt.toLocal()),
+            style: TextStyle(fontSize: 11.5, color: Colors.grey.shade500),
           ),
         ],
       ),

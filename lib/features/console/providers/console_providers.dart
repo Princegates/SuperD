@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../models/audit_log_entry.dart';
 import '../../../models/commission_payment.dart';
+import '../../../models/delivery_incident.dart';
 import '../../../models/driver_daily_fee.dart';
 import '../../../models/payment.dart';
 
@@ -28,6 +29,13 @@ final allCommissionPaymentsProvider = FutureProvider<List<CommissionPayment>>((
 /// [allCommissionPaymentsProvider].
 final allDriverDailyFeesProvider = FutureProvider<List<DriverDailyFee>>((ref) {
   return ref.watch(driverDailyFeeRepositoryProvider).fetchAll();
+});
+
+/// The most recent driver-rejected/driver-cancelled deliveries - the raw
+/// data behind the Console Overview's "Rejections & cancellations" feed,
+/// same one-shot-fetch pattern as [allCommissionPaymentsProvider].
+final deliveryIncidentsProvider = FutureProvider<List<DeliveryIncident>>((ref) {
+  return ref.watch(deliveryRepositoryProvider).fetchIncidents();
 });
 
 /// Every driver's current free-day balance, keyed by driver id - the raw

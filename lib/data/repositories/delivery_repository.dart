@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/delivery.dart';
+import '../../models/delivery_incident.dart';
 import '../../models/delivery_status.dart';
 
 class DeliveryRepository {
@@ -139,6 +140,20 @@ class DeliveryRepository {
     );
   }
 
+  /// A driver who already accepted a delivery (`picked_up`/`in_transit`)
+  /// but can't finish it hands it off instead of leaving it stuck assigned
+  /// to them - tries another driver in the same zone first, falling back
+  /// to the unassigned pool if nobody qualifies. Either way it's recorded
+  /// with a full explanation (see [fetchIncidents]) and an admin is
+  /// alerted by email/SMS - see `driver_cancel_delivery()` in
+  /// `0036_driver_cancel_and_incident_reporting.sql`.
+  Future<void> cancelTrip(String deliveryId, {String? reason}) async {
+    await _client.rpc(
+      'driver_cancel_delivery',
+      params: {'p_delivery_id': deliveryId, 'p_reason': reason},
+    );
+  }
+
   Future<void> setNotes({
     required String deliveryId,
     required String notes,
@@ -177,5 +192,20 @@ class DeliveryRepository {
         .select()
         .eq('delivery_id', deliveryId)
         .order('created_at');
+  }
+
+  /// Every driver-rejected or driver-cancelled delivery ever recorded -
+  /// the raw data behind the Console's "Rejections & cancellations" feed.
+  /// Only rows with a note are these two events; every ordinary status
+  /// change leaves `note` null and is filtered out here rather than in
+  /// Dart, since that's the vast majority of the table.
+  Future<List<DeliveryIncident>> fetchIncidents({int limit = 30}) async {
+    final rows = await _client
+        .from('delivery_status_history')
+        .select()
+        .not('note', 'is', null)
+        .order('created_at', ascending: false)
+        .limit(limit);
+    return rows.map(DeliveryIncident.fromMap).toList();
   }
 }

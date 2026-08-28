@@ -12,6 +12,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../shared/providers/delivery_detail_providers.dart';
+import '../providers/driver_providers.dart';
 import '../../../shared/utils/navigation_launcher.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivered_celebration.dart';
@@ -32,6 +33,7 @@ class DeliveryDetailDriverScreen extends ConsumerStatefulWidget {
 class _DeliveryDetailDriverScreenState
     extends ConsumerState<DeliveryDetailDriverScreen> {
   bool _isUndoing = false;
+  bool _isCancelling = false;
 
   Future<void> _undo(Delivery delivery, DeliveryStatus previous) async {
     setState(() => _isUndoing = true);
@@ -50,30 +52,110 @@ class _DeliveryDetailDriverScreenState
     }
   }
 
+  Future<void> _confirmCancel(Delivery delivery) async {
+    final reasonController = TextEditingController();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cancel this trip?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "We'll try to hand it to another available driver right "
+              "away. If nobody's free, it goes back to the unassigned "
+              "pool and dispatch is alerted - either way, this is "
+              "recorded against this delivery.",
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: reasonController,
+              decoration: const InputDecoration(
+                labelText: 'Reason (optional)',
+                border: OutlineInputBorder(),
+              ),
+              maxLines: 2,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Keep this trip'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.danger),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Cancel trip'),
+          ),
+        ],
+      ),
+    );
+    final reason = reasonController.text.trim();
+    reasonController.dispose();
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isCancelling = true);
+    try {
+      await ref
+          .read(deliveryRepositoryProvider)
+          .cancelTrip(delivery.id, reason: reason.isEmpty ? null : reason);
+      // The realtime stream behind myDeliveriesProvider won't necessarily
+      // deliver this delivery's own update - RLS re-evaluates against the
+      // NEW row, and assigned_driver_id no longer matches this driver, so
+      // Realtime has nothing to tell them (it's not a row they can still
+      // see). A plain invalidate forces a fresh fetch, which correctly
+      // excludes it - see the same note on rejectDelivery below.
+      ref.invalidate(myDeliveriesProvider);
+      if (mounted) context.pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not cancel this trip. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isCancelling = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final deliveryState = ref.watch(deliveryByIdProvider(widget.deliveryId));
     final delivery = deliveryState.valueOrNull;
     // "Reject" (only reachable from 'assigned') is a visible button on the
     // detail body itself, right next to "Accept & begin trip" - see
-    // _DriverDetailBody. Undo stays tucked in this overflow menu since it's
-    // a corrective action for every other status, not a step in the main
-    // flow.
+    // _DriverDetailBody. Undo and "Cancel trip" (only reachable once
+    // already accepted - picked_up/in_transit) stay tucked in this
+    // overflow menu since neither is a step in the main flow - one's a
+    // correction, the other's a rare exception, not the common path.
     final previousStatus = delivery?.status.previousForDriver;
+    final canCancel =
+        delivery?.status == DeliveryStatus.pickedUp ||
+        delivery?.status == DeliveryStatus.inTransit;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Delivery'),
         actions: [
-          if (delivery != null && previousStatus != null)
+          if (delivery != null && (previousStatus != null || canCancel))
             PopupMenuButton<VoidCallback>(
-              enabled: !_isUndoing,
+              enabled: !_isUndoing && !_isCancelling,
               onSelected: (action) => action(),
               itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: () => _undo(delivery, previousStatus),
-                  child: Text('Undo - back to "${previousStatus.label}"'),
-                ),
+                if (previousStatus != null)
+                  PopupMenuItem(
+                    value: () => _undo(delivery, previousStatus),
+                    child: Text('Undo - back to "${previousStatus.label}"'),
+                  ),
+                if (canCancel)
+                  PopupMenuItem(
+                    value: () => _confirmCancel(delivery),
+                    child: const Text('Cancel trip'),
+                  ),
               ],
             ),
         ],
@@ -147,6 +229,17 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
       await ref
           .read(deliveryRepositoryProvider)
           .rejectDelivery(widget.delivery.id);
+      // Rejecting clears assigned_driver_id, so this driver's own RLS
+      // read access to the row disappears in the same update - Supabase
+      // Realtime checks RLS against the row's NEW state, so it never
+      // delivers this change to a subscriber who can no longer see the
+      // row, and myDeliveriesProvider's cached copy is left stuck at its
+      // last-known (still-assigned) state instead of dropping it. A
+      // plain invalidate forces a fresh REST fetch instead, which
+      // re-applies RLS from scratch and correctly excludes it - the
+      // dashboard doesn't have this problem for any other status change,
+      // since only reject/cancel ever touch assigned_driver_id.
+      ref.invalidate(myDeliveriesProvider);
       if (mounted) context.pop();
     } catch (e) {
       if (mounted) {

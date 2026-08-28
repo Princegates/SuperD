@@ -26,6 +26,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   final _freeDayThresholdController = TextEditingController();
   final _zoneAutoAssignCapController = TextEditingController();
   final _supportPhoneController = TextEditingController();
+  final _adminAlertEmailController = TextEditingController();
+  final _adminAlertPhoneController = TextEditingController();
   String? _syncedFromSettings;
   bool _isSavingPricing = false;
   bool _isSavingCommission = false;
@@ -33,6 +35,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   bool _isSavingFreeDayThreshold = false;
   bool _isSavingZoneAutoAssignCap = false;
   bool _isSavingSupportPhone = false;
+  bool _isSavingAdminAlerts = false;
 
   @override
   void dispose() {
@@ -43,6 +46,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     _freeDayThresholdController.dispose();
     _zoneAutoAssignCapController.dispose();
     _supportPhoneController.dispose();
+    _adminAlertEmailController.dispose();
+    _adminAlertPhoneController.dispose();
     super.dispose();
   }
 
@@ -212,6 +217,22 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     }
   }
 
+  Future<void> _saveAdminAlerts(String? email, String? phone) async {
+    setState(() => _isSavingAdminAlerts = true);
+    try {
+      await ref.read(settingsRepositoryProvider).updateAdminAlertEmail(email);
+      await ref.read(settingsRepositoryProvider).updateAdminAlertPhone(phone);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'admin_alerts_changed',
+        entityType: 'app_settings',
+        summary: 'Changed the internal alert email/phone',
+      );
+    } finally {
+      if (mounted) setState(() => _isSavingAdminAlerts = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsState = ref.watch(appSettingsProvider);
@@ -226,7 +247,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
             '${settings.baseFare}|${settings.pricePerKm}|'
             '${settings.commissionFlatFee}|${settings.driverDailyFee}|'
             '${settings.freeDayDeliveryThreshold}|'
-            '${settings.zoneAutoAssignCap}|${settings.supportPhone}';
+            '${settings.zoneAutoAssignCap}|${settings.supportPhone}|'
+            '${settings.adminAlertEmail}|${settings.adminAlertPhone}';
         if (_syncedFromSettings != syncKey) {
           _syncedFromSettings = syncKey;
           _baseFareController.text = settings.baseFare.toStringAsFixed(2);
@@ -239,6 +261,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
           _zoneAutoAssignCapController.text = settings.zoneAutoAssignCap
               .toString();
           _supportPhoneController.text = settings.supportPhone ?? '';
+          _adminAlertEmailController.text = settings.adminAlertEmail ?? '';
+          _adminAlertPhoneController.text = settings.adminAlertPhone ?? '';
         }
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -288,6 +312,79 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                                       : _supportPhoneController.text.trim(),
                                 ),
                           child: _isSavingSupportPhone
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Save'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Internal alerts',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      "Where you're notified if a driver cancels a delivery "
+                      "mid-trip - separate from the support number above, "
+                      "which is for customers and vendors to call, not you. "
+                      'Leave either blank to skip that channel.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _adminAlertEmailController,
+                      keyboardType: TextInputType.emailAddress,
+                      decoration: const InputDecoration(
+                        labelText: 'Alert email (optional)',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _adminAlertPhoneController,
+                            keyboardType: TextInputType.phone,
+                            decoration: const InputDecoration(
+                              labelText: 'Alert phone (optional)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _isSavingAdminAlerts
+                              ? null
+                              : () => _saveAdminAlerts(
+                                  _adminAlertEmailController.text.trim().isEmpty
+                                      ? null
+                                      : _adminAlertEmailController.text.trim(),
+                                  _adminAlertPhoneController.text.trim().isEmpty
+                                      ? null
+                                      : _adminAlertPhoneController.text.trim(),
+                                ),
+                          child: _isSavingAdminAlerts
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,

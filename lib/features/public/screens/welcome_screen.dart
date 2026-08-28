@@ -1,7 +1,10 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/utils/vendor_link.dart';
 
 /// The app's actual front door - reachable at the bare root (`/`), before
 /// any session/role check runs (see the `'/'` exemption in the router's
@@ -18,6 +21,21 @@ class WelcomeScreen extends StatelessWidget {
     (Icons.map_outlined, 'Live tracking'),
     (Icons.verified_outlined, 'Secure payments'),
   ];
+
+  /// Vendor registration and staff/driver login are their own separate
+  /// journeys from this marketing page, so both open in a new tab on web
+  /// (leaving this page open behind them) instead of navigating away from
+  /// it in place. Native builds (no concept of "tabs") and the rare case
+  /// where the app's own origin can't be determined both fall back to a
+  /// normal in-app navigation instead.
+  void _open(BuildContext context, String path) {
+    final base = publicBaseUrl();
+    if (kIsWeb && base.isNotEmpty) {
+      launchUrl(Uri.parse('$base$path'), webOnlyWindowName: '_blank');
+      return;
+    }
+    context.push(path);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -117,7 +135,7 @@ class WelcomeScreen extends StatelessWidget {
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
-                            onPressed: () => context.push('/vendor'),
+                            onPressed: () => _open(context, '/vendor'),
                             child: const Text(
                               'Register your business',
                               style: TextStyle(
@@ -134,7 +152,7 @@ class WelcomeScreen extends StatelessWidget {
                                 vertical: 16,
                               ),
                             ),
-                            onPressed: () => context.push('/login'),
+                            onPressed: () => _open(context, '/login'),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [

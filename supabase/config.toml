@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.hubtel-daily-fee-webhook]
 verify_jwt = false
+
+[functions.notify-delivery-events]
+verify_jwt = false

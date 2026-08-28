@@ -1357,6 +1357,84 @@ already on for this exact feature. Self-hosted: run
 `create extension if not exists pg_net;` once first if the webhook won't
 save.
 
+### If the Webhooks page isn't there
+
+Some Supabase projects (ones that never used a Database Webhook before)
+don't have the `supabase_functions` schema provisioned, and the
+**Database → Webhooks** page just won't show up in the dashboard. If
+that's what you're seeing, wire it up by hand instead with a `pg_net`
+trigger, from the SQL Editor:
+
+```sql
+create extension if not exists pg_net;
+
+create or replace function public.trigger_notify_delivery_insert()
+returns trigger
+language plpgsql
+as $$
+begin
+  perform net.http_post(
+    url := 'https://your-project-ref.supabase.co/functions/v1/notify-delivery-events',
+    headers := '{"Content-type": "application/json"}'::jsonb,
+    body := jsonb_build_object(
+      'type', 'INSERT',
+      'table', 'deliveries',
+      'record', row_to_json(new)
+    )
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists notify_delivery_insert on public.deliveries;
+create trigger notify_delivery_insert
+after insert on public.deliveries
+for each row
+execute function public.trigger_notify_delivery_insert();
+
+create or replace function public.trigger_notify_delivery_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  perform net.http_post(
+    url := 'https://your-project-ref.supabase.co/functions/v1/notify-delivery-events',
+    headers := '{"Content-type": "application/json"}'::jsonb,
+    body := jsonb_build_object(
+      'type', 'UPDATE',
+      'table', 'deliveries',
+      'record', row_to_json(new),
+      'old_record', row_to_json(old)
+    )
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists notify_delivery_update on public.deliveries;
+create trigger notify_delivery_update
+after update on public.deliveries
+for each row
+execute function public.trigger_notify_delivery_update();
+```
+
+Swap in your real project ref in both `url :=` lines. Unlike the
+`pg_net` examples elsewhere in this README, these payloads explicitly
+set `'type'` - `notify-delivery-events` branches its logic on
+`payload.type` (`"INSERT"` sends the tracking link and the new-order
+notice to the vendor; `"UPDATE"` handles driver-assigned and
+driver-cancelled notices), so leaving it out would make the function
+silently do nothing on every call.
+
+This bypasses Supabase's automatic auth for Edge Functions webhooks, so
+the function also needs `verify_jwt = false` in `supabase/config.toml`
+(already set for `notify-delivery-events` in this repo) - then redeploy
+so the config takes effect:
+
+```bash
+supabase functions deploy notify-delivery-events
+```
+
 ### Notes
 
 - **Customer and vendor phone numbers should be in international

@@ -40,7 +40,7 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppTheme.primary,
+      backgroundColor: Colors.white,
       body: Stack(
         children: [
           // A single, static, understated glow behind the wordmark - not
@@ -54,8 +54,8 @@ class WelcomeScreen extends StatelessWidget {
                   center: const Alignment(0, -0.5),
                   radius: 1.1,
                   colors: [
-                    AppTheme.accent.withValues(alpha: 0.16),
-                    AppTheme.primary,
+                    AppTheme.accent.withValues(alpha: 0.12),
+                    Colors.white,
                   ],
                 ),
               ),
@@ -80,6 +80,7 @@ class WelcomeScreen extends StatelessWidget {
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(22),
+                          border: Border.all(color: const Color(0xFFE7EAEE)),
                         ),
                         child: Image.asset('assets/icon/icon.png'),
                       ),
@@ -94,9 +95,9 @@ class WelcomeScreen extends StatelessWidget {
                             height: 1.1,
                           ),
                           children: [
-                            const TextSpan(
+                            TextSpan(
                               text: 'Super',
-                              style: TextStyle(color: Colors.white),
+                              style: TextStyle(color: AppTheme.primary),
                             ),
                             TextSpan(
                               text: 'Delivery',
@@ -112,7 +113,7 @@ class WelcomeScreen extends StatelessWidget {
                         'riders from order to doorstep.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.72),
+                          color: Colors.grey.shade700,
                           fontSize: 16,
                           height: 1.5,
                         ),
@@ -146,7 +147,7 @@ class WelcomeScreen extends StatelessWidget {
                           ),
                           TextButton(
                             style: TextButton.styleFrom(
-                              foregroundColor: Colors.white,
+                              foregroundColor: AppTheme.primary,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 20,
                                 vertical: 16,
@@ -180,16 +181,12 @@ class WelcomeScreen extends StatelessWidget {
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
-                                  icon,
-                                  size: 17,
-                                  color: Colors.white.withValues(alpha: 0.5),
-                                ),
+                                Icon(icon, size: 17, color: Colors.grey.shade500),
                                 const SizedBox(width: 8),
                                 Text(
                                   label,
                                   style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.6),
+                                    color: Colors.grey.shade600,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -204,7 +201,7 @@ class WelcomeScreen extends StatelessWidget {
                         'vendor sent you after you placed your order.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.4),
+                          color: Colors.grey.shade400,
                           fontSize: 13,
                         ),
                       ),

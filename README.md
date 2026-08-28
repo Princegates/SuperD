@@ -376,16 +376,34 @@ Flutter, no build step of its own) - a public-facing front door you can
 link to from social media or ads, with an animated logo, a features
 section that fades in on scroll, and buttons into **Register your
 business** (`/vendor-signup`) and **Staff & driver login** (`/login`).
-It isn't the app's own root (`/` still goes straight into the Flutter app
-- the SPA fallback above already routes anyone there to `/login`), so it
-doesn't touch how the app itself is reached; it's a separate page any
-existing vendor/customer/tracking link is completely unaffected by.
+
+`web/_redirects` routes the bare root (`/`) to this page instead of
+straight into the Flutter app, so it's what a visitor sees first at
+`https://your-domain.example/`:
+```
+/     /welcome/index.html   200!
+/*    /index.html   200
+```
+The `!` forces it to win over the real `index.html` file that would
+otherwise be served at `/` directly (Netlify serves an existing file
+before falling back to a redirect). Every other path - `/vendor-signup`,
+`/login`, `/v/<code>`, `/t/<trackingCode>`, ... - still falls through to
+the second, catch-all rule and goes straight into the Flutter app as
+before; this only changes what's at the bare root. It's also directly
+reachable at `/welcome` on its own if you'd rather link to it explicitly
+instead of relying on the root redirect.
 
 It's plain HTML/CSS with a few lines of JS (no external dependencies
 besides a Google Fonts stylesheet), and `flutter build web` copies it
 into `build/web/welcome/index.html` automatically since it lives under
 `web/` - it deploys with the rest of the site and needs no separate
-hosting step. Once live, it's reachable at `https://your-domain.example/welcome`.
+hosting step.
+
+**Note for local testing**: `flutter run -d chrome` doesn't consult
+`_redirects` (that's a Netlify-specific file, only applied on Netlify's
+own servers) - locally, the bare root always goes straight into the
+Flutter app, same as before. To see this page while testing locally,
+visit `/welcome/` on your local dev URL explicitly.
 
 ### Web dashboard is back-office only
 

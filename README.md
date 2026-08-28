@@ -86,6 +86,7 @@ supabase/
     0036_driver_cancel_and_incident_reporting.sql   a driver rejecting or cancelling mid-trip now records a full explanation for the Console's incident report; cancelling also auto-reassigns to another driver and alerts an admin
     0037_tiered_daily_fee.sql                 replaces the flat driver daily fee with admin-defined tiers priced by how many deliveries a driver has completed that day, re-evaluated live
     0038_daily_fee_tier_overrides.sql          lets a super admin pin a specific driver to one daily-fee tier, overriding the automatic delivery-count calculation for them
+    0039_customer_live_tracking.sql            adds the driver's live position and the drop-off point to get_delivery_by_tracking_code(), so a customer's own tracking page can show a live map too, same as a vendor's orders page already could
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -1401,7 +1402,11 @@ address, and driver's phone for that vendor - if you're running an older
 version of SuperD, apply that migration to close this. A customer tracking
 their *own* order instead uses a third, per-delivery link -
 `https://your-app.example/t/<trackingCode>` - shown right after they
-submit a request, which only ever shows that one delivery.
+submit a request, which only ever shows that one delivery. It gets the
+same opt-in **Track live** button as the vendor's orders page once a
+driver is assigned - a bottom sheet with a live map of the driver's last
+known position and the drop-off point, on the same 5-second poll
+(`0039_customer_live_tracking.sql`).
 
 "Live" on both the orders page and a customer's own tracking page means
 polled every 5 seconds, not true Postgres realtime - these pages are

@@ -26,6 +26,14 @@ class Delivery {
   final String? vendorId;
   final String? zoneId;
 
+  /// True if the *current* [assignedDriverId] was picked by the system
+  /// automatically - submit_delivery_request()'s same-zone matching at
+  /// creation, or driver_cancel_delivery()'s same-zone hand-off - rather
+  /// than a dispatcher choosing by hand. Always false once unassigned, or
+  /// once a dispatcher (re)assigns the delivery themselves - see
+  /// `0042_auto_assigned_indicator.sql`.
+  final bool autoAssigned;
+
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? assignedAt;
@@ -58,6 +66,7 @@ class Delivery {
     this.assignedDriverId,
     this.vendorId,
     this.zoneId,
+    this.autoAssigned = false,
     this.assignedAt,
     this.pickedUpAt,
     this.deliveredAt,
@@ -88,6 +97,7 @@ class Delivery {
       assignedDriverId: map['assigned_driver_id'] as String?,
       vendorId: map['vendor_id'] as String?,
       zoneId: map['zone_id'] as String?,
+      autoAssigned: map['auto_assigned'] as bool? ?? false,
       createdAt: parseDate(map['created_at']) ?? DateTime.now(),
       updatedAt: parseDate(map['updated_at']) ?? DateTime.now(),
       assignedAt: parseDate(map['assigned_at']),
@@ -132,6 +142,7 @@ class Delivery {
       assignedDriverId: assignedDriverId,
       vendorId: vendorId,
       zoneId: zoneId,
+      autoAssigned: autoAssigned,
       createdAt: createdAt,
       updatedAt: updatedAt,
       assignedAt: assignedAt,

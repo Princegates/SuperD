@@ -211,12 +211,30 @@ class _DetailBody extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  'Assigned driver',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: Colors.grey.shade700,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      'Assigned driver',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                    if (delivery.autoAssigned &&
+                        delivery.assignedDriverId != null) ...[
+                      const SizedBox(width: 8),
+                      Icon(Icons.bolt, size: 14, color: AppTheme.neutral),
+                      const SizedBox(width: 2),
+                      Text(
+                        'Auto-assigned by the system',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.neutral,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String?>(

@@ -115,4 +115,19 @@ class SettingsRepository {
         .update({'free_day_delivery_threshold': threshold})
         .eq('id', true);
   }
+
+  /// Changes the automatic-assignment cap - see
+  /// [AppSettings.zoneAutoAssignCap]. The database itself also enforces
+  /// 3-to-20 (see `app_settings_zone_auto_assign_cap_check` in
+  /// `0033_zone_auto_recognition_and_cap.sql`), this is just the
+  /// friendlier client-side check.
+  Future<void> updateZoneAutoAssignCap(int cap) async {
+    if (cap < 3 || cap > 20) {
+      throw ArgumentError('The cap must be between 3 and 20.');
+    }
+    await _client
+        .from(_table)
+        .update({'zone_auto_assign_cap': cap})
+        .eq('id', true);
+  }
 }

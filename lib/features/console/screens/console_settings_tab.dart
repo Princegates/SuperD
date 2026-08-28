@@ -24,11 +24,13 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   final _commissionFeeController = TextEditingController();
   final _dailyFeeController = TextEditingController();
   final _freeDayThresholdController = TextEditingController();
+  final _zoneAutoAssignCapController = TextEditingController();
   String? _syncedFromSettings;
   bool _isSavingPricing = false;
   bool _isSavingCommission = false;
   bool _isSavingDailyFee = false;
   bool _isSavingFreeDayThreshold = false;
+  bool _isSavingZoneAutoAssignCap = false;
 
   @override
   void dispose() {
@@ -37,6 +39,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     _commissionFeeController.dispose();
     _dailyFeeController.dispose();
     _freeDayThresholdController.dispose();
+    _zoneAutoAssignCapController.dispose();
     super.dispose();
   }
 
@@ -167,6 +170,28 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     }
   }
 
+  Future<void> _saveZoneAutoAssignCap(int cap) async {
+    setState(() => _isSavingZoneAutoAssignCap = true);
+    try {
+      await ref.read(settingsRepositoryProvider).updateZoneAutoAssignCap(cap);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'zone_auto_assign_cap_changed',
+        entityType: 'app_settings',
+        summary:
+            'Changed the automatic-assignment cap to $cap active '
+            'deliveries per driver',
+      );
+    } on ArgumentError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingZoneAutoAssignCap = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsState = ref.watch(appSettingsProvider);
@@ -180,7 +205,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
         final syncKey =
             '${settings.baseFare}|${settings.pricePerKm}|'
             '${settings.commissionFlatFee}|${settings.driverDailyFee}|'
-            '${settings.freeDayDeliveryThreshold}';
+            '${settings.freeDayDeliveryThreshold}|'
+            '${settings.zoneAutoAssignCap}';
         if (_syncedFromSettings != syncKey) {
           _syncedFromSettings = syncKey;
           _baseFareController.text = settings.baseFare.toStringAsFixed(2);
@@ -190,6 +216,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
           _dailyFeeController.text = settings.driverDailyFee.toStringAsFixed(2);
           _freeDayThresholdController.text =
               settings.freeDayDeliveryThreshold?.toString() ?? '';
+          _zoneAutoAssignCapController.text = settings.zoneAutoAssignCap
+              .toString();
         }
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -363,6 +391,82 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                               )
                             : const Text('Save pricing'),
                       ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Automatic assignment cap',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'A customer-submitted request in a zone with an '
+                      'available driver is assigned to them automatically '
+                      "- but only up to this many active deliveries at "
+                      'once. Once a driver hits the cap, further requests '
+                      "in that zone wait at Pending for a dispatcher, "
+                      'rather than piling onto them. Must be between 3 '
+                      'and 20.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _zoneAutoAssignCapController,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Active deliveries per driver (3-20)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _isSavingZoneAutoAssignCap
+                              ? null
+                              : () {
+                                  final cap = int.tryParse(
+                                    _zoneAutoAssignCapController.text.trim(),
+                                  );
+                                  if (cap == null || cap < 3 || cap > 20) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Enter a whole number between 3 '
+                                          'and 20.',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  _saveZoneAutoAssignCap(cap);
+                                },
+                          child: _isSavingZoneAutoAssignCap
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Save'),
+                        ),
+                      ],
                     ),
                   ],
                 ),

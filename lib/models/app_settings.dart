@@ -14,6 +14,7 @@ class AppSettings {
     this.commissionFlatFee = 0,
     this.driverDailyFee = 0,
     this.freeDayDeliveryThreshold,
+    this.zoneAutoAssignCap = 5,
   });
 
   final String currency;
@@ -54,6 +55,13 @@ class AppSettings {
   /// either way).
   final int? freeDayDeliveryThreshold;
 
+  /// Max active same-zone deliveries a driver can hold before automatic
+  /// assignment stops picking them and a new request waits for a
+  /// dispatcher instead - see `detect_zone_for_point()`/
+  /// `submit_delivery_request()` in
+  /// `0033_zone_auto_recognition_and_cap.sql`. Always 3-20.
+  final int zoneAutoAssignCap;
+
   factory AppSettings.fromMap(Map<String, dynamic> map) {
     return AppSettings(
       currency: map['currency'] as String? ?? 'GHS',
@@ -65,6 +73,7 @@ class AppSettings {
       driverDailyFee: (map['driver_daily_fee'] as num?)?.toDouble() ?? 0,
       freeDayDeliveryThreshold: (map['free_day_delivery_threshold'] as num?)
           ?.toInt(),
+      zoneAutoAssignCap: (map['zone_auto_assign_cap'] as num?)?.toInt() ?? 5,
     );
   }
 

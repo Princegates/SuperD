@@ -80,6 +80,7 @@ supabase/
     0030_scheduled_delivery.sql              lets a customer pick a future date/time instead of ASAP, and skips auto-assignment for anything scheduled well ahead
     0031_driver_daily_fee.sql                flat daily Mobile Money platform fee per driver - a hard block on new deliveries until paid or waived
     0032_commission_free_days.sql            free-day incentive credits (automatic by delivery count, or granted by hand) that transparently excuse a day's commission
+    0033_zone_auto_recognition_and_cap.sql    detects a delivery's zone from the customer's drop-off point, and caps how many deliveries auto-assignment can hand one driver
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -855,21 +856,50 @@ whenever a drop-off location is set; if the secret isn't configured, the
 function returns an error the app already treats the same as "no route
 found" - straight-line pricing, unaffected.
 
+### Automatic zone recognition
+
+A delivery's zone used to just be copied from the vendor's own
+registered zone - fine when a vendor's customers are all nearby, wrong
+the moment they're not. `detect_zone_for_point()`
+(`0033_zone_auto_recognition_and_cap.sql`) instead looks at the
+**customer's actual drop-off coordinates** and finds the nearest named
+zone location (the reference points a super admin pins in **Console >
+Zones**) within 5km. If one's close enough, that location's zone is used
+for the delivery - for pricing (any zone-specific rate override) and for
+auto-assignment (below) alike. If nothing is close enough (or the
+request has no coordinates at all), it falls back to the vendor's own
+zone; if that's also unset, the delivery simply has no zone, same as
+before.
+
+This makes zone accuracy a direct function of how many locations a zone
+has pinned - see **Zones** below for adding many at once.
+
 ### Automatic same-zone driver assignment
 
 A customer-submitted request doesn't need a dispatcher at all when
 someone's available: `submit_delivery_request` looks for a driver in the
-vendor's zone who is **online**, **active**, and **not frozen**, and
-assigns them immediately (status goes straight to `assigned`, same as a
-dispatcher assigning one by hand) instead of sitting at `pending`.
+resolved zone (see above) who is **online**, **active**, **not frozen**,
+**paid up on today's commission**, and **under the automatic-assignment
+cap**, and assigns them immediately (status goes straight to `assigned`,
+same as a dispatcher assigning one by hand) instead of sitting at
+`pending`.
 
 Among the drivers who qualify, it specifically prefers whoever **already
 has the most active deliveries in that same zone** — so several requests
 from the same area consolidate onto one driver's route instead of
 spreading across everyone at once — tie-broken by whoever currently has
 the lightest total workload (for a fair start when nobody in the zone has
-any yet). If nobody in the zone is online, the delivery lands at
-`pending` exactly as before, for a dispatcher to assign by hand.
+any yet). If nobody in the zone is online (or everyone's at the cap), the
+delivery lands at `pending` exactly as before, for a dispatcher to assign
+by hand.
+
+The **cap** (`app_settings.zone_auto_assign_cap`, a super admin sets
+3-20 from **Console > Settings**, default 5) is deliberately not "assign
+everything automatically forever" - once a driver already holds that
+many active deliveries in a zone, the *automatic* algorithm stops
+choosing them; a dispatcher can still assign them by hand past the cap
+any time they judge that's the right call. It's a ceiling on how much
+the system decides on its own, not a ceiling on a driver's workload.
 
 This is just what happens automatically when nobody has to step in — a
 dispatcher can always reassign an auto-assigned delivery afterward, the
@@ -1381,7 +1411,14 @@ has:
   location to remove it. Drivers and vendors never see these individual
   locations - they still just pick the zone itself by name from a
   dropdown; the locations are reference data for whoever's defining what
-  each zone actually covers.
+  each zone actually covers, and what **Automatic zone recognition**
+  above matches a customer's drop-off point against - the more of them a
+  zone has, the more accurately it's recognized.
+- **Bulk add**, for building out that list fast instead of one map-pin at
+  a time - paste any number of `Name, latitude, longitude` lines (one per
+  location, straight from a spreadsheet or coordinates copied out of
+  Google Maps) and they're all added in one go. A zone with more than 8
+  locations also gets a filter box to find one by name quickly.
 
 `0024_seed_accra_zones.sql` optionally seeds 10 ready-made zones covering
 the greater Accra area (Central Accra, Airport-East Legon,

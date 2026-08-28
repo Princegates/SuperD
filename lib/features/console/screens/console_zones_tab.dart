@@ -110,6 +110,7 @@ class _ZoneCardState extends ConsumerState<_ZoneCard> {
     text: widget.zone.pricePerKm?.toStringAsFixed(2),
   );
   bool _isSavingPricing = false;
+  String _locationFilter = '';
 
   Zone get zone => widget.zone;
 
@@ -290,6 +291,109 @@ class _ZoneCardState extends ConsumerState<_ZoneCard> {
     ref.invalidate(zoneLocationsProvider(zone.id));
   }
 
+  /// Adds many locations at once - one "Name, lat, lng" per line - for
+  /// quickly building out a zone's coverage instead of pinning one at a
+  /// time. Pasteable straight from a spreadsheet or a list of coordinates
+  /// copied out of Google Maps.
+  Future<void> _bulkAddLocations(BuildContext context, WidgetRef ref) async {
+    final controller = TextEditingController();
+    final text = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Bulk add locations to ${zone.name}'),
+        content: SizedBox(
+          width: 420,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'One location per line: Name, latitude, longitude',
+                style: TextStyle(fontSize: 12.5),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'e.g. American House, 5.6234, -0.1712',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                maxLines: 10,
+                minLines: 6,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  alignLabelWithHint: true,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(controller.text),
+            child: const Text('Add all'),
+          ),
+        ],
+      ),
+    );
+    if (text == null || text.trim().isEmpty || !context.mounted) return;
+
+    final parsed = <({String name, double lat, double lng})>[];
+    var skipped = 0;
+    for (final rawLine in text.split('\n')) {
+      final line = rawLine.trim();
+      if (line.isEmpty) continue;
+      final parts = line.split(',');
+      if (parts.length < 3) {
+        skipped++;
+        continue;
+      }
+      final lat = double.tryParse(parts[parts.length - 2].trim());
+      final lng = double.tryParse(parts[parts.length - 1].trim());
+      final name = parts.sublist(0, parts.length - 2).join(',').trim();
+      if (lat == null || lng == null || name.isEmpty) {
+        skipped++;
+        continue;
+      }
+      parsed.add((name: name, lat: lat, lng: lng));
+    }
+
+    if (parsed.isNotEmpty) {
+      await ref
+          .read(vendorRepositoryProvider)
+          .addZoneLocationsBatch(zoneId: zone.id, locations: parsed);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'zone_locations_bulk_added',
+        entityType: 'zone',
+        entityId: zone.id,
+        summary:
+            'Added ${parsed.length} location(s) to zone ${zone.name} '
+            'in bulk',
+      );
+      ref.invalidate(zoneLocationsProvider(zone.id));
+    }
+
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            skipped == 0
+                ? 'Added ${parsed.length} location(s).'
+                : 'Added ${parsed.length} location(s) - skipped $skipped '
+                      "line(s) that weren't in \"Name, lat, lng\" format.",
+          ),
+        ),
+      );
+    }
+  }
+
   Future<void> _removeLocation(
     BuildContext context,
     WidgetRef ref,
@@ -450,9 +554,47 @@ class _ZoneCardState extends ConsumerState<_ZoneCard> {
               ),
             ),
             data: (locations) {
+              final filtered = _locationFilter.isEmpty
+                  ? locations
+                  : locations
+                        .where(
+                          (l) => l.name.toLowerCase().contains(
+                            _locationFilter.toLowerCase(),
+                          ),
+                        )
+                        .toList();
+
               return Column(
                 children: [
-                  for (final location in locations)
+                  // Only worth showing once a zone has enough locations
+                  // that scanning the list by eye stops being instant -
+                  // no point cluttering a zone with three pins in it.
+                  if (locations.length > 8)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                      child: TextField(
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          prefixIcon: Icon(Icons.search, size: 18),
+                          hintText: 'Filter locations by name',
+                          border: OutlineInputBorder(),
+                        ),
+                        onChanged: (value) =>
+                            setState(() => _locationFilter = value),
+                      ),
+                    ),
+                  if (filtered.isEmpty && locations.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Text(
+                        'No location matches "$_locationFilter".',
+                        style: TextStyle(color: Colors.grey.shade500),
+                      ),
+                    ),
+                  for (final location in filtered)
                     ListTile(
                       dense: true,
                       leading: const Icon(Icons.place_outlined, size: 20),
@@ -476,16 +618,23 @@ class _ZoneCardState extends ConsumerState<_ZoneCard> {
                     ),
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: TextButton.icon(
-                        onPressed: () => _addLocation(context, ref),
-                        icon: const Icon(
-                          Icons.add_location_alt_outlined,
-                          size: 18,
+                    child: Wrap(
+                      spacing: 4,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () => _addLocation(context, ref),
+                          icon: const Icon(
+                            Icons.add_location_alt_outlined,
+                            size: 18,
+                          ),
+                          label: const Text('Add location'),
                         ),
-                        label: const Text('Add location'),
-                      ),
+                        TextButton.icon(
+                          onPressed: () => _bulkAddLocations(context, ref),
+                          icon: const Icon(Icons.playlist_add, size: 18),
+                          label: const Text('Bulk add'),
+                        ),
+                      ],
                     ),
                   ),
                 ],

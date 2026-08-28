@@ -69,6 +69,13 @@ class _FakeSettingsRepository extends SettingsRepository {
     lastFreeDayThreshold = threshold;
   }
 
+  int? lastZoneAutoAssignCap;
+
+  @override
+  Future<void> updateZoneAutoAssignCap(int cap) async {
+    lastZoneAutoAssignCap = cap;
+  }
+
   double? lastDriverDailyFee;
 
   @override

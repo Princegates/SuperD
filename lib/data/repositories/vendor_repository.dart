@@ -65,6 +65,23 @@ class VendorRepository {
     });
   }
 
+  /// Adds many named locations to a zone in one round trip - the fast
+  /// path for building out a zone's coverage (which also directly
+  /// improves how accurately `detect_zone_for_point()` can recognize a
+  /// customer's drop-off zone - see `0033_zone_auto_recognition_and_cap.sql`)
+  /// instead of the one-at-a-time "pin on map" flow. Super-admin only -
+  /// enforced by RLS on `zone_locations`.
+  Future<void> addZoneLocationsBatch({
+    required String zoneId,
+    required List<({String name, double lat, double lng})> locations,
+  }) async {
+    if (locations.isEmpty) return;
+    await _client.from('zone_locations').insert([
+      for (final loc in locations)
+        {'zone_id': zoneId, 'name': loc.name, 'lat': loc.lat, 'lng': loc.lng},
+    ]);
+  }
+
   /// Super-admin only - enforced by RLS on `zone_locations`.
   Future<void> deleteZoneLocation(String id) async {
     await _client.from('zone_locations').delete().eq('id', id);

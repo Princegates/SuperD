@@ -5,6 +5,7 @@ import '../../data/repositories/audit_repository.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/commission_repository.dart';
 import '../../data/repositories/delivery_repository.dart';
+import '../../data/repositories/driver_daily_fee_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/settings_repository.dart';
@@ -46,6 +47,12 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
 
 final commissionRepositoryProvider = Provider<CommissionRepository>((ref) {
   return CommissionRepository(ref.watch(supabaseClientProvider));
+});
+
+final driverDailyFeeRepositoryProvider = Provider<DriverDailyFeeRepository>((
+  ref,
+) {
+  return DriverDailyFeeRepository(ref.watch(supabaseClientProvider));
 });
 
 /// The app-wide settings row (currently just the currency), kept live so a

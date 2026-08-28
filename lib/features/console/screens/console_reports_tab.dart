@@ -6,8 +6,10 @@ import 'package:intl/intl.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/commission_payment.dart';
 import '../../../models/commission_status.dart';
+import '../../../models/daily_fee_status.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
+import '../../../models/driver_daily_fee.dart';
 import '../../../models/payment.dart';
 import '../../../models/payment_status.dart';
 import '../../../shared/utils/csv_export.dart';
@@ -64,6 +66,7 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
     final payments = ref.watch(allPaymentsProvider).valueOrNull ?? [];
     final commission =
         ref.watch(allCommissionPaymentsProvider).valueOrNull ?? [];
+    final dailyFees = ref.watch(allDriverDailyFeesProvider).valueOrNull ?? [];
     final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
     final vendors = ref.watch(vendorsProvider).valueOrNull ?? [];
     final zones = ref.watch(zonesProvider).valueOrNull ?? [];
@@ -87,6 +90,9 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
         final filteredCommission = commission
             .where((c) => _inRange(c.createdAt))
             .toList();
+        final filteredDailyFees = dailyFees
+            .where((f) => _inRange(f.createdAt))
+            .toList();
 
         final delivered = deliveries
             .where((d) => d.status == DeliveryStatus.delivered)
@@ -106,6 +112,12 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
         final commissionOutstanding = filteredCommission
             .where((c) => c.status == CommissionStatus.due)
             .fold(0.0, (s, c) => s + c.amount);
+        final dailyFeeCollected = filteredDailyFees
+            .where((f) => f.status == DailyFeeStatus.paid)
+            .fold(0.0, (s, f) => s + f.amount);
+        final dailyFeePending = filteredDailyFees
+            .where((f) => f.status == DailyFeeStatus.pending)
+            .fold(0.0, (s, f) => s + f.amount);
         final currency = filteredPayments.isNotEmpty
             ? filteredPayments.first.currency
             : (filteredCommission.isNotEmpty
@@ -186,6 +198,16 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                   label: 'Commission outstanding',
                   value:
                       '$currency ${commissionOutstanding.toStringAsFixed(2)}',
+                  color: AppTheme.warning,
+                ),
+                _StatTile(
+                  label: 'Daily fees collected',
+                  value: '$currency ${dailyFeeCollected.toStringAsFixed(2)}',
+                  color: AppTheme.success,
+                ),
+                _StatTile(
+                  label: 'Daily fees pending',
+                  value: '$currency ${dailyFeePending.toStringAsFixed(2)}',
                   color: AppTheme.warning,
                 ),
               ],
@@ -310,6 +332,36 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                                 c.status.label,
                                 c.createdAt.toIso8601String(),
                                 c.paidAt?.toIso8601String(),
+                              ],
+                            ),
+                          ),
+                        ),
+                        OutlinedButton.icon(
+                          icon: const Icon(Icons.download_outlined, size: 18),
+                          label: const Text('Daily Fees CSV'),
+                          onPressed: () => _exportOrShowFallback(
+                            'daily_fees.csv',
+                            buildCsv<DriverDailyFee>(
+                              headers: const [
+                                'Driver',
+                                'Fee date',
+                                'Amount',
+                                'Currency',
+                                'Status',
+                                'Payment method',
+                                'Created at',
+                                'Paid at',
+                              ],
+                              rows: filteredDailyFees,
+                              toRow: (f) => [
+                                driverNames[f.driverId] ?? 'Unknown driver',
+                                f.feeDate.toIso8601String().substring(0, 10),
+                                f.amount,
+                                f.currency,
+                                f.status.label,
+                                f.paymentMethod,
+                                f.createdAt.toIso8601String(),
+                                f.paidAt?.toIso8601String(),
                               ],
                             ),
                           ),

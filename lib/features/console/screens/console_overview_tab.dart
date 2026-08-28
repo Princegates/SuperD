@@ -4,8 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/commission_payment.dart';
 import '../../../models/commission_status.dart';
+import '../../../models/daily_fee_status.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
+import '../../../models/driver_daily_fee.dart';
 import '../../../models/payment.dart';
 import '../../../models/payment_status.dart';
 import '../../../models/profile.dart';
@@ -34,6 +36,7 @@ class ConsoleOverviewTab extends ConsumerWidget {
     final payments = ref.watch(allPaymentsProvider).valueOrNull ?? [];
     final commission =
         ref.watch(allCommissionPaymentsProvider).valueOrNull ?? [];
+    final dailyFees = ref.watch(allDriverDailyFeesProvider).valueOrNull ?? [];
 
     return AsyncValueView<List<Delivery>>(
       value: deliveriesState,
@@ -192,6 +195,8 @@ class ConsoleOverviewTab extends ConsumerWidget {
             _FinanceSummaryCard(payments: payments),
             const SizedBox(height: 16),
             _CommissionSummaryCard(commission: commission),
+            const SizedBox(height: 16),
+            _DailyFeeSummaryCard(dailyFees: dailyFees),
             const SizedBox(height: 16),
             _StaffSummaryCard(staff: allStaff),
             const SizedBox(height: 16),
@@ -427,6 +432,56 @@ class _CommissionSummaryCard extends StatelessWidget {
                           child: Text(
                             'Collected ${entry.value.where((c) => c.status == CommissionStatus.paid).fold(0.0, (s, c) => s + c.amount).toStringAsFixed(2)}'
                             ' · Outstanding ${entry.value.where((c) => c.status == CommissionStatus.due).fold(0.0, (s, c) => s + c.amount).toStringAsFixed(2)}',
+                            style: TextStyle(color: Colors.grey.shade600),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+    );
+  }
+}
+
+class _DailyFeeSummaryCard extends StatelessWidget {
+  const _DailyFeeSummaryCard({required this.dailyFees});
+
+  final List<DriverDailyFee> dailyFees;
+
+  @override
+  Widget build(BuildContext context) {
+    final byCurrency = <String, List<DriverDailyFee>>{};
+    for (final f in dailyFees) {
+      byCurrency.putIfAbsent(f.currency, () => []).add(f);
+    }
+
+    return _SectionCard(
+      title: 'Driver daily fees',
+      child: dailyFees.isEmpty
+          ? const _EmptyRow(
+              'No daily fee payments recorded yet - set an amount in '
+              'Console > Settings to start collecting it',
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final entry in byCurrency.entries)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 50,
+                          child: Text(
+                            entry.key,
+                            style: const TextStyle(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            'Collected ${entry.value.where((f) => f.status == DailyFeeStatus.paid).fold(0.0, (s, f) => s + f.amount).toStringAsFixed(2)}'
+                            ' · Pending ${entry.value.where((f) => f.status == DailyFeeStatus.pending).fold(0.0, (s, f) => s + f.amount).toStringAsFixed(2)}',
                             style: TextStyle(color: Colors.grey.shade600),
                           ),
                         ),

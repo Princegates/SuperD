@@ -78,11 +78,14 @@ supabase/
     0028_road_distance_pricing.sql          prices by real road distance (Google Directions) when available, floored at straight-line
     0029_commission_payments.sql            flat per-delivery driver commission, auto-recorded to a ledger when a delivery is marked delivered
     0030_scheduled_delivery.sql              lets a customer pick a future date/time instead of ASAP, and skips auto-assignment for anything scheduled well ahead
+    0031_driver_daily_fee.sql                flat daily Mobile Money platform fee per driver - a hard block on new deliveries until paid or waived
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
     admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
+    hubtel-daily-fee-charge/       Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Hubtel
+    hubtel-daily-fee-webhook/      Edge Function: Hubtel's callback once a daily-fee charge resolves (public, no Supabase session)
     notify-driver-assigned/        Edge Function: texts the customer when a driver is assigned
     notify-vendor-registered/      Edge Function: emails a vendor their link when they register
     notify-driver-application/     Edge Function: emails staff when a driver signs themselves up
@@ -888,6 +891,73 @@ payments — a dispatcher or super admin just marks it `paid` (or `waived`)
 from **Console > Commission** once the driver actually settles up (in
 person, weekly, however the business runs it).
 
+### Driver daily fee
+
+A separate flat fee from commission above: instead of per-delivery, a
+super admin sets one app-wide **daily** platform fee (GHS 10–100, or `0`
+to turn it off entirely) from **Console > Settings**. Unlike every other
+"fee" in this app, this one is a real, enforced gate, not just a record:
+**a driver who hasn't paid today's fee cannot be given a new delivery at
+all** - not a warning, an actual `raise exception` in the database (see
+`enforce_delivery_update()`/`enforce_delivery_insert()` in
+`0031_driver_daily_fee.sql`) that fires no matter how the assignment is
+attempted - a dispatcher picking them manually, or the automatic
+same-zone assignment inside `submit_delivery_request`. The Console's
+driver picker also filters them out up front, so a dispatcher sees the
+restriction before hitting the error, not after.
+
+A driver sees a banner on their dashboard the moment they owe today's
+fee, with two ways to clear it, both landing in the same
+`driver_daily_fees` ledger:
+
+1. **Pay via Mobile Money, right now** - the driver enters their number
+   and network (MTN/Vodafone/AirtelTigo), and the app charges them
+   through **Hubtel's Receive Money API**
+   (`supabase/functions/hubtel-daily-fee-charge`): a prompt appears on
+   their phone to approve, and Hubtel's callback
+   (`supabase/functions/hubtel-daily-fee-webhook`) flips the record to
+   paid the moment it resolves - the driver's banner disappears live,
+   no refresh needed.
+2. **Pay the business directly, then confirm in-app** - the driver sends
+   MoMo to the business's own number the normal way (outside the app)
+   and submits the transaction reference; a dispatcher/super admin
+   checks it against their MoMo statement and approves or rejects it
+   from **Console > Daily Fees**. This needs no payment-gateway account
+   at all, so it works from day one and stays as a fallback if Hubtel's
+   ever unreachable.
+
+A dispatcher/super admin can also **waive** a specific driver's fee for a
+given day from Console > Daily Fees - a free first day, a goodwill
+gesture, or an escape hatch if Hubtel is down - with no payment involved.
+
+**Setting up real Hubtel collection** (optional - everything above works
+through the manual-confirm path with zero setup):
+
+1. Create a Hubtel merchant account and get its **Client ID**, **Client
+   Secret**, and **POS Sales ID** from the Hubtel dashboard.
+2. Set them as Supabase secrets, plus a secret of your own choosing used
+   to protect the webhook (Hubtel doesn't document a verifiable signature
+   scheme precisely enough to check against, so this shared secret in the
+   callback URL is the practical alternative):
+   ```bash
+   supabase secrets set HUBTEL_CLIENT_ID=... HUBTEL_CLIENT_SECRET=... \
+     HUBTEL_POS_SALES_ID=... HUBTEL_WEBHOOK_SECRET=$(openssl rand -hex 24)
+   ```
+3. Deploy both functions - the webhook needs `verify_jwt = false` since
+   Hubtel calls it directly with no Supabase session (already set in
+   `supabase/config.toml`):
+   ```bash
+   supabase functions deploy hubtel-daily-fee-charge
+   supabase functions deploy hubtel-daily-fee-webhook
+   ```
+4. **Verify against Hubtel's current docs before relying on this in
+   production.** Both functions are written against Hubtel's publicly
+   documented Receive Money Prompt API shape, but exact field names and
+   the callback payload's structure are worth double-checking in your own
+   Hubtel dashboard/sandbox first - third-party API details do shift over
+   time, and this fails loudly (an error back to the driver) rather than
+   silently, if something doesn't match.
+
 ### Scheduled deliveries
 
 Both the public request form and the dispatcher's create-delivery form
@@ -1320,15 +1390,16 @@ back out of. What shows up in the nav is role-based:
     a top-drivers leaderboard by completed deliveries, zone activity, top
     vendors by volume, plus summary cards covering every other major
     record type - finance (collected/outstanding per currency), commission
-    (collected/outstanding per currency), staff (counts by role, plus
+    (collected/outstanding per currency), driver daily fees
+    (collected/pending per currency), staff (counts by role, plus
     online/pending/frozen driver counts), vendors (active/inactive), and
     zone pricing (which zones override the app-wide base fare/per-km
     rate).
   - **Reports** - the same numbers as Overview, but for a date range you
     pick (or all time), with a **CSV export** of the underlying raw
-    records - deliveries, payments, or commission - for that range. CSV
-    export is web-only; the button shows a fallback message on mobile
-    since there's no filesystem download surface there.
+    records - deliveries, payments, commission, or daily fees - for that
+    range. CSV export is web-only; the button shows a fallback message on
+    mobile since there's no filesystem download surface there.
   - **Finance** - revenue reconciliation across every payment ever
     recorded: collected vs outstanding (and failed/refunded, when
     present) per currency, a breakdown by payment method, and a
@@ -1337,6 +1408,11 @@ back out of. What shows up in the nav is role-based:
     owe for the delivery (see **Driver commission** below): outstanding
     vs collected vs waived per currency, a per-driver "owed" breakdown,
     and a recent-commission feed with a one-tap "Mark paid" action.
+  - **Daily Fees** - the flat daily Mobile Money platform fee (see
+    **Driver daily fee** above): who hasn't paid today (with a one-tap
+    "Waive today" per driver), Mobile Money references awaiting
+    confirmation from the manual-pay fallback, and a recent-payments
+    feed.
   - **Audit log** - a chronological record of who did what: role changes,
     staff added/removed, vendors registered/edited/(de)activated, drivers
     assigned, deliveries created, and payments marked paid. Entries are

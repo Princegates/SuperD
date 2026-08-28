@@ -87,4 +87,18 @@ class SettingsRepository {
         .update({'commission_flat_fee': flatFee})
         .eq('id', true);
   }
+
+  /// Changes the flat daily Mobile Money fee every driver owes - see
+  /// [AppSettings.driverDailyFee]. The database itself also enforces
+  /// 0-or-10-to-100 (see `app_settings_driver_daily_fee_check` in
+  /// `0031_driver_daily_fee.sql`), this is just the friendlier client-side
+  /// check so a super admin sees why a bad value was rejected.
+  Future<void> updateDriverDailyFee(double fee) async {
+    if (fee != 0 && (fee < 10 || fee > 100)) {
+      throw ArgumentError(
+        'The daily fee must be 0 (off) or between 10 and 100.',
+      );
+    }
+    await _client.from(_table).update({'driver_daily_fee': fee}).eq('id', true);
+  }
 }

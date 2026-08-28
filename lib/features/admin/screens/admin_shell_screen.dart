@@ -11,6 +11,7 @@ import '../../../models/vendor.dart';
 import '../../../shared/widgets/account_menu_button.dart';
 import '../../console/screens/console_audit_log_tab.dart';
 import '../../console/screens/console_commission_tab.dart';
+import '../../console/screens/console_daily_fees_tab.dart';
 import '../../console/screens/console_finance_tab.dart';
 import '../../console/screens/console_reports_tab.dart';
 import '../../console/screens/console_onboarding_tab.dart';
@@ -47,8 +48,8 @@ class _AdminSection {
 /// navigation surface instead of separate full-screen pages you push into
 /// and back out of. What shows up in the nav is role-based - a dispatcher
 /// sees Deliveries/Team/Vendors; a super admin also sees the Console
-/// sections (Overview, Finance, Commission, Reports, Audit log,
-/// Onboarding, Zones).
+/// sections (Overview, Reports, Finance, Commission, Daily Fees, Audit
+/// log, Onboarding, Zones).
 class AdminShellScreen extends StatefulWidget {
   const AdminShellScreen({super.key});
 
@@ -90,6 +91,12 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       Icons.request_quote_outlined,
       'Commission',
       ConsoleCommissionTab(),
+      superAdminOnly: true,
+    ),
+    _AdminSection(
+      Icons.calendar_today_outlined,
+      'Daily Fees',
+      ConsoleDailyFeesTab(),
       superAdminOnly: true,
     ),
     _AdminSection(

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../models/audit_log_entry.dart';
 import '../../../models/commission_payment.dart';
+import '../../../models/driver_daily_fee.dart';
 import '../../../models/payment.dart';
 
 /// Every payment ever recorded - the raw data behind the Console's Finance
@@ -20,6 +21,13 @@ final allCommissionPaymentsProvider = FutureProvider<List<CommissionPayment>>((
   ref,
 ) {
   return ref.watch(commissionRepositoryProvider).fetchAll();
+});
+
+/// Every daily fee record ever created - the raw data behind the
+/// Console's Daily Fees tab, same one-shot-fetch pattern as
+/// [allCommissionPaymentsProvider].
+final allDriverDailyFeesProvider = FutureProvider<List<DriverDailyFee>>((ref) {
+  return ref.watch(driverDailyFeeRepositoryProvider).fetchAll();
 });
 
 /// The most recent audit log entries - only resolves any rows for a

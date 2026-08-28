@@ -15,6 +15,7 @@ import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivery_card.dart';
 import '../../../shared/widgets/staggered_list_item.dart';
 import '../providers/driver_providers.dart';
+import '../widgets/daily_fee_banner.dart';
 
 class DriverDashboardScreen extends ConsumerStatefulWidget {
   const DriverDashboardScreen({super.key});
@@ -91,6 +92,10 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   Widget build(BuildContext context) {
     final deliveries = ref.watch(myDeliveriesProvider);
     final profile = ref.watch(currentProfileProvider).valueOrNull;
+    final dailyFeeAmount =
+        ref.watch(appSettingsProvider).valueOrNull?.driverDailyFee ?? 0;
+    final currency = ref.watch(appSettingsProvider).valueOrNull?.currency;
+    final todaysFee = ref.watch(todaysDailyFeeProvider).valueOrNull;
 
     // A driver's own delivery list re-emits the full set on every change -
     // only ids that weren't there last time are a genuinely new assignment.
@@ -132,6 +137,13 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         children: [
           if (profile != null) _AvailabilityBar(profile: profile),
           if (profile?.isFrozen ?? false) const _FrozenBanner(),
+          if (dailyFeeAmount > 0 && !(todaysFee?.isCleared ?? false))
+            DailyFeeBanner(
+              feeAmount: dailyFeeAmount,
+              currency: currency ?? 'GHS',
+              status: todaysFee?.status,
+              driverPhone: profile?.phone,
+            ),
           Expanded(child: _DeliveryList(deliveries: deliveries)),
         ],
       ),

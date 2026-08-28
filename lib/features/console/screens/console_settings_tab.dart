@@ -22,15 +22,18 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   final _baseFareController = TextEditingController();
   final _pricePerKmController = TextEditingController();
   final _commissionFeeController = TextEditingController();
+  final _dailyFeeController = TextEditingController();
   String? _syncedFromSettings;
   bool _isSavingPricing = false;
   bool _isSavingCommission = false;
+  bool _isSavingDailyFee = false;
 
   @override
   void dispose() {
     _baseFareController.dispose();
     _pricePerKmController.dispose();
     _commissionFeeController.dispose();
+    _dailyFeeController.dispose();
     super.dispose();
   }
 
@@ -113,6 +116,29 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     }
   }
 
+  Future<void> _saveDailyFee(AppSettings settings, double fee) async {
+    setState(() => _isSavingDailyFee = true);
+    try {
+      await ref.read(settingsRepositoryProvider).updateDriverDailyFee(fee);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'driver_daily_fee_changed',
+        entityType: 'app_settings',
+        summary: fee == 0
+            ? 'Turned off the driver daily fee'
+            : 'Changed the driver daily fee to ${settings.currency} '
+                  '${fee.toStringAsFixed(2)}',
+      );
+    } on ArgumentError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingDailyFee = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final settingsState = ref.watch(appSettingsProvider);
@@ -125,13 +151,14 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
         // clobbered by their own keystroke triggering a rebuild.
         final syncKey =
             '${settings.baseFare}|${settings.pricePerKm}|'
-            '${settings.commissionFlatFee}';
+            '${settings.commissionFlatFee}|${settings.driverDailyFee}';
         if (_syncedFromSettings != syncKey) {
           _syncedFromSettings = syncKey;
           _baseFareController.text = settings.baseFare.toStringAsFixed(2);
           _pricePerKmController.text = settings.pricePerKm.toStringAsFixed(2);
           _commissionFeeController.text = settings.commissionFlatFee
               .toStringAsFixed(2);
+          _dailyFeeController.text = settings.driverDailyFee.toStringAsFixed(2);
         }
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -368,6 +395,86 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                                   _saveCommission(settings, flatFee);
                                 },
                           child: _isSavingCommission
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Save'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Driver daily fee',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'A flat platform fee every driver must pay once per '
+                      'day via Mobile Money before they can be given a new '
+                      'delivery - a hard block, enforced by the database, '
+                      "not just a warning. Set to 0 to turn this off. Must "
+                      'be between 10 and 100 otherwise. See Console > Daily '
+                      'Fees to review payments and confirm ones paid '
+                      'outside the app.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _dailyFeeController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: InputDecoration(
+                              labelText:
+                                  'Daily fee (${settings.currency}) - 0 or 10-100',
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _isSavingDailyFee
+                              ? null
+                              : () {
+                                  final fee = double.tryParse(
+                                    _dailyFeeController.text.trim(),
+                                  );
+                                  if (fee == null ||
+                                      (fee != 0 && (fee < 10 || fee > 100))) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Enter 0 (off) or a number between '
+                                          '10 and 100.',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  _saveDailyFee(settings, fee);
+                                },
+                          child: _isSavingDailyFee
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,

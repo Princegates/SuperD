@@ -12,6 +12,7 @@ class AppSettings {
     this.baseFare = 5,
     this.pricePerKm = 1.5,
     this.commissionFlatFee = 0,
+    this.driverDailyFee = 0,
   });
 
   final String currency;
@@ -38,6 +39,12 @@ class AppSettings {
   /// commission tracking is effectively off.
   final double commissionFlatFee;
 
+  /// Flat daily Mobile Money fee every driver owes the business - see
+  /// `driver_daily_fees` in `0031_driver_daily_fee.sql`. 0 means the whole
+  /// feature is off (no driver is blocked from getting deliveries);
+  /// otherwise always between 10 and 100.
+  final double driverDailyFee;
+
   factory AppSettings.fromMap(Map<String, dynamic> map) {
     return AppSettings(
       currency: map['currency'] as String? ?? 'GHS',
@@ -46,6 +53,7 @@ class AppSettings {
       baseFare: (map['base_fare'] as num?)?.toDouble() ?? 5,
       pricePerKm: (map['price_per_km'] as num?)?.toDouble() ?? 1.5,
       commissionFlatFee: (map['commission_flat_fee'] as num?)?.toDouble() ?? 0,
+      driverDailyFee: (map['driver_daily_fee'] as num?)?.toDouble() ?? 0,
     );
   }
 

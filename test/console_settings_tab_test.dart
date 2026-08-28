@@ -61,6 +61,13 @@ class _FakeSettingsRepository extends SettingsRepository {
   Future<void> updateCommissionFlatFee(double flatFee) async {
     lastCommissionFlatFee = flatFee;
   }
+
+  double? lastDriverDailyFee;
+
+  @override
+  Future<void> updateDriverDailyFee(double fee) async {
+    lastDriverDailyFee = fee;
+  }
 }
 
 /// A `SupabaseClient` with token auto-refresh disabled, so it doesn't leave

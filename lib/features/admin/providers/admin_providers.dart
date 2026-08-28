@@ -51,23 +51,35 @@ final zoneLocationsProvider = FutureProvider.family<List<ZoneLocation>, String>(
   },
 );
 
+/// Drivers who still owe today's daily fee - empty whenever that feature
+/// is off. Used by [rankedDriversProvider] to keep the dispatcher's
+/// manual-assignment picker from offering a driver the database would
+/// reject anyway (see `0031_driver_daily_fee.sql`).
+final unpaidDriverIdsTodayProvider = FutureProvider<Set<String>>((ref) {
+  return ref
+      .watch(driverDailyFeeRepositoryProvider)
+      .fetchUnpaidDriverIdsToday();
+});
+
 /// Drivers ordered best-suited-first for a delivery in [targetZoneId]:
 /// same-zone drivers before everyone else, and within each group whoever
 /// currently has the fewest active jobs first. No external AI call - this
 /// is a plain, free, instant calculation, which is what "suggest the best
 /// rider" actually reduces to here (zone match + current workload).
 ///
-/// Only active, unfrozen drivers are considered - a self-signed-up driver
-/// pending approval (or one a dispatcher has deactivated) can't be
-/// assigned work, and neither can one a super admin has frozen (e.g. for
+/// Only active, unfrozen, paid-up drivers are considered - a self-signed-up
+/// driver pending approval (or one a dispatcher has deactivated) can't be
+/// assigned work, neither can one a super admin has frozen (e.g. for
 /// unpaid commission) - see `is_frozen` in
-/// `0025_driver_categories_and_status.sql`.
+/// `0025_driver_categories_and_status.sql` - nor one who owes today's
+/// daily fee.
 final rankedDriversProvider = Provider.family<List<Profile>, String?>((
   ref,
   targetZoneId,
 ) {
+  final unpaidIds = ref.watch(unpaidDriverIdsTodayProvider).valueOrNull ?? {};
   final drivers = (ref.watch(driversListProvider).valueOrNull ?? [])
-      .where((d) => d.isActive && !d.isFrozen)
+      .where((d) => d.isActive && !d.isFrozen && !unpaidIds.contains(d.id))
       .toList();
   final deliveries = ref.watch(allDeliveriesProvider).valueOrNull ?? [];
 

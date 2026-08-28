@@ -88,6 +88,20 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     );
   }
 
+  Future<void> _toggleDriverCommission(WidgetRef ref, bool enabled) async {
+    await ref
+        .read(settingsRepositoryProvider)
+        .setDriverCommissionEnabled(enabled);
+    await logAuditEvent(
+      ref.read(supabaseClientProvider),
+      action: 'driver_commission_toggled',
+      entityType: 'app_settings',
+      summary: enabled
+          ? 'Turned driver commission back on'
+          : 'Turned driver commission off',
+    );
+  }
+
   Future<void> _savePricing(
     AppSettings settings,
     double baseFare,
@@ -734,8 +748,48 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Driver commission',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        Switch(
+                          value: settings.driverCommissionEnabled,
+                          onChanged: (value) =>
+                              _toggleDriverCommission(ref, value),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Master switch for both commission mechanisms below - '
+                      'the flat fee per delivery and the tiered daily fee. '
+                      'Turn this off while testing the app; nothing is '
+                      'charged, tracked, or blocks a driver from getting '
+                      'new deliveries while it\'s off, and the amounts you '
+                      'set below are kept exactly as they are for when '
+                      'you\'re ready to go commercial.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     const Text(
-                      'Driver commission',
+                      'Commission per delivery',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 15,

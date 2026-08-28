@@ -48,6 +48,10 @@ final todaysDeliveredCountProvider = Provider<int>((ref) {
 /// display; the actual amount charged always comes from that same
 /// database function, never trusted from here.
 final dailyFeeOwedProvider = Provider<double>((ref) {
+  final commissionEnabled =
+      ref.watch(appSettingsProvider).valueOrNull?.driverCommissionEnabled ??
+      true;
+  if (!commissionEnabled) return 0;
   final tiers = ref.watch(dailyFeeTiersProvider).valueOrNull ?? const [];
   final count = ref.watch(todaysDeliveredCountProvider);
   var owed = 0.0;

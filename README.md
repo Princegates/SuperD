@@ -956,6 +956,16 @@ This is just what happens automatically when nobody has to step in — a
 dispatcher can always reassign an auto-assigned delivery afterward, the
 same as any other one.
 
+### Turning commission off for testing
+
+Both commission mechanisms described below - the per-delivery flat fee
+and the tiered daily fee - share one master switch: **Console > Settings
+> Driver commission**. Off means nothing is charged, logged, or blocks a
+driver from getting new deliveries, but the configured flat fee/tiers are
+left untouched (see `0041_driver_commission_toggle.sql`) - flip it back
+on once the app is ready to go commercial and everything picks back up
+exactly as it was configured. Defaults to on.
+
 ### Driver commission
 
 Separate from the `payments` table above (what a *customer* owes for a

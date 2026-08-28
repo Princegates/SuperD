@@ -11,6 +11,7 @@ class AppSettings {
     required this.allowDriverWebLogin,
     this.baseFare = 5,
     this.pricePerKm = 1.5,
+    this.driverCommissionEnabled = true,
     this.commissionFlatFee = 0,
     this.freeDayDeliveryThreshold,
     this.zoneAutoAssignCap = 5,
@@ -39,9 +40,17 @@ class AppSettings {
   /// dropoff, on top of [baseFare].
   final double pricePerKm;
 
+  /// Master off-switch for driver commission - both this flat fee and the
+  /// tiered daily fee ([DriverDailyFeeTier]) stop being charged/enforced
+  /// while this is false, without losing their configured amounts. Meant
+  /// for testing the app before it goes commercial - see
+  /// `0041_driver_commission_toggle.sql`.
+  final bool driverCommissionEnabled;
+
   /// Flat amount a driver owes the business per completed delivery - see
   /// `commission_payments` in `0029_commission_payments.sql`. 0 means
-  /// commission tracking is effectively off.
+  /// commission tracking is effectively off. Ignored entirely while
+  /// [driverCommissionEnabled] is false.
   final double commissionFlatFee;
 
   /// Automatic free-day incentive: every this many completed deliveries
@@ -89,6 +98,8 @@ class AppSettings {
       allowDriverWebLogin: map['allow_driver_web_login'] as bool? ?? false,
       baseFare: (map['base_fare'] as num?)?.toDouble() ?? 5,
       pricePerKm: (map['price_per_km'] as num?)?.toDouble() ?? 1.5,
+      driverCommissionEnabled:
+          map['driver_commission_enabled'] as bool? ?? true,
       commissionFlatFee: (map['commission_flat_fee'] as num?)?.toDouble() ?? 0,
       freeDayDeliveryThreshold: (map['free_day_delivery_threshold'] as num?)
           ?.toInt(),

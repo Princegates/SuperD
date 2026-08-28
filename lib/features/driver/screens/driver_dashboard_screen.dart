@@ -93,11 +93,13 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
     final deliveries = ref.watch(myDeliveriesProvider);
     final profile = ref.watch(currentProfileProvider).valueOrNull;
     final dailyFeeBalance = ref.watch(dailyFeeBalanceProvider);
-    final currency = ref.watch(appSettingsProvider).valueOrNull?.currency;
+    final appSettings = ref.watch(appSettingsProvider).valueOrNull;
+    final currency = appSettings?.currency;
     final latestAttempt = ref.watch(dailyFeeLatestAttemptProvider);
     final freeDayBalance = ref.watch(freeDayBalanceProvider).valueOrNull ?? 0;
     final dailyFeeOn =
-        ref.watch(dailyFeeTiersProvider).valueOrNull?.isNotEmpty ?? false;
+        (appSettings?.driverCommissionEnabled ?? true) &&
+        (ref.watch(dailyFeeTiersProvider).valueOrNull?.isNotEmpty ?? false);
 
     // A driver's own delivery list re-emits the full set on every change -
     // only ids that weren't there last time are a genuinely new assignment.

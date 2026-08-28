@@ -78,6 +78,16 @@ class SettingsRepository {
         .eq('id', true);
   }
 
+  /// Master off-switch for driver commission - see
+  /// [AppSettings.driverCommissionEnabled]. Only takes effect if the caller
+  /// is a super admin - enforced by RLS.
+  Future<void> setDriverCommissionEnabled(bool enabled) async {
+    await _client
+        .from(_table)
+        .update({'driver_commission_enabled': enabled})
+        .eq('id', true);
+  }
+
   /// Changes the flat commission fee owed per completed delivery - see
   /// [AppSettings.commissionFlatFee]. Only takes effect going forward;
   /// commission already recorded keeps whatever fee applied at the time.

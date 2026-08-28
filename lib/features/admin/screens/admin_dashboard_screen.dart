@@ -49,6 +49,51 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
     final driverNames = {for (final d in drivers) d.id: d.displayName};
 
+    // A live toast the moment the system (not a dispatcher) auto-assigns a
+    // driver - either a new order's same-zone match or a mid-trip
+    // auto-hand-off, see Delivery.autoAssigned. Compares each emission's
+    // autoAssigned flags against the previous one so this only fires on
+    // the actual transition into "auto-assigned", not on every unrelated
+    // update to a delivery that already was. previous == null (first
+    // load) is skipped, same reasoning as the driver dashboard's own
+    // "new delivery assigned" snackbar - otherwise every already
+    // auto-assigned delivery would toast the moment this screen opens.
+    ref.listen<AsyncValue<List<Delivery>>>(allDeliveriesProvider, (
+      previous,
+      next,
+    ) {
+      final priorAutoAssigned = {
+        for (final d in previous?.valueOrNull ?? const <Delivery>[])
+          d.id: d.autoAssigned,
+      };
+      final current = next.valueOrNull;
+      if (previous?.valueOrNull == null || current == null) return;
+      final names = {
+        for (final d in ref.read(driversListProvider).valueOrNull ?? const [])
+          d.id: d.displayName,
+      };
+      for (final delivery in current) {
+        final wasAutoAssigned = priorAutoAssigned[delivery.id] ?? false;
+        if (delivery.autoAssigned && !wasAutoAssigned) {
+          final driverName = delivery.assignedDriverId == null
+              ? 'a driver'
+              : (names[delivery.assignedDriverId] ?? 'a driver');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'System auto-assigned #${delivery.trackingCode} to $driverName',
+              ),
+              action: SnackBarAction(
+                label: 'View',
+                onPressed: () =>
+                    context.push('/admin/delivery/${delivery.id}'),
+              ),
+            ),
+          );
+        }
+      }
+    });
+
     return Scaffold(
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => context.push('/admin/new'),

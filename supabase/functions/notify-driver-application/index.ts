@@ -1,12 +1,16 @@
-// Texts and emails every active dispatcher/super admin, and the applicant
-// themselves, the moment a driver signs themselves up (self-signup lands
-// as `is_active = false`, pending approval - see migration
-// 0014_driver_self_signup.sql) - SMS wherever a phone is on file, email
-// wherever an address is. Wired up as a Supabase Database Webhook
-// (Database -> Webhooks in the dashboard) on the "profiles" table for
-// INSERT - see the README for the exact setup steps. Runs with the
-// service-role key, same reasoning as the other admin-*/notify-*
-// functions.
+// Emails every active dispatcher/super admin, and texts + emails the
+// applicant themselves, the moment a driver signs themselves up
+// (self-signup lands as `is_active = false`, pending approval - see
+// migration 0014_driver_self_signup.sql). Staff get email only, not SMS -
+// they're already signed into the app/inbox day to day, and this fires
+// once per driver application, so with any real headcount of dispatchers
+// and any real application volume, texting all of them every single time
+// adds up fast for no real benefit over email. The applicant themselves
+// still gets both, same as before - this is a one-time message for them,
+// not a recurring cost. Wired up as a Supabase Database Webhook (Database
+// -> Webhooks in the dashboard) on the "profiles" table for INSERT - see
+// the README for the exact setup steps. Runs with the service-role key,
+// same reasoning as the other admin-*/notify-* functions.
 // Deploy with `supabase functions deploy notify-driver-application`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
@@ -109,7 +113,7 @@ Deno.serve(async (req) => {
 
     const { data: staff, error: staffError } = await admin
       .from("profiles")
-      .select("email, phone")
+      .select("email")
       .in("role", ["dispatcher", "super_admin"])
       .eq("is_active", true);
     if (staffError) {
@@ -118,9 +122,6 @@ Deno.serve(async (req) => {
     const staffEmails = (staff ?? [])
       .map((s) => s.email as string)
       .filter((email) => email.length > 0);
-    const staffPhones = (staff ?? [])
-      .map((s) => s.phone as string | null)
-      .filter((phone): phone is string => Boolean(phone));
 
     let sentToStaff: boolean | undefined;
     if (staffEmails.length > 0) {
@@ -138,16 +139,6 @@ Deno.serve(async (req) => {
           assigned any deliveries.</p>
         `,
       );
-    }
-    let sentToStaffSms: boolean | undefined;
-    if (staffPhones.length > 0) {
-      const staffSmsBody = `SuperD: new driver application from ` +
-        `${applicant.full_name} (${applicant.phone ?? "no phone on file"}). ` +
-        `Review it in the Team screen.`;
-      const staffSmsResults = await Promise.all(
-        staffPhones.map((phone) => sendSms(phone, staffSmsBody)),
-      );
-      sentToStaffSms = staffSmsResults.some(Boolean);
     }
 
     let sentToApplicant: boolean | undefined;
@@ -174,7 +165,6 @@ Deno.serve(async (req) => {
 
     return jsonResponse({
       sentToStaff,
-      sentToStaffSms,
       sentToApplicant,
       sentToApplicantSms,
     });

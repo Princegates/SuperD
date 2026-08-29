@@ -112,7 +112,7 @@ supabase/
     paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee charge resolves (public, no Supabase session)
     notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, and both customer + vendor when a driver is assigned
     notify-vendor-registered/      Edge Function: texts/emails a vendor their link when they register, and staff too
-    notify-driver-application/     Edge Function: texts/emails staff and the applicant when a driver signs themselves up
+    notify-driver-application/     Edge Function: emails staff (not SMS - see below) and texts/emails the applicant when a driver signs themselves up
     notify-driver-approved/        Edge Function: texts/emails a driver once their signup is approved
     get-road-distance/             Edge Function: real driving distance via Google Directions, for pricing
 ```
@@ -615,18 +615,24 @@ the row.
 
 - **Application submitted** - the moment a driver self-signs-up, two
   notices go out from the same trigger: every active dispatcher and super
-  admin is texted/emailed the applicant's name, email, and phone with a
-  nudge to review them from Drivers, and the applicant themselves gets a
-  short receipt by SMS/email ("we've received your application, a
-  dispatcher will review it soon"). Each channel is independent - a staff
-  member with no phone on file just gets the email, one with no email
-  just gets the text, and so on. An admin-created driver never triggers
-  either (they land already active).
+  admin is **emailed** (not texted - see below) the applicant's name,
+  email, and phone with a nudge to review them from Drivers, and the
+  applicant themselves gets a short receipt by SMS/email ("we've received
+  your application, a dispatcher will review it soon"). An admin-created
+  driver never triggers either (they land already active).
 - **Application approved** - the moment a dispatcher/super admin flips a
   pending driver's toggle to active, that driver is texted/emailed to let
   them know they can now sign in and start receiving deliveries.
   Deactivating someone, or any other profile edit, doesn't trigger this -
   only the pending → active transition does.
+
+Staff get email only for "application submitted" - never SMS - since
+they're already signed into the app/inbox day to day and this fires once
+per application: with any real number of dispatchers and any real
+application volume, texting the whole team every single time adds up for
+no benefit over email (the same reasoning as **SMS only on the first
+delivery** above). The applicant's own two messages (submitted, approved)
+still get SMS - each is a one-time message to them, not a recurring cost.
 
 **Setup** (reusing the same Twilio/Resend accounts and secrets as
 everywhere else in this README):

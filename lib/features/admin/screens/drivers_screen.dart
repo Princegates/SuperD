@@ -45,7 +45,10 @@ class DriversScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Remove', style: TextStyle(color: AppTheme.danger)),
+            child: const Text(
+              'Remove',
+              style: TextStyle(color: AppTheme.danger),
+            ),
           ),
         ],
       ),
@@ -94,7 +97,8 @@ class DriversScreen extends ConsumerWidget {
           action: newActive ? 'driver_approved' : 'staff_deactivated',
           entityType: 'profile',
           entityId: driver.id,
-          summary: '${newActive ? 'Approved' : 'Deactivated'} '
+          summary:
+              '${newActive ? 'Approved' : 'Deactivated'} '
               'driver ${driver.displayName}',
         ),
       );

@@ -200,7 +200,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
         ref.read(supabaseClientProvider),
         action: 'zone_detection_radius_changed',
         entityType: 'app_settings',
-        summary: 'Changed the zone-detection radius to ${km.toStringAsFixed(1)} km',
+        summary:
+            'Changed the zone-detection radius to ${km.toStringAsFixed(1)} km',
       );
     } on ArgumentError catch (e) {
       if (mounted) {
@@ -1148,10 +1149,7 @@ class _DailyFeeTiersCard extends ConsumerWidget {
                 const Expanded(
                   child: Text(
                     'Driver daily fee',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 15,
-                    ),
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                   ),
                 ),
                 TextButton.icon(
@@ -1202,11 +1200,8 @@ class _DailyFeeTiersCard extends ConsumerWidget {
                             ),
                             IconButton(
                               icon: const Icon(Icons.edit_outlined, size: 18),
-                              onPressed: () => _openTierDialog(
-                                context,
-                                ref,
-                                existing: tier,
-                              ),
+                              onPressed: () =>
+                                  _openTierDialog(context, ref, existing: tier),
                             ),
                             IconButton(
                               icon: const Icon(

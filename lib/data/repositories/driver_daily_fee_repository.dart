@@ -53,6 +53,18 @@ class DriverDailyFeeRepository {
         });
   }
 
+  /// The signed-in driver's own daily-fee history - every day they've
+  /// attempted or completed payment for, not just today (see
+  /// [fetchTodayRecords]/[watchTodayRecords] for that).
+  Future<List<DriverDailyFee>> fetchHistoryForDriver(String driverId) async {
+    final rows = await _client
+        .from(_table)
+        .select()
+        .eq('driver_id', driverId)
+        .order('fee_date', ascending: false);
+    return rows.map(DriverDailyFee.fromMap).toList();
+  }
+
   /// Every configured tier, in whatever order Postgres returns them - see
   /// `driver_daily_fee_tiers`. Callers sort by [DriverDailyFeeTier.minDeliveries].
   Future<List<DriverDailyFeeTier>> fetchTiers() async {

@@ -53,8 +53,7 @@ class DriverNotice {
           ? null
           : DateTime.parse(map['expires_at'] as String),
       dismissedBy:
-          (map['dismissed_by'] as List<dynamic>?)?.cast<String>() ??
-          const [],
+          (map['dismissed_by'] as List<dynamic>?)?.cast<String>() ?? const [],
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }

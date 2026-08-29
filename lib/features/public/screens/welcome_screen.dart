@@ -225,7 +225,11 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(icon, size: 17, color: Colors.grey.shade500),
+                                Icon(
+                                  icon,
+                                  size: 17,
+                                  color: Colors.grey.shade500,
+                                ),
                                 const SizedBox(width: 8),
                                 Text(
                                   label,

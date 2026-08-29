@@ -74,15 +74,16 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
       permission = await _requestBackgroundPermissionIfPossible();
     }
 
-    _positionSubscription = Geolocator.getPositionStream(
-      locationSettings: _locationSettingsFor(
-        backgroundAllowed: permission == LocationPermission.always,
-      ),
-    ).listen(
-      _pushLocation,
-      onError: (Object e) =>
-          debugPrint('SuperD: live location stream error: $e'),
-    );
+    _positionSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: _locationSettingsFor(
+            backgroundAllowed: permission == LocationPermission.always,
+          ),
+        ).listen(
+          _pushLocation,
+          onError: (Object e) =>
+              debugPrint('SuperD: live location stream error: $e'),
+        );
   }
 
   /// Asks for "Allow all the time" on top of the "while in use" grant
@@ -197,6 +198,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         (appSettings?.driverCommissionEnabled ?? true) &&
         (ref.watch(dailyFeeTiersProvider).valueOrNull?.isNotEmpty ?? false);
     final notices = ref.watch(myVisibleNoticesProvider).valueOrNull ?? [];
+    final todaysRevenue = ref.watch(todaysRevenueProvider);
 
     // A driver's own delivery list re-emits the full set on every change -
     // only ids that weren't there last time are a genuinely new assignment.
@@ -237,6 +239,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
       body: Column(
         children: [
           if (profile != null) _AvailabilityBar(profile: profile),
+          _RevenueStrip(amount: todaysRevenue, currency: currency ?? 'GHS'),
           if (profile?.isFrozen ?? false) const _FrozenBanner(),
           if (notices.isNotEmpty) ...[
             const SizedBox(height: 10),
@@ -295,6 +298,48 @@ class _AvailabilityBar extends ConsumerWidget {
                 .setOnline(profile.id, value),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// A live running total of what this driver has collected today - see
+/// [todaysRevenueProvider]. Always shown (even at zero, so it's obvious
+/// this is a live counter and not just missing) and tappable straight
+/// into [EarningsScreen] for the daily/weekly/monthly/yearly breakdown
+/// and commission payment history.
+class _RevenueStrip extends StatelessWidget {
+  const _RevenueStrip({required this.amount, required this.currency});
+
+  final double amount;
+  final String currency;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => context.push('/driver/earnings'),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        color: AppTheme.primary.withValues(alpha: 0.05),
+        child: Row(
+          children: [
+            // Not const: AppTheme.primary is theme-selectable, unlike the
+            // fixed status colors (success/warning/danger/neutral).
+            Icon(Icons.payments_outlined, size: 16, color: AppTheme.primary),
+            const SizedBox(width: 8),
+            Text(
+              "Today's revenue: $currency ${amount.toStringAsFixed(2)}",
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+                color: AppTheme.primary,
+              ),
+            ),
+            const Spacer(),
+            Icon(Icons.chevron_right, size: 18, color: Colors.grey.shade500),
+          ],
+        ),
       ),
     );
   }

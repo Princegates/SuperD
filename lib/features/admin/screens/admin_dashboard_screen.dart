@@ -85,8 +85,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               ),
               action: SnackBarAction(
                 label: 'View',
-                onPressed: () =>
-                    context.push('/admin/delivery/${delivery.id}'),
+                onPressed: () => context.push('/admin/delivery/${delivery.id}'),
               ),
             ),
           );

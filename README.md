@@ -93,6 +93,7 @@ supabase/
     0043_fix_auto_assigned_signature_mismatch.sql   fixes 0042 rewriting the wrong overload of submit_delivery_request() (missing the customer_email parameter added in 0034)
     0044_proximity_based_auto_assignment.sql   automatic driver matching switches from a driver's manually-set zone_id to live GPS proximity to the vendor (or, for a mid-trip hand-off, to the cancelling driver's own position)
     0045_paystack_daily_fee.sql                switches the driver daily-fee real-time Mobile Money gateway from Hubtel to Paystack - renames the gateway-specific columns on driver_daily_fees to generic names
+    0049_driver_commission_history_read.sql    lets a driver read their own commission_payments rows, so their own app can show a commission payment history (driver_daily_fees already allowed this)
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -1189,6 +1190,30 @@ needs it to actually do the job - this only applies once a delivery is
 done and there's no operational reason left to keep showing which
 business it was. A dispatcher/super admin is unaffected either way; see
 [`Delivery.withPickupHiddenIfHistory`](lib/models/delivery.dart).
+
+## Driver revenue and commission history
+
+A driver's dashboard shows a live "Today's revenue: <currency> X" strip -
+what's been collected from customers, today, across every delivery
+assigned to them (see `todaysRevenueProvider`) - tapping it opens **My
+earnings**, with:
+
+- **Revenue** - today/this week/this month/this year totals, all summed
+  from the same underlying data (`payments` for their own deliveries -
+  RLS already scoped this to "dispatcher or the delivery's own assigned
+  driver" since `0003_payments.sql`, so no new policy was needed). "This
+  week" is the current calendar week (Monday-Sunday), not a rolling
+  7-day window, to read naturally alongside the calendar month/year next
+  to it.
+- **Commission payments** - every charge either commission mechanism has
+  ever placed on this driver (see **Driver commission** and **Driver
+  daily fee** below), merged into one chronological list regardless of
+  which mechanism produced it, since a driver doesn't need to know or
+  care which table a row came from. This needed one new RLS policy -
+  `commission_payments` only had dispatcher-level read access before
+  (`0029_commission_payments.sql`); `0049_driver_commission_history_read.sql`
+  adds the same "driver reads own" treatment `driver_daily_fees` already
+  had.
 
 ## Driver actions: reject, cancel, and undo
 

@@ -1,11 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
+import '../../../models/commission_payment.dart';
 import '../../../models/daily_fee_status.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/driver_daily_fee.dart';
 import '../../../models/driver_notice.dart';
+import '../../../models/payment.dart';
+import '../../../models/payment_status.dart';
 
 /// Only the deliveries assigned to the signed-in driver. Derives the
 /// driver's id from [authStateProvider] (reactive), not just a one-time
@@ -151,6 +154,67 @@ final freeDayBalanceProvider = StreamProvider<int>((ref) {
       .watchFreeDayBalance(userId);
 });
 
+/// Live payments for every delivery ever assigned to the signed-in
+/// driver - the raw data behind their revenue history (today/week/month/
+/// year) and the running "today's revenue" figure on their dashboard. See
+/// [PaymentRepository.watchMyPayments] for why this needs no driver-id
+/// filter (RLS does the scoping).
+final myPaymentsProvider = StreamProvider<List<Payment>>((ref) {
+  return ref.watch(paymentRepositoryProvider).watchMyPayments();
+});
+
+/// How much the signed-in driver has collected *today* across every paid
+/// payment on their own deliveries - the live counter shown on their
+/// dashboard the moment a customer's payment is marked paid, not just a
+/// one-time total. Bucketed by [Payment.paidAt] (falling back to
+/// [Payment.createdAt] for a payment marked paid without that timestamp
+/// ever being set) rather than the delivery's own date, since a payment
+/// can be collected a while after the delivery itself.
+final todaysRevenueProvider = Provider<double>((ref) {
+  final payments = ref.watch(myPaymentsProvider).valueOrNull ?? const [];
+  final now = DateTime.now();
+  return payments
+      .where((p) => p.status == PaymentStatus.paid)
+      .where((p) {
+        final when = (p.paidAt ?? p.createdAt).toLocal();
+        return when.year == now.year &&
+            when.month == now.month &&
+            when.day == now.day;
+      })
+      .fold(0.0, (sum, p) => sum + p.amount);
+});
+
+/// The signed-in driver's own per-delivery commission history - every
+/// flat fee ever charged to them, whichever status. Needs
+/// `0049_driver_commission_history_read.sql`'s driver-self-read RLS
+/// policy; comes back empty for a driver on any earlier migration.
+final myCommissionHistoryProvider = FutureProvider<List<CommissionPayment>>((
+  ref,
+) async {
+  final authState = ref.watch(authStateProvider).valueOrNull;
+  final userId =
+      authState?.session?.user.id ??
+      ref.watch(supabaseClientProvider).auth.currentUser?.id;
+  if (userId == null) return const [];
+  return ref.watch(commissionRepositoryProvider).fetchForDriver(userId);
+});
+
+/// The signed-in driver's own daily-fee history - every day they've
+/// attempted or completed payment for, not just today (see
+/// [todaysDailyFeeRecordsProvider] for that).
+final myDailyFeeHistoryProvider = FutureProvider<List<DriverDailyFee>>((
+  ref,
+) async {
+  final authState = ref.watch(authStateProvider).valueOrNull;
+  final userId =
+      authState?.session?.user.id ??
+      ref.watch(supabaseClientProvider).auth.currentUser?.id;
+  if (userId == null) return const [];
+  return ref
+      .watch(driverDailyFeeRepositoryProvider)
+      .fetchHistoryForDriver(userId);
+});
+
 /// Every notice currently visible to the signed-in driver - broadcasts
 /// (promotions, platform-wide heads-up) and their own direct messages -
 /// with anything they've already closed filtered out. RLS already limits
@@ -167,7 +231,6 @@ final myVisibleNoticesProvider = StreamProvider<List<DriverNotice>>((ref) {
       .watch(driverNoticeRepositoryProvider)
       .watchVisibleNotices()
       .map(
-        (notices) =>
-            notices.where((n) => !n.isDismissedBy(userId)).toList(),
+        (notices) => notices.where((n) => !n.isDismissedBy(userId)).toList(),
       );
 });

@@ -105,9 +105,8 @@ final dailyFeeTiersProvider = StreamProvider<List<DriverDailyFeeTier>>((ref) {
       .watchTiers()
       .map(
         (tiers) =>
-            [...tiers]..sort(
-              (a, b) => a.minDeliveries.compareTo(b.minDeliveries),
-            ),
+            [...tiers]
+              ..sort((a, b) => a.minDeliveries.compareTo(b.minDeliveries)),
       );
 });
 

@@ -86,9 +86,8 @@ class _ConsoleNoticesTabState extends ConsumerState<ConsoleNoticesTab> {
           _targetDriverId = null;
           _expiresAt = null;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Notice posted.')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Notice posted.')));
       }
     } finally {
       if (mounted) setState(() => _isPosting = false);
@@ -320,9 +319,7 @@ class _NoticeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLive = notice.isActive && !notice.isExpired;
-    final when = DateFormat(
-      'd MMM, h:mm a',
-    ).format(notice.createdAt.toLocal());
+    final when = DateFormat('d MMM, h:mm a').format(notice.createdAt.toLocal());
     final who = notice.targetDriverId == null
         ? 'All drivers'
         : 'To ${driverName ?? 'a driver'}';
@@ -347,8 +344,9 @@ class _NoticeRow extends StatelessWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: (isLive ? AppTheme.success : Colors.grey)
-                        .withValues(alpha: 0.12),
+                    color: (isLive ? AppTheme.success : Colors.grey).withValues(
+                      alpha: 0.12,
+                    ),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(

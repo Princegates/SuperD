@@ -44,7 +44,10 @@ class TeamScreen extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Remove', style: TextStyle(color: AppTheme.danger)),
+            child: const Text(
+              'Remove',
+              style: TextStyle(color: AppTheme.danger),
+            ),
           ),
         ],
       ),

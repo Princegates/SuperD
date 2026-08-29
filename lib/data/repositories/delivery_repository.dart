@@ -119,10 +119,7 @@ class DeliveryRepository {
     required String deliveryId,
     required String? zoneId,
   }) async {
-    await _client
-        .from(_table)
-        .update({'zone_id': zoneId})
-        .eq('id', deliveryId);
+    await _client.from(_table).update({'zone_id': zoneId}).eq('id', deliveryId);
   }
 
   Future<void> updateStatus({

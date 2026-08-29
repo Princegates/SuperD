@@ -107,7 +107,11 @@ class DeliveryDetailAdminScreen extends ConsumerWidget {
             )),
           );
           final zones = ref.watch(zonesProvider).valueOrNull ?? [];
-          return _DetailBody(delivery: delivery, drivers: drivers, zones: zones);
+          return _DetailBody(
+            delivery: delivery,
+            drivers: drivers,
+            zones: zones,
+          );
         },
       ),
     );
@@ -356,9 +360,8 @@ class _AssignedDriverCardState extends ConsumerState<_AssignedDriverCard> {
     } on PostgrestException catch (e) {
       if (mounted) {
         setState(() => _resetCount++);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
       return;
     }

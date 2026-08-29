@@ -657,7 +657,8 @@ class _TierOverridesCard extends StatelessWidget {
                       ),
                     ),
                     DropdownButton<String?>(
-                      value: tiers.any(
+                      value:
+                          tiers.any(
                             (t) => t.id == driver.dailyFeeTierOverrideId,
                           )
                           ? driver.dailyFeeTierOverrideId

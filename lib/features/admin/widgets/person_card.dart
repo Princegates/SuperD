@@ -188,7 +188,11 @@ class PersonCard extends StatelessWidget {
 }
 
 class PersonStatusBadge extends StatelessWidget {
-  const PersonStatusBadge({super.key, required this.label, required this.color});
+  const PersonStatusBadge({
+    super.key,
+    required this.label,
+    required this.color,
+  });
 
   final String label;
   final Color color;
@@ -203,7 +207,11 @@ class PersonStatusBadge extends StatelessWidget {
       ),
       child: Text(
         label,
-        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: color),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: color,
+        ),
       ),
     );
   }
@@ -237,7 +245,11 @@ class RoleControl extends ConsumerWidget {
         children: [
           Text(
             person.role.label,
-            style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w700),
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           if (enabled) ...[
             const SizedBox(width: 2),

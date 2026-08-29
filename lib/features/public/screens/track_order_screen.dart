@@ -195,10 +195,8 @@ class _LiveTrackingSheet extends ConsumerWidget {
               ),
               const SizedBox(height: 10),
               OutlinedButton.icon(
-                onPressed: () => launchMapView(
-                  lat: order.driverLat!,
-                  lng: order.driverLng!,
-                ),
+                onPressed: () =>
+                    launchMapView(lat: order.driverLat!, lng: order.driverLng!),
                 icon: const Icon(Icons.open_in_new, size: 16),
                 label: const Text('Open in Google Maps'),
               ),

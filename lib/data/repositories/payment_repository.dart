@@ -31,6 +31,23 @@ class PaymentRepository {
     return rows.map(Payment.fromMap).toList();
   }
 
+  /// Live payments for the signed-in driver's own deliveries - the raw
+  /// data behind their revenue history (today/week/month/year) and the
+  /// running "today's revenue" count on their dashboard. Deliberately no
+  /// `.eq()` filter: `payments` has no driver column of its own (only
+  /// `delivery_id`), so there's nothing to filter by directly - this
+  /// relies entirely on "payments: dispatcher or assigned driver read"
+  /// (0003_payments.sql) to scope the stream to just this driver's own
+  /// deliveries. A dispatcher/super admin calling this would get every
+  /// payment in the system instead, so only ever call it as a driver.
+  Stream<List<Payment>> watchMyPayments() {
+    return _client
+        .from(_table)
+        .stream(primaryKey: ['id'])
+        .order('created_at', ascending: false)
+        .map((rows) => rows.map(Payment.fromMap).toList());
+  }
+
   Future<void> recordPayment({
     required String deliveryId,
     required double amount,

@@ -171,7 +171,9 @@ class _DeliveryDetailDriverScreenState
           // shared with the dispatcher/super-admin detail screen, which
           // still needs the real pickup details, so the masking happens
           // here rather than in the shared provider itself.
-          return _DriverDetailBody(delivery: delivery.withPickupHiddenIfHistory);
+          return _DriverDetailBody(
+            delivery: delivery.withPickupHiddenIfHistory,
+          );
         },
       ),
     );

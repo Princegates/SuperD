@@ -12,6 +12,7 @@ class DeliveryCard extends StatefulWidget {
     required this.delivery,
     required this.onTap,
     this.subtitle,
+    this.fareText,
   });
 
   final Delivery delivery;
@@ -19,6 +20,10 @@ class DeliveryCard extends StatefulWidget {
 
   /// Optional extra line, e.g. the assigned driver's name on the admin view.
   final String? subtitle;
+
+  /// Optional fare amount (e.g. "GHS 43.10") shown next to the customer/time
+  /// row - used by the driver's "My Rides" screen; omitted everywhere else.
+  final String? fareText;
 
   @override
   State<DeliveryCard> createState() => _DeliveryCardState();
@@ -163,6 +168,19 @@ class _DeliveryCardState extends State<DeliveryCard>
                       ),
                     ],
                   ),
+                  if (widget.fareText != null) ...[
+                    const SizedBox(height: 6),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        widget.fareText!,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                        ).copyWith(color: AppTheme.primary),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

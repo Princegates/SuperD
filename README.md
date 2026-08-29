@@ -1227,13 +1227,15 @@ what's been collected from customers, today, across every delivery
 assigned to them (see `todaysRevenueProvider`) - tapping it opens **My
 earnings**, a two-tab screen:
 
-- **Revenue tab** - today/this week/this month/this year totals, all
-  summed from the same underlying data (`payments` for their own
-  deliveries - RLS already scoped this to "dispatcher or the delivery's
+- **Revenue tab** - a "Today" and "Total trips" stat pair up top, a
+  Weekly/Monthly toggle driving a bar chart (per weekday for the current
+  calendar week, or per 7-day chunk of the current calendar month - both
+  summed from the same underlying data, `payments` for the driver's own
+  deliveries; RLS already scoped this to "dispatcher or the delivery's
   own assigned driver" since `0003_payments.sql`, so no new policy was
-  needed). "This week" is the current calendar week (Monday-Sunday), not
-  a rolling 7-day window, to read naturally alongside the calendar
-  month/year next to it.
+  needed), the selected period's total underneath the chart, and a
+  breakdown card showing that period's revenue alongside commission
+  actually paid in the same window.
 - **Commission tab** - every charge either commission mechanism has ever
   placed on this driver (see **Driver commission** and **Driver daily
   fee** below), merged into one chronological list regardless of which
@@ -1245,6 +1247,15 @@ earnings**, a two-tab screen:
   dispatcher-level read access before (`0029_commission_payments.sql`);
   `0049_driver_commission_history_read.sql` adds the same "driver reads
   own" treatment `driver_daily_fees` already had.
+
+A separate **My rides** screen (the receipt icon in the dashboard's app
+bar) lists a driver's whole delivery history split into Upcoming/
+Completed/Canceled tabs, each delivery shown with its fare (looked up
+from the same `payments` data) alongside the existing pickup/dropoff
+route card - the same live `myDeliveriesProvider`/`myPaymentsProvider`
+the dashboard and "My earnings" already watch, just organized by status
+into three lists instead of the dashboard's single Active/Completed
+list.
 
 ## Driver actions: reject, cancel, and undo
 

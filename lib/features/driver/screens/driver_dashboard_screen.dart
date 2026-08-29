@@ -233,8 +233,15 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         title: Text(
           profile != null ? 'Hi, ${profile.displayName}' : 'My deliveries',
         ),
-        actions: const [
-          AccountMenuButton(changePasswordRoute: '/driver/change-password'),
+        actions: [
+          IconButton(
+            tooltip: 'My rides',
+            icon: const Icon(Icons.receipt_long_outlined),
+            onPressed: () => context.push('/driver/rides'),
+          ),
+          const AccountMenuButton(
+            changePasswordRoute: '/driver/change-password',
+          ),
         ],
       ),
       body: Column(

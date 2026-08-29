@@ -11,6 +11,7 @@ import '../../../models/vendor.dart';
 import '../../../shared/widgets/account_menu_button.dart';
 import '../../console/screens/console_audit_log_tab.dart';
 import '../../console/screens/console_commission_tab.dart';
+import '../../console/screens/console_customers_tab.dart';
 import '../../console/screens/console_daily_fees_tab.dart';
 import '../../console/screens/console_finance_tab.dart';
 import '../../console/screens/console_notices_tab.dart';
@@ -33,6 +34,7 @@ class _AdminSection {
     this.label,
     this.body, {
     this.superAdminOnly = false,
+    this.superAdminExclusive = false,
   });
 
   final IconData icon;
@@ -48,6 +50,19 @@ class _AdminSection {
   /// the admin-level ones (Team, Zones, Settings) once inside - see
   /// `0054_auditor_role_permissions.sql`.
   final bool superAdminOnly;
+
+  /// Off-limits even to an auditor - unlike every other superAdminOnly
+  /// section. Customers is the one case so far: customer contact details
+  /// (name/email/phone/address) aren't something an oversight role needs
+  /// to see - see `0055_customer_directory.sql`. Meaningless unless
+  /// [superAdminOnly] is also true.
+  final bool superAdminExclusive;
+
+  bool visibleTo(UserRole? role) {
+    if (!superAdminOnly) return true;
+    if (superAdminExclusive) return role == UserRole.superAdmin;
+    return role?.canViewAdminConsole ?? false;
+  }
 }
 
 /// The whole back-office experience in one place: every section a
@@ -65,9 +80,12 @@ class _AdminSection {
 /// of these but can't write to the admin-level ones (dispatcher/super-admin
 /// management is exclusive to a super admin, so is the rest of Team; an
 /// auditor's own read-only access is enforced server-side, not just by
-/// hiding buttons - see `0054_auditor_role_permissions.sql`). See
-/// [DriversScreen] for why the driver roster is split out into its own
-/// section instead of living under Team.
+/// hiding buttons - see `0054_auditor_role_permissions.sql`). Customers is
+/// the one section a super admin does NOT share with an auditor at all
+/// (see [_AdminSection.superAdminExclusive]) - customer contact details
+/// aren't something an oversight role needs, unlike everything else here.
+/// See [DriversScreen] for why the driver roster is split out into its
+/// own section instead of living under Team.
 class AdminShellScreen extends StatefulWidget {
   const AdminShellScreen({super.key});
 
@@ -107,6 +125,13 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       'Team',
       TeamScreen(),
       superAdminOnly: true,
+    ),
+    _AdminSection(
+      Icons.contacts_outlined,
+      'Customers',
+      ConsoleCustomersTab(),
+      superAdminOnly: true,
+      superAdminExclusive: true,
     ),
     _AdminSection(
       Icons.insights_outlined,
@@ -157,7 +182,6 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     return Consumer(
       builder: (context, ref, _) {
         final myRole = ref.watch(currentProfileProvider).valueOrNull?.role;
-        final canViewAdminSections = myRole?.canViewAdminConsole ?? false;
 
         // The full delivery list re-emits on every change - diffing by id
         // tells apart a genuinely new order (never seen this id before)
@@ -213,7 +237,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
 
         final restOfSections = [
           for (final section in _restOfSections)
-            if (!section.superAdminOnly || canViewAdminSections) section,
+            if (section.visibleTo(myRole)) section,
         ];
 
         void goToLabel(String label) {

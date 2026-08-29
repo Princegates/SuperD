@@ -4,6 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/repositories/audit_repository.dart';
 import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/commission_repository.dart';
+import '../../data/repositories/customer_repository.dart';
 import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/driver_daily_fee_repository.dart';
 import '../../data/repositories/driver_notice_repository.dart';
@@ -61,6 +62,10 @@ final driverDailyFeeRepositoryProvider = Provider<DriverDailyFeeRepository>((
 
 final driverNoticeRepositoryProvider = Provider<DriverNoticeRepository>((ref) {
   return DriverNoticeRepository(ref.watch(supabaseClientProvider));
+});
+
+final customerRepositoryProvider = Provider<CustomerRepository>((ref) {
+  return CustomerRepository(ref.watch(supabaseClientProvider));
 });
 
 final vehicleTypeRepositoryProvider = Provider<VehicleTypeRepository>((ref) {

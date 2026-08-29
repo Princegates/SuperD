@@ -102,6 +102,7 @@ supabase/
     0052_high_performer_assignment_fallback.sql  adds a two-tier auto-assign fallback: nearest driver within auto_assign_radius_km, or (if nobody's within it) whichever eligible driver has the best average customer rating, any distance
     0053_add_auditor_role_enum.sql             adds the 'auditor' value to the user_role enum - run on its own, see 0054's note on why
     0054_auditor_role_permissions.sql          wires up the auditor role: full read access everywhere a super admin has it, same day-to-day dispatch writes a dispatcher has, but blocked from Settings/Zones/Team/driver-notices writes
+    0055_customer_directory.sql                customers table (name/email/phone/last-known address, one row per phone) kept current via a trigger on every delivery insert, super-admin-only - not opened up to an auditor like everything else
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -2147,6 +2148,41 @@ Staff account creation/deletion (the `admin-create-driver`/
 `["dispatcher", "super_admin"]` allowlist rather than
 `is_dispatcher_or_above()`, so an auditor is rejected there automatically
 too, with no Edge Function changes needed.
+
+One section - **Customers** - is deliberately NOT shared with an auditor
+the way everything else is: customer contact details (name, email,
+phone, last-known address) are a genuine privacy line, not just an
+admin-level action, so this one is super-admin-only with no exception
+(`_AdminSection.superAdminExclusive`, see `admin_shell_screen.dart`).
+See **Customer directory** below.
+
+### Customer directory
+
+Console > Customers is a super-admin-only lookup of every customer
+who's ever placed a delivery - name, email, phone, and their most
+recent drop-off address, with their full delivery history one tap
+away. Nothing about a customer's data is deleted or hidden from where
+it already lived (a delivery keeps its own `customer_name`/
+`customer_phone`/`customer_email`/`dropoff_address` exactly as before,
+still visible to a dispatcher one delivery at a time, same as always) -
+this is a second, aggregated front door onto the same information, for
+actual customer-service work (a repeat customer calls in, and you can
+pull up who they are and what they've ordered without knowing a
+tracking code).
+
+The `customers` table (`0055_customer_directory.sql`) is kept current
+automatically: an `after insert` trigger on `deliveries` upserts into
+it - keyed by phone, the one field every delivery request already
+requires - on every new delivery, no matter which path created it (a
+customer's own request via `submit_delivery_request()`, or a
+dispatcher using the Create Delivery form). A backfill in the same
+migration seeds the directory from every delivery that already existed
+at the time it's run. RLS restricts `customers` to `is_super_admin()`
+specifically - not `is_dispatcher_or_above()`, so a dispatcher never
+sees it, and explicitly not `is_auditor()` either, so an auditor's
+otherwise-broad read access doesn't extend here. A dispatcher or
+auditor querying the table directly gets an empty result, not an
+error, same as `audit_log` behaved before an auditor could read it.
 
 ### Live driver tracking
 

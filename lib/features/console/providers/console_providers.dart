@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../models/audit_log_entry.dart';
 import '../../../models/commission_payment.dart';
+import '../../../models/customer.dart';
+import '../../../models/delivery.dart';
 import '../../../models/delivery_incident.dart';
 import '../../../models/driver_daily_fee.dart';
 import '../../../models/driver_notice.dart';
@@ -57,3 +59,19 @@ final auditLogProvider = FutureProvider<List<AuditLogEntry>>((ref) {
 final allDriverNoticesProvider = FutureProvider<List<DriverNotice>>((ref) {
   return ref.watch(driverNoticeRepositoryProvider).fetchAll();
 });
+
+/// The super-admin-only customer directory - live, so a name/address
+/// correction from a new delivery shows up without a manual refresh. RLS
+/// keeps this empty for anyone who isn't a super admin (a dispatcher or
+/// auditor never sees it at all - see `0055_customer_directory.sql`).
+final allCustomersProvider = StreamProvider<List<Customer>>((ref) {
+  return ref.watch(customerRepositoryProvider).watchAll();
+});
+
+/// One customer's full delivery history (by phone), fetched on demand when
+/// their row is expanded in Console > Customers rather than eagerly for
+/// everyone in the directory.
+final customerDeliveryHistoryProvider =
+    FutureProvider.family<List<Delivery>, String>((ref, phone) {
+      return ref.watch(customerRepositoryProvider).fetchDeliveryHistory(phone);
+    });

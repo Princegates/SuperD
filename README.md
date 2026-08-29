@@ -320,6 +320,107 @@ flutter build ios --dart-define-from-file=env.json
 If you forget `env.json`, the app shows a friendly "not configured yet"
 screen instead of crashing.
 
+## Preparing for Google Play / App Store submission
+
+A handful of things below are specific to actually shipping a release
+build to either store, rather than local development, and are easy to
+miss until the submission itself fails or gets rejected.
+
+### Android release signing
+
+`android/app/build.gradle.kts` used to sign every release build with the
+**debug keystore** - a `flutter build apk`/`flutter build appbundle`
+output signed that way is silently accepted by `flutter build` itself,
+but the **Google Play Console refuses to accept it for a production
+upload**, and it's a real weakness even for internal/pre-launch testing:
+the debug keystore's password and alias (`androiddebugkey`/`android`)
+are the same fixed values Flutter and Android Studio ship to every
+developer, so anything signed with it could be resigned by anyone
+claiming to be "the same app."
+
+Fix this once, before your first real build:
+
+1. **Create an upload keystore** (skip if you already have one):
+   ```bash
+   keytool -genkey -v -keystore ~/upload-keystore.jks \
+     -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+   ```
+   Copy the resulting `.jks` file into `android/app/` (or anywhere you'll
+   remember - the path just needs to match step 2). **Keep this file and
+   its passwords somewhere safe and backed up** - Google Play permanently
+   binds your app's listing to the first upload key it ever accepts (App
+   Signing by Google Play can rotate the *app signing* key later, but not
+   this *upload* key), and losing it means losing the ability to publish
+   updates to that same listing.
+2. **Copy the template and fill it in**:
+   ```bash
+   cp android/key.properties.example android/key.properties
+   ```
+   Edit `android/key.properties` (gitignored, never committed) with your
+   real `storePassword`, `keyPassword`, `keyAlias`, and `storeFile` (a
+   path relative to `android/app/` - just the filename if you copied the
+   `.jks` in there directly).
+3. Build as usual - `flutter build appbundle --dart-define-from-file=env.json`
+   now signs with your real key automatically. Building before step 2
+   still works (falls back to the debug key with no error), but never
+   upload that output anywhere but your own test devices.
+
+### iOS export compliance
+
+`ios/Runner/Info.plist` declares `ITSAppUsesNonExemptEncryption = false` -
+this app only ever talks to Supabase/Paystack/Google over standard
+HTTPS/TLS, with no custom or proprietary cryptography, which is exempt
+from the U.S. export-compliance reporting requirement (and the
+equivalent import-registration rules several other countries apply to
+encryption-using apps). Without this key, App Store Connect asks the
+export-compliance question by hand on every single build upload; with
+it, the question is skipped automatically. If you ever add encryption
+beyond standard TLS (end-to-end message encryption, a custom cipher,
+etc.), revisit this declaration - it would very likely need to become
+`true` plus an actual export classification.
+
+### Privacy policy (required by both stores)
+
+Neither store's automated review is the only gate here - **both Google
+Play Console and App Store Connect require a working privacy-policy URL**
+before they'll let you submit at all, and Google Play specifically
+requires it to also be reachable *from inside the app* for any app
+requesting a sensitive permission - which this one does
+(`ACCESS_BACKGROUND_LOCATION`, for a driver's live location sharing; see
+**Driver categories and availability** below). This repo doesn't ship
+one, since the actual policy text is a legal/business decision for
+whoever operates this deployment, not something to template - write one
+covering what this app actually collects (account info, delivery/pickup
+addresses, a driver's live location while on duty, proof-of-delivery
+photos, payment records) and:
+- host it somewhere public (even a plain static page),
+- link it from Google Play Console's Store Listing and the in-app
+  Data Safety-adjacent surface, and App Store Connect's App Privacy
+  section,
+- and add a real link/button to it somewhere reachable in-app (e.g. the
+  login screen or account menu) - not just in the store listings.
+
+### Other store-review essentials already in place
+
+- **No cleartext traffic** - every network call in this app (Supabase,
+  Paystack, Google Maps/Directions, the OSM Nominatim search) is HTTPS;
+  `AndroidManifest.xml` has no `usesCleartextTraffic` override and
+  `Info.plist` has no `NSAllowsArbitraryLoads`, so both platforms enforce
+  that by default.
+- **Permission usage strings** - every permission this app actually
+  requests (location, background location, camera) has a real,
+  human-readable `NSLocationWhenInUseUsageDescription`/
+  `NSLocationAlwaysAndWhenInUseUsageDescription`/`NSCameraUsageDescription`
+  in `Info.plist` explaining why - a missing one is an instant App Store
+  rejection the moment the permission prompt would fire.
+- **No secrets shipped in Dart code** - the only credential embedded in
+  the compiled app is the Supabase **anon** key, which is meant to ship
+  in every client (Supabase's whole security model puts the real
+  boundary at RLS, not at hiding this key - see **How the data model
+  works** below). The Paystack **secret** key and the Supabase **service
+  role** key never appear in `lib/` - both live only in Supabase Edge
+  Function secrets, server-side.
+
 ### Hosting the web build
 
 Vendor and customer links (`/vendor`, `/v/<code>`) only make sense

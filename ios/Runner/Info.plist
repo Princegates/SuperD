@@ -26,6 +26,16 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>GoogleMapsAPIKey</key>
 	<string>$(GOOGLE_MAPS_API_KEY)</string>
+	<!-- Declares upfront that this app only uses standard HTTPS/TLS
+	     encryption (Supabase, Paystack, Google Maps/Directions - all
+	     over plain HTTPS, no custom or proprietary cryptography), which
+	     is exempt from the U.S. export-compliance reporting requirement
+	     and most countries' import-encryption-registration rules. Without
+	     this key, App Store Connect asks the export-compliance question
+	     by hand on every single build upload; with it, that step is
+	     skipped automatically. -->
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>

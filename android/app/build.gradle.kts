@@ -18,6 +18,23 @@ val localProperties = Properties().apply {
 }
 val mapsApiKey: String = localProperties.getProperty("mapsApiKey", "")
 
+// Release signing: read from android/key.properties (gitignored, never
+// committed - copy key.properties.example and fill in your own upload
+// keystore). Google Play refuses a production upload signed with the
+// debug key anyway, and that key is a real weak point even for internal
+// testing - it's the same well-known keystore/password Flutter ships to
+// every developer, so anything signed with it could be resigned by
+// anyone. Falls back to debug signing only when key.properties doesn't
+// exist yet, so `flutter build apk --release`/`flutter run --release`
+// still work before a real keystore is set up - never rely on that
+// fallback for an actual Play Store or App Store-adjacent release build.
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+val hasReleaseKeystore = keystorePropertiesFile.exists()
+if (hasReleaseKeystore) {
+    keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
+}
+
 android {
     namespace = "com.superd.superd"
     compileSdk = flutter.compileSdkVersion
@@ -45,11 +62,24 @@ android {
         manifestPlaceholders["mapsApiKey"] = mapsApiKey
     }
 
+    signingConfigs {
+        if (hasReleaseKeystore) {
+            create("release") {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storeFile = file(keystoreProperties.getProperty("storeFile"))
+                storePassword = keystoreProperties.getProperty("storePassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (hasReleaseKeystore) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 }

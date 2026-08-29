@@ -1,0 +1,7 @@
+# Copy this file to android/key.properties (gitignored, never committed)
+# and fill in your own upload keystore's details. See the README's
+# "Android release signing" section for how to create one.
+storePassword=YOUR_KEYSTORE_PASSWORD
+keyPassword=YOUR_KEY_PASSWORD
+keyAlias=upload
+storeFile=upload-keystore.jks

@@ -3,6 +3,11 @@ env.json
 .env.local
 android/local.properties
 ios/Flutter/ApiKeys.xcconfig
+
+# Release signing - never commit a real keystore or its passwords
+android/key.properties
+*.jks
+*.keystore
 # Miscellaneous
 *.class
 *.log

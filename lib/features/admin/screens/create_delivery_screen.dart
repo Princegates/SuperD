@@ -172,9 +172,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
           .createDelivery(
             customerName: _customerNameController.text.trim(),
             customerPhone: _customerPhoneController.text.trim(),
-            customerEmail: _customerEmailController.text.trim().isEmpty
-                ? null
-                : _customerEmailController.text.trim(),
+            customerEmail: _customerEmailController.text.trim(),
             pickupAddress: _pickupController.text.trim(),
             pickupLat: _pickupLat,
             pickupLng: _pickupLng,
@@ -268,8 +266,13 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                   controller: _customerEmailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    labelText: 'Customer email (optional)',
+                    labelText: 'Customer email',
+                    helperText:
+                        'Lets repeat orders notify by email instead of SMS',
                   ),
+                  validator: (v) => (v == null || !v.contains('@'))
+                      ? 'Enter a valid email'
+                      : null,
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Pickup'),

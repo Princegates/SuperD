@@ -4,15 +4,17 @@
 // setup steps:
 //
 //   1. The moment a delivery is created, the CUSTOMER gets their tracking
-//      link (`${APP_BASE_URL}/t/<tracking_code>`) by SMS, and by email
-//      too if they gave one on the request form - so they have a way
-//      back to it even if they close the page they submitted from.
+//      link (`${APP_BASE_URL}/t/<tracking_code>`) by SMS (first delivery
+//      only - see below) and by email - so they have a way back to it
+//      even if they close the page they submitted from. The VENDOR gets
+//      a new-order notice the same way.
 //   2. Whenever a driver is assigned (at creation, if auto-assigned
 //      immediately, or later - including a reassignment after case 3
 //      below), both the CUSTOMER and the VENDOR get the rider's name and
-//      phone number - SMS always, plus email wherever an address is on
-//      file. Every message includes the business's support number so
-//      either side has someone to call about a problem.
+//      phone number - SMS on their first delivery only, email always
+//      wherever an address is on file. Every message includes the
+//      business's support number so either side has someone to call
+//      about a problem.
 //   3. Whenever a driver cancels a delivery already under way
 //      (picked_up/in_transit -> assigned/pending with a different
 //      driver - see driver_cancel_delivery() in
@@ -20,6 +22,14 @@
 //      alert by email/SMS naming the delivery, the driver who cancelled,
 //      and the outcome (reassigned to someone else, or unassigned and
 //      needs manual dispatch).
+//
+// SMS is the expensive leg of all this (Twilio bills per message; email
+// via Resend is effectively free at this volume) - so it's sent only to a
+// CUSTOMER's or VENDOR's first-ever delivery. From their second delivery
+// on, they get email only (see isRepeatCustomer/isRepeatVendor below) -
+// unless they somehow have no email on file (only possible for a
+// customer/vendor predating email being made required on both request
+// forms), in which case SMS keeps going out rather than going silent.
 //
 // Runs with the service-role key, same reasoning as the other admin-*
 // functions. Deploy with `supabase functions deploy notify-delivery-events`.
@@ -91,6 +101,34 @@ async function sendEmail(
     console.error("sendEmail: fetch to Resend failed -", e);
     return false;
   }
+}
+
+// deno-lint-ignore no-explicit-any
+async function isRepeatCustomer(
+  admin: any,
+  phone: string,
+  excludeDeliveryId: string,
+): Promise<boolean> {
+  const { count } = await admin
+    .from("deliveries")
+    .select("id", { count: "exact", head: true })
+    .eq("customer_phone", phone)
+    .neq("id", excludeDeliveryId);
+  return (count ?? 0) > 0;
+}
+
+// deno-lint-ignore no-explicit-any
+async function isRepeatVendor(
+  admin: any,
+  vendorId: string,
+  excludeDeliveryId: string,
+): Promise<boolean> {
+  const { count } = await admin
+    .from("deliveries")
+    .select("id", { count: "exact", head: true })
+    .eq("vendor_id", vendorId)
+    .neq("id", excludeDeliveryId);
+  return (count ?? 0) > 0;
 }
 
 Deno.serve(async (req) => {
@@ -192,6 +230,21 @@ Deno.serve(async (req) => {
     const appBaseUrl = Deno.env.get("APP_BASE_URL");
     const base = appBaseUrl ? appBaseUrl.replace(/\/+$/, "") : null;
 
+    // See the header comment - SMS only goes to a customer's/vendor's
+    // first-ever delivery; from the second one on it's email only,
+    // falling back to SMS if there's genuinely no email on file. Computed
+    // once and reused for both the tracking/new-order notice below and
+    // the driver-assigned notice - both concern the same customer/vendor,
+    // so their repeat-or-not status doesn't change between the two.
+    const repeatCustomer = delivery.customer_phone
+      ? await isRepeatCustomer(admin, delivery.customer_phone, deliveryId)
+      : false;
+    const repeatVendor = vendor && delivery.vendor_id
+      ? await isRepeatVendor(admin, delivery.vendor_id, deliveryId)
+      : false;
+    const smsCustomer = !repeatCustomer || !delivery.customer_email;
+    const smsVendor = !repeatVendor || !vendor?.email;
+
     const results: Record<string, boolean> = {};
 
     // 1. Tracking link - once, at creation, regardless of whether a
@@ -199,7 +252,7 @@ Deno.serve(async (req) => {
     if (isInsert) {
       const trackingLink = base ? `${base}/t/${delivery.tracking_code}` : null;
 
-      if (delivery.customer_phone) {
+      if (delivery.customer_phone && smsCustomer) {
         results.trackingSms = await sendSms(
           delivery.customer_phone,
           trackingLink
@@ -228,14 +281,15 @@ Deno.serve(async (req) => {
       // 1b. New order notice - to the vendor themselves, so they hear
       // about it the same instant the customer does rather than only
       // once a driver happens to be assigned. Every vendor has a phone
-      // on file (required at registration), so this always attempts SMS;
-      // email is sent too wherever an address is on file.
+      // on file (required at registration) - SMS goes out for their
+      // first order only (smsVendor), email always goes out wherever an
+      // address is on file.
       if (vendor) {
         const vendorOrdersLink = base
           ? `${base}/vendor-orders/${vendor.orders_code}`
           : null;
 
-        if (vendor.phone) {
+        if (vendor.phone && smsVendor) {
           results.newOrderVendorSms = await sendSms(
             vendor.phone,
             `SuperD: new order ${delivery.tracking_code} from ` +
@@ -282,7 +336,7 @@ Deno.serve(async (req) => {
       const driverLine =
         `${driver.full_name}, ${driver.phone ?? "phone not on file"}`;
 
-      if (delivery.customer_phone) {
+      if (delivery.customer_phone && smsCustomer) {
         results.assignedCustomerSms = await sendSms(
           delivery.customer_phone,
           `Hi ${delivery.customer_name}, your SuperD delivery ` +
@@ -309,7 +363,7 @@ Deno.serve(async (req) => {
           `,
         );
       }
-      if (vendor?.phone) {
+      if (vendor?.phone && smsVendor) {
         results.assignedVendorSms = await sendSms(
           vendor.phone,
           `SuperD: order ${delivery.tracking_code} for ` +

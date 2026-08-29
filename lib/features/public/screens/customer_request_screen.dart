@@ -218,9 +218,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                 : _packageController.text.trim(),
             roadDistanceKm: _roadDistanceKm,
             scheduledAt: _scheduledAt,
-            customerEmail: _emailController.text.trim().isEmpty
-                ? null
-                : _emailController.text.trim(),
+            customerEmail: _emailController.text.trim(),
             vehicleTypeId: _vehicleTypeId,
           );
       if (mounted) setState(() => _quote = quote);
@@ -294,7 +292,15 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
             TextFormField(
               controller: _emailController,
               keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(labelText: 'Email (optional)'),
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                helperText:
+                    "So we can reach you by email on repeat orders instead "
+                    'of SMS',
+              ),
+              validator: (v) => (v == null || !v.contains('@'))
+                  ? 'Enter a valid email'
+                  : null,
             ),
             const SizedBox(height: 14),
             AddressAutocompleteField(

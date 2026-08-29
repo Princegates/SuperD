@@ -1561,9 +1561,9 @@ moments in a delivery's life - both by SMS via
 
 1. **The instant a delivery is created**, the customer gets their
    **tracking link** (`https://your-app.example/t/<tracking_code>`) by
-   SMS, and by email too if they gave one on the request form (an
-   optional field - see `deliveries.customer_email`,
-   `0034_notifications_tracking_ratings.sql`) - so they have a way back
+   SMS and by email (`deliveries.customer_email` - required on both the
+   public request form and the dispatcher's Create Delivery form, see
+   **SMS only on the first delivery** below) - so they have a way back
    to it even if they close the page they submitted from. In the same
    instant, if the order came in through a vendor's public link, the
    **vendor** gets a new-order notice too - the customer's name, the
@@ -1597,6 +1597,24 @@ as a single **Supabase Database Webhook** on the `deliveries` table, so
 they fire no matter which screen or code path created the delivery or
 changed `assigned_driver_id` - there's nothing to wire up per-screen, and
 nothing extra to remember if this logic changes later.
+
+### SMS only on the first delivery
+
+Twilio bills per SMS; Resend email is effectively free at this volume -
+so notifications 1 and 2 above send SMS only to a customer's or
+vendor's **first-ever delivery** (`isRepeatCustomer`/`isRepeatVendor` in
+`notify-delivery-events`, checking whether `deliveries.customer_phone`/
+`vendor_id` has any other row on record). From their second delivery
+on, they get email only. This is why customer email became a required
+field on both the public request form and the dispatcher's Create
+Delivery form - previously optional - so a repeat customer always has
+somewhere for that notification to go; a vendor's email was already
+required at registration. If a customer/vendor somehow still has no
+email on file (only possible for one that predates this change), SMS
+keeps going out rather than the notification going silent. Notification
+3 (the admin cancellation alert) is unaffected - going to a fixed
+internal number/address, not a customer or vendor, it was never a
+per-user recurring cost.
 
 ### 1. Get a Twilio number
 

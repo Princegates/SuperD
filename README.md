@@ -968,14 +968,21 @@ cancellation** below) - except there the reference point is the
 with them), not the vendor.
 
 The **cap** (`app_settings.zone_auto_assign_cap` - name unchanged, no
-longer zone-scoped; a super admin sets 3-20 from **Console > Settings**,
-default 5) is deliberately not "assign everything automatically
-forever" - once a driver already holds that many active deliveries
-(anywhere, not per zone), the *automatic* algorithm skips them in favour
-of the next-closest eligible driver; a dispatcher can still assign them
-by hand past the cap any time they judge that's the right call. It's a
-ceiling on how much the system decides on its own, not a ceiling on a
-driver's workload.
+longer zone-scoped; a super admin sets 3-20 from **Console > Settings**
+as "Simultaneous deliveries per driver", default 5) is a hard ceiling on
+a driver's workload, not just a hint to the automatic matcher: once a
+driver already holds that many active deliveries (anywhere, not per
+zone), the *automatic* algorithm skips them in favour of the
+next-closest eligible driver, AND a dispatcher assigning them by hand -
+or creating a delivery already assigned to them - is rejected the same
+way, enforced inside `enforce_delivery_update()`/`enforce_delivery_insert()`
+(the same before-triggers that already backstop the frozen-driver and
+unpaid-commission rules against every write to `assigned_driver_id` -
+see `0048_manual_assignment_cap.sql`) so it can't be bypassed by any
+code path that writes that column. The rejection surfaces as the
+trigger's own error message wherever it's triggered from (the delivery
+detail screen's driver dropdown, or creating a delivery with a driver
+pre-selected).
 
 This is just what happens automatically when nobody has to step in — a
 dispatcher can always reassign an auto-assigned delivery afterward, the

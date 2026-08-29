@@ -598,7 +598,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Automatic assignment cap',
+                      'Simultaneous deliveries per driver',
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 15,
@@ -606,15 +606,19 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'A customer-submitted request is assigned '
-                      "automatically to whichever online driver is "
+                      'The most active deliveries any one driver can carry '
+                      'at once. A customer-submitted request is assigned '
+                      'automatically to whichever online driver is '
                       'physically closest to the vendor right now (live '
-                      'GPS location) - but only up to this many active '
-                      'deliveries at once. Once a driver hits the cap, '
-                      "they're skipped in favour of the next-closest one; "
-                      'if everyone eligible is at the cap, the request '
-                      'waits at Pending for a dispatcher instead. Must be '
-                      'between 3 and 20.',
+                      'GPS location) and under this cap - once a driver '
+                      "hits it, they're skipped in favour of the "
+                      'next-closest one, and if everyone eligible is at '
+                      'the cap, the request waits at Pending for a '
+                      'dispatcher instead. This is a hard limit, not just '
+                      "for automatic matching - a dispatcher assigning a "
+                      "driver by hand (or creating a delivery already "
+                      "assigned to someone) is blocked the same way once "
+                      "that driver is at the cap. Must be between 3 and 20.",
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
                     const SizedBox(height: 16),

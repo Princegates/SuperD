@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -214,6 +215,11 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
       }
 
       if (mounted) context.pop();
+    } on PostgrestException catch (e) {
+      // The pre-assigned driver may be at the cap on active deliveries -
+      // see enforce_delivery_insert() in 0048_manual_assignment_cap.sql -
+      // surface that reason rather than a generic failure.
+      setState(() => _errorMessage = e.message);
     } catch (e) {
       setState(
         () => _errorMessage = 'Could not create delivery. Please try again.',

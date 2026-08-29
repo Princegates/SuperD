@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -210,81 +211,7 @@ class _DetailBody extends ConsumerWidget {
         const SizedBox(height: 16),
         PaymentCard(deliveryId: delivery.id, canEdit: true),
         const SizedBox(height: 16),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Text(
-                      'Assigned driver',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        color: Colors.grey.shade700,
-                      ),
-                    ),
-                    if (delivery.autoAssigned &&
-                        delivery.assignedDriverId != null) ...[
-                      const SizedBox(width: 8),
-                      Icon(Icons.bolt, size: 14, color: AppTheme.neutral),
-                      const SizedBox(width: 2),
-                      Text(
-                        'Auto-assigned by the system',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: AppTheme.neutral,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String?>(
-                  initialValue: delivery.assignedDriverId,
-                  decoration: const InputDecoration(labelText: 'Driver'),
-                  items: [
-                    const DropdownMenuItem<String?>(
-                      value: null,
-                      child: Text('Unassigned'),
-                    ),
-                    for (final driver in drivers)
-                      DropdownMenuItem<String?>(
-                        value: driver.id,
-                        child: Text(driver.displayName),
-                      ),
-                  ],
-                  onChanged: delivery.status == DeliveryStatus.cancelled
-                      ? null
-                      : (value) {
-                          ref
-                              .read(deliveryRepositoryProvider)
-                              .assignDriver(
-                                deliveryId: delivery.id,
-                                driverId: value,
-                              );
-                          final driverName = value == null
-                              ? 'Unassigned'
-                              : drivers
-                                    .firstWhere((d) => d.id == value)
-                                    .displayName;
-                          logAuditEvent(
-                            ref.read(supabaseClientProvider),
-                            action: 'driver_assigned',
-                            entityType: 'delivery',
-                            entityId: delivery.id,
-                            summary:
-                                'Set driver for delivery '
-                                '#${delivery.trackingCode} to $driverName',
-                          );
-                        },
-                ),
-              ],
-            ),
-          ),
-        ),
+        _AssignedDriverCard(delivery: delivery, drivers: drivers),
         const SizedBox(height: 16),
         Card(
           child: Padding(
@@ -392,6 +319,121 @@ class _DetailBody extends ConsumerWidget {
             label: const Text('Cancel delivery'),
           ),
       ],
+    );
+  }
+}
+
+/// The driver dropdown on a delivery's detail page. A `ConsumerStatefulWidget`
+/// rather than folded into [_DetailBody] because a rejected reassignment (see
+/// [_assignDriver]) needs to force the dropdown to discard whatever the user
+/// just picked and re-show the delivery's actual, unchanged driver -
+/// `DropdownButtonFormField` keeps its own selection internally once picked,
+/// it doesn't re-read `initialValue` on every rebuild, so [_resetCount] gives
+/// it a new key to force that.
+class _AssignedDriverCard extends ConsumerStatefulWidget {
+  const _AssignedDriverCard({required this.delivery, required this.drivers});
+
+  final Delivery delivery;
+  final List<Profile> drivers;
+
+  @override
+  ConsumerState<_AssignedDriverCard> createState() =>
+      _AssignedDriverCardState();
+}
+
+class _AssignedDriverCardState extends ConsumerState<_AssignedDriverCard> {
+  int _resetCount = 0;
+
+  /// Sets or clears the delivery's driver. Can be rejected server-side -
+  /// see the cap check in `enforce_delivery_update()`
+  /// (`0048_manual_assignment_cap.sql`) - if the target driver already
+  /// has `app_settings.zone_auto_assign_cap` active deliveries.
+  Future<void> _assignDriver(String? driverId) async {
+    try {
+      await ref
+          .read(deliveryRepositoryProvider)
+          .assignDriver(deliveryId: widget.delivery.id, driverId: driverId);
+    } on PostgrestException catch (e) {
+      if (mounted) {
+        setState(() => _resetCount++);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+      return;
+    }
+
+    final driverName = driverId == null
+        ? 'Unassigned'
+        : widget.drivers.firstWhere((d) => d.id == driverId).displayName;
+    await logAuditEvent(
+      ref.read(supabaseClientProvider),
+      action: 'driver_assigned',
+      entityType: 'delivery',
+      entityId: widget.delivery.id,
+      summary:
+          'Set driver for delivery #${widget.delivery.trackingCode} to '
+          '$driverName',
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final delivery = widget.delivery;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'Assigned driver',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+                if (delivery.autoAssigned &&
+                    delivery.assignedDriverId != null) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.bolt, size: 14, color: AppTheme.neutral),
+                  const SizedBox(width: 2),
+                  Text(
+                    'Auto-assigned by the system',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.neutral,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+            const SizedBox(height: 10),
+            DropdownButtonFormField<String?>(
+              key: ValueKey(_resetCount),
+              initialValue: delivery.assignedDriverId,
+              decoration: const InputDecoration(labelText: 'Driver'),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text('Unassigned'),
+                ),
+                for (final driver in widget.drivers)
+                  DropdownMenuItem<String?>(
+                    value: driver.id,
+                    child: Text(driver.displayName),
+                  ),
+              ],
+              onChanged: delivery.status == DeliveryStatus.cancelled
+                  ? null
+                  : _assignDriver,
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

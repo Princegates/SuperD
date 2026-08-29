@@ -61,13 +61,19 @@ class AppSettings {
   /// either way).
   final int? freeDayDeliveryThreshold;
 
-  /// Max active deliveries a driver can hold before automatic assignment
-  /// stops picking them (in favour of the next-closest eligible driver)
-  /// and a new request waits for a dispatcher instead once everyone's at
-  /// the cap - see `submit_delivery_request()`/`driver_cancel_delivery()`
-  /// in `0044_proximity_based_auto_assignment.sql`. No longer scoped to a
-  /// zone - matching itself is now purely proximity-based (live GPS
-  /// distance to the vendor), zones only affect pricing. Always 3-20.
+  /// Max active deliveries a driver can hold at once - a hard cap, not
+  /// just a hint to the automatic matcher. Automatic assignment stops
+  /// picking a driver in favour of the next-closest eligible one once
+  /// they're at the cap (falling to Pending for a dispatcher if everyone
+  /// eligible is) - see `submit_delivery_request()`/
+  /// `driver_cancel_delivery()` in
+  /// `0044_proximity_based_auto_assignment.sql`. A dispatcher assigning a
+  /// driver by hand, or creating a delivery already assigned to someone,
+  /// is blocked the same way, inside `enforce_delivery_update()`/
+  /// `enforce_delivery_insert()` - see `0048_manual_assignment_cap.sql`.
+  /// No longer scoped to a zone - matching itself is purely
+  /// proximity-based (live GPS distance to the vendor), zones only
+  /// affect pricing. Always 3-20.
   final int zoneAutoAssignCap;
 
   /// How close (km) a delivery's drop-off must be to a zone's pinned

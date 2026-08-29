@@ -61,11 +61,13 @@ class AppSettings {
   /// either way).
   final int? freeDayDeliveryThreshold;
 
-  /// Max active same-zone deliveries a driver can hold before automatic
-  /// assignment stops picking them and a new request waits for a
-  /// dispatcher instead - see `detect_zone_for_point()`/
-  /// `submit_delivery_request()` in
-  /// `0033_zone_auto_recognition_and_cap.sql`. Always 3-20.
+  /// Max active deliveries a driver can hold before automatic assignment
+  /// stops picking them (in favour of the next-closest eligible driver)
+  /// and a new request waits for a dispatcher instead once everyone's at
+  /// the cap - see `submit_delivery_request()`/`driver_cancel_delivery()`
+  /// in `0044_proximity_based_auto_assignment.sql`. No longer scoped to a
+  /// zone - matching itself is now purely proximity-based (live GPS
+  /// distance to the vendor), zones only affect pricing. Always 3-20.
   final int zoneAutoAssignCap;
 
   /// How close (km) a delivery's drop-off must be to a zone's pinned

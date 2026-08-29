@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../models/delivery.dart';
@@ -61,11 +62,15 @@ final unpaidDriverIdsTodayProvider = FutureProvider<Set<String>>((ref) {
       .fetchUnpaidDriverIdsToday();
 });
 
-/// Drivers ordered best-suited-first for a delivery in [targetZoneId]:
-/// same-zone drivers before everyone else, and within each group whoever
-/// currently has the fewest active jobs first. No external AI call - this
-/// is a plain, free, instant calculation, which is what "suggest the best
-/// rider" actually reduces to here (zone match + current workload).
+/// Drivers ordered best-suited-first for a delivery picked up at
+/// [pickup] - same idea, same 15-minute staleness cutoff
+/// ([Profile.hasRecentLocation]), as the automatic assignment algorithm
+/// itself (see `0044_proximity_based_auto_assignment.sql`): whoever has
+/// a recent live location and is physically closest to that point ranks
+/// first; drivers with no current position trail behind everyone who
+/// has one. Within each of those two groups, whoever currently has the
+/// fewest active jobs comes first. No external AI call - this is a
+/// plain, free, instant calculation.
 ///
 /// Only active, unfrozen, paid-up drivers are considered - a self-signed-up
 /// driver pending approval (or one a dispatcher has deactivated) can't be
@@ -73,38 +78,58 @@ final unpaidDriverIdsTodayProvider = FutureProvider<Set<String>>((ref) {
 /// unpaid commission) - see `is_frozen` in
 /// `0025_driver_categories_and_status.sql` - nor one who owes today's
 /// daily fee.
-final rankedDriversProvider = Provider.family<List<Profile>, String?>((
-  ref,
-  targetZoneId,
-) {
-  final unpaidIds = ref.watch(unpaidDriverIdsTodayProvider).valueOrNull ?? {};
-  final drivers = (ref.watch(driversListProvider).valueOrNull ?? [])
-      .where((d) => d.isActive && !d.isFrozen && !unpaidIds.contains(d.id))
-      .toList();
-  final deliveries = ref.watch(allDeliveriesProvider).valueOrNull ?? [];
+final rankedDriversProvider =
+    Provider.family<List<Profile>, ({double? pickupLat, double? pickupLng})>((
+      ref,
+      pickup,
+    ) {
+      final unpaidIds =
+          ref.watch(unpaidDriverIdsTodayProvider).valueOrNull ?? {};
+      final drivers = (ref.watch(driversListProvider).valueOrNull ?? [])
+          .where((d) => d.isActive && !d.isFrozen && !unpaidIds.contains(d.id))
+          .toList();
+      final deliveries = ref.watch(allDeliveriesProvider).valueOrNull ?? [];
 
-  final activeCounts = <String, int>{};
-  for (final delivery in deliveries) {
-    final driverId = delivery.assignedDriverId;
-    if (driverId == null) continue;
-    if (delivery.status == DeliveryStatus.delivered ||
-        delivery.status == DeliveryStatus.cancelled) {
-      continue;
-    }
-    activeCounts.update(driverId, (count) => count + 1, ifAbsent: () => 1);
-  }
+      final activeCounts = <String, int>{};
+      for (final delivery in deliveries) {
+        final driverId = delivery.assignedDriverId;
+        if (driverId == null) continue;
+        if (delivery.status == DeliveryStatus.delivered ||
+            delivery.status == DeliveryStatus.cancelled) {
+          continue;
+        }
+        activeCounts.update(driverId, (count) => count + 1, ifAbsent: () => 1);
+      }
 
-  final ranked = [...drivers];
-  ranked.sort((a, b) {
-    final aInZone = targetZoneId != null && a.zoneId == targetZoneId;
-    final bInZone = targetZoneId != null && b.zoneId == targetZoneId;
-    if (aInZone != bInZone) return aInZone ? -1 : 1;
+      const distanceCalc = Distance();
+      double? distanceKmTo(Profile driver) {
+        final pickupLat = pickup.pickupLat;
+        final pickupLng = pickup.pickupLng;
+        if (pickupLat == null || pickupLng == null) return null;
+        if (!driver.hasRecentLocation) return null;
+        return distanceCalc.as(
+          LengthUnit.Kilometer,
+          LatLng(pickupLat, pickupLng),
+          LatLng(driver.lastLat!, driver.lastLng!),
+        );
+      }
 
-    final aCount = activeCounts[a.id] ?? 0;
-    final bCount = activeCounts[b.id] ?? 0;
-    if (aCount != bCount) return aCount.compareTo(bCount);
+      final ranked = [...drivers];
+      ranked.sort((a, b) {
+        final aDist = distanceKmTo(a);
+        final bDist = distanceKmTo(b);
+        if ((aDist == null) != (bDist == null)) {
+          return aDist == null ? 1 : -1;
+        }
+        if (aDist != null && bDist != null && aDist != bDist) {
+          return aDist.compareTo(bDist);
+        }
 
-    return a.displayName.compareTo(b.displayName);
-  });
-  return ranked;
-});
+        final aCount = activeCounts[a.id] ?? 0;
+        final bCount = activeCounts[b.id] ?? 0;
+        if (aCount != bCount) return aCount.compareTo(bCount);
+
+        return a.displayName.compareTo(b.displayName);
+      });
+      return ranked;
+    });

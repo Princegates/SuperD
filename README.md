@@ -88,6 +88,10 @@ supabase/
     0038_daily_fee_tier_overrides.sql          lets a super admin pin a specific driver to one daily-fee tier, overriding the automatic delivery-count calculation for them
     0039_customer_live_tracking.sql            adds the driver's live position and the drop-off point to get_delivery_by_tracking_code(), so a customer's own tracking page can show a live map too, same as a vendor's orders page already could
     0040_zone_detection_radius_and_override.sql   moves the zone-detection radius into app_settings (was hardcoded) and lets a dispatcher/super admin correct a specific delivery's zone by hand
+    0041_driver_commission_toggle.sql          master on/off switch for driver commission (both the flat fee and the tiered daily fee), for testing without losing the configured amounts
+    0042_auto_assigned_indicator.sql           adds deliveries.auto_assigned, set when a driver was picked automatically rather than by a dispatcher
+    0043_fix_auto_assigned_signature_mismatch.sql   fixes 0042 rewriting the wrong overload of submit_delivery_request() (missing the customer_email parameter added in 0034)
+    0044_proximity_based_auto_assignment.sql   automatic driver matching switches from a driver's manually-set zone_id to live GPS proximity to the vendor (or, for a mid-trip hand-off, to the cancelling driver's own position)
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -910,7 +914,7 @@ Zones**) within a configurable radius (**Console > Settings > Zone
 detection radius**, 1-50km, default 5 - see
 `0040_zone_detection_radius_and_override.sql`). If one's close enough,
 that location's zone is used for the delivery - for pricing (any
-zone-specific rate override) and for auto-assignment (below) alike. If
+zone-specific rate override) and reporting. If
 nothing is close enough (or the request has no coordinates at all), it
 falls back to the vendor's own zone; if that's also unset, the delivery
 simply has no zone, same as before.
@@ -925,32 +929,49 @@ from its detail screen in the Console - a plain "Zone" dropdown next to
 touch its driver assignment; it only affects driver-suggestion matching
 and zone reporting going forward.
 
-### Automatic same-zone driver assignment
+### Automatic proximity-based driver assignment
 
 A customer-submitted request doesn't need a dispatcher at all when
-someone's available: `submit_delivery_request` looks for a driver in the
-resolved zone (see above) who is **online**, **active**, **not frozen**,
-**paid up on today's commission**, and **under the automatic-assignment
-cap**, and assigns them immediately (status goes straight to `assigned`,
-same as a dispatcher assigning one by hand) instead of sitting at
-`pending`.
+someone's available: `submit_delivery_request`
+(`0044_proximity_based_auto_assignment.sql`) looks for whichever driver
+is **online**, **active**, **not frozen**, **paid up on today's
+commission**, **under the automatic-assignment cap**, and has shared a
+**live GPS location within the last 15 minutes** (`profiles.last_lat`/
+`last_lng`, pushed every ~15s by the driver's own app while it's open -
+see **Live driver location** below), then picks whoever's **physically
+closest to the vendor's pickup point** right now (plain haversine
+distance). It assigns them immediately (status goes straight to
+`assigned`, same as a dispatcher assigning one by hand) instead of
+sitting at `pending`.
 
-Among the drivers who qualify, it specifically prefers whoever **already
-has the most active deliveries in that same zone** — so several requests
-from the same area consolidate onto one driver's route instead of
-spreading across everyone at once — tie-broken by whoever currently has
-the lightest total workload (for a fair start when nobody in the zone has
-any yet). If nobody in the zone is online (or everyone's at the cap), the
-delivery lands at `pending` exactly as before, for a dispatcher to assign
-by hand.
+This used to match on a driver's manually-set `zone_id` instead - dropped
+because it depends on a dispatcher remembering to set (and keep current)
+every driver's zone by hand, which silently breaks automatic assignment
+entirely with no obvious symptom the moment it's missed. Live location is
+already being collected for the Live Map/customer tracking regardless, so
+proximity needs no extra per-driver setup and picks whoever's genuinely
+nearest rather than whoever happens to carry the right zone tag. A
+driver's `zone_id` still matters for other things (pricing via the
+delivery's own resolved zone, reporting) - just not for *which* driver
+gets picked anymore. If the vendor has no pinned coordinates, or nobody
+qualifies, the delivery lands at `pending` exactly as before, for a
+dispatcher to assign by hand.
 
-The **cap** (`app_settings.zone_auto_assign_cap`, a super admin sets
-3-20 from **Console > Settings**, default 5) is deliberately not "assign
-everything automatically forever" - once a driver already holds that
-many active deliveries in a zone, the *automatic* algorithm stops
-choosing them; a dispatcher can still assign them by hand past the cap
-any time they judge that's the right call. It's a ceiling on how much
-the system decides on its own, not a ceiling on a driver's workload.
+The same proximity rule applies when a driver already mid-trip cancels
+and gets auto-replaced (`driver_cancel_delivery`, see **Driver
+cancellation** below) - except there the reference point is the
+*cancelling* driver's own last known position (the package is already
+with them), not the vendor.
+
+The **cap** (`app_settings.zone_auto_assign_cap` - name unchanged, no
+longer zone-scoped; a super admin sets 3-20 from **Console > Settings**,
+default 5) is deliberately not "assign everything automatically
+forever" - once a driver already holds that many active deliveries
+(anywhere, not per zone), the *automatic* algorithm skips them in favour
+of the next-closest eligible driver; a dispatcher can still assign them
+by hand past the cap any time they judge that's the right call. It's a
+ceiling on how much the system decides on its own, not a ceiling on a
+driver's workload.
 
 This is just what happens automatically when nobody has to step in — a
 dispatcher can always reassign an auto-assigned delivery afterward, the
@@ -1000,7 +1021,7 @@ in the database (see `enforce_delivery_update()`/`enforce_delivery_insert()`
 and `driver_daily_fee_paid()`/`driver_daily_fee_balance()` in
 `0037_tiered_daily_fee.sql`) that fires no matter how the assignment is
 attempted - a dispatcher picking them manually, or the automatic
-same-zone assignment inside `submit_delivery_request`. The Console's
+proximity-based assignment inside `submit_delivery_request`. The Console's
 driver picker also filters them out up front, so a dispatcher sees the
 restriction before hitting the error, not after.
 
@@ -1118,8 +1139,8 @@ have a **When** section - "As soon as possible" (the historical default,
 `scheduled_at` left `null`) or "Schedule for later", which opens a
 date/time picker. A scheduled request still gets priced and tracked
 exactly the same way; the only behavioral difference is automatic
-same-zone driver assignment (see above) skips anything scheduled more
-than 15 minutes out, so it doesn't get handed to whoever happens to be
+proximity-based driver assignment (see above) skips anything scheduled
+more than 15 minutes out, so it doesn't get handed to whoever happens to be
 online right now for a job that isn't ready to start - it sits at
 `pending` for a dispatcher to assign closer to the time.
 
@@ -1162,11 +1183,12 @@ business it was. A dispatcher/super admin is unaffected either way; see
 - **Cancel trip** - in the "⋮" menu, only once the driver has actually
   accepted the job (`picked_up` or `in_transit`) - for when they can't
   finish it (a breakdown, an emergency, ...). Prompts for confirmation and
-  an optional reason, then tries to hand the delivery straight to another
-  available driver in the same zone (same eligibility rules as
-  auto-assignment on a new request - online, active, not frozen, paid up on
-  today's fee, under the zone's cap); if nobody qualifies, it falls back to
-  `pending` for a dispatcher to assign by hand. Either way, an admin can
+  an optional reason, then tries to hand the delivery straight to whichever
+  other available driver is physically closest to *this* driver's own last
+  known position (same eligibility rules as auto-assignment on a new
+  request - online, active, not frozen, paid up on today's fee, under the
+  cap, live location within the last 15 minutes); if nobody qualifies, it
+  falls back to `pending` for a dispatcher to assign by hand. Either way, an admin can
   still reassign it themselves at any point from the delivery detail
   screen's driver dropdown, same as any other delivery - this doesn't lock
   anything in.
@@ -1231,9 +1253,10 @@ Three more per-driver fields, all added in
 - **Online/offline** — a driver's own "available for new deliveries"
   toggle, shown as a bar at the top of their dashboard, and as an
   "Online"/"Offline" badge on their row in **Drivers** so a dispatcher/super
-  admin can see it too. It's also what the zone auto-assignment algorithm
-  (above) checks before handing a driver a new customer request - one
-  who's offline is skipped, same as one who's inactive or frozen.
+  admin can see it too. It's also what the automatic proximity-based
+  assignment algorithm (above) checks before handing a driver a new
+  customer request - one who's offline is skipped, same as one who's
+  inactive or frozen.
 - **Frozen** — a super-admin-only control (e.g. for unpaid commission),
   toggled from **Drivers** with a confirmation prompt and a "Frozen" badge
   on the driver's row. A frozen driver keeps full access to whatever's
@@ -1295,7 +1318,7 @@ moments in a delivery's life - both by SMS via
    vendor hears about the order right away, not only once a driver
    happens to be assigned.
 2. **The moment a driver is assigned** - whether that's immediate
-   (auto-assignment, see **Automatic same-zone driver assignment**
+   (auto-assignment, see **Automatic proximity-based driver assignment**
    above), set later from the delivery detail screen, or an automatic
    reassignment after a cancellation (below) - both the **customer and
    the vendor** get the rider's name and phone number. Every one of
@@ -1491,9 +1514,9 @@ both at once):
   form ("Ordering from *Vendor name*") for them to fill in their name,
   phone, and drop-off location. Pickup is always the vendor's registered
   location, so the customer only ever supplies the drop-off. Depending on
-  driver availability in the vendor's zone it's either auto-assigned
+  whether an eligible driver is nearby it's either auto-assigned
   immediately or lands as `pending` for a dispatcher to assign by hand
-  (see **Automatic same-zone driver assignment** above).
+  (see **Automatic proximity-based driver assignment** above).
 - **The private orders link**, e.g.
   `https://your-app.example/vendor-orders/QK7RS2T9WXYZ` - for the vendor
   themselves only, **never** the customers. It's a live list of every
@@ -1673,11 +1696,13 @@ has no real orders against it yet.
 ### Zones
 
 **Zones** are a fixed, admin-managed list of named areas (e.g. "East Legon",
-"Osu") used to group both drivers and vendors, so a dispatcher assigning a
-driver can see who's actually nearby, price customer requests by area, and
-auto-assign a driver without a dispatcher at all when one's available (see
-**Automatic same-zone driver assignment** above). Assign a driver to one
-from their edit screen in **Drivers**, and a vendor to one when they're
+"Osu") used to group both drivers and vendors - for a vendor, this drives
+per-area pricing (a zone can override the app-wide base fare/rate) and
+reporting; for a driver, it's informational only now (which area they
+generally cover, shown to a dispatcher), no longer what picks who gets a
+new delivery automatically - that's live GPS proximity instead (see
+**Automatic proximity-based driver assignment** above). Assign a driver to
+one from their edit screen in **Drivers**, and a vendor to one when they're
 registered.
 
 Only a super admin can create a zone or change what it covers - that
@@ -1732,13 +1757,21 @@ commission or SMS log entry tied to it stays, with `delivery_id` set to
 
 ### Rider suggestions
 
-When assigning a driver - whether creating a delivery or from an existing
-one's detail screen - drivers already in the same zone as the delivery are
-listed first, then everyone else ordered by who currently has the fewest
-active jobs. Same-zone matches are labelled "(Suggested)". This is a plain,
-free, instant calculation done entirely on-device - not a call to any
-external AI service - since "suggest the best rider" reduces to exactly
-that: proximity (by zone) and current workload.
+When assigning a driver by hand - creating a delivery, or from an
+existing one's detail screen - the "Driver" dropdown
+(`rankedDriversProvider`) lists whoever has a recent live location
+(within 15 minutes - [Profile.hasRecentLocation]) and is physically
+closest to the pickup point first, then everyone else, ordered within
+each group by who currently has the fewest active jobs. Same reference
+point and the same idea as automatic assignment itself (see **Automatic
+proximity-based driver assignment** above) - a plain, free, instant
+calculation done entirely on-device, not a call to any external AI
+service. This replaced an earlier version that ranked same-zone drivers
+first instead, dropped for the same reason automatic assignment itself
+moved off zone_id - it depends on a dispatcher keeping every driver's
+zone current by hand. No explicit "(Suggested)" tag is shown anymore
+(the ordering speaks for itself); a dispatcher who wants to see it on a
+map can also check **Live Map**.
 
 ## Admin dashboard
 

@@ -115,8 +115,9 @@ class SettingsRepository {
   /// Changes the automatic-assignment cap - see
   /// [AppSettings.zoneAutoAssignCap]. The database itself also enforces
   /// 3-to-20 (see `app_settings_zone_auto_assign_cap_check` in
-  /// `0033_zone_auto_recognition_and_cap.sql`), this is just the
-  /// friendlier client-side check.
+  /// `0033_zone_auto_recognition_and_cap.sql`, column name unchanged
+  /// since - just its meaning, see `0044_proximity_based_auto_assignment.sql`),
+  /// this is just the friendlier client-side check.
   Future<void> updateZoneAutoAssignCap(int cap) async {
     if (cap < 3 || cap > 20) {
       throw ArgumentError('The cap must be between 3 and 20.');

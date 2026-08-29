@@ -225,7 +225,9 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final drivers = ref.watch(rankedDriversProvider(null));
+    final drivers = ref.watch(
+      rankedDriversProvider((pickupLat: _pickupLat, pickupLng: _pickupLng)),
+    );
     final currency = ref.watch(appSettingsProvider).valueOrNull?.currency;
 
     return Scaffold(

@@ -99,7 +99,12 @@ class DeliveryDetailAdminScreen extends ConsumerWidget {
           if (delivery == null) {
             return const Center(child: Text('Delivery not found'));
           }
-          final drivers = ref.watch(rankedDriversProvider(delivery.zoneId));
+          final drivers = ref.watch(
+            rankedDriversProvider((
+              pickupLat: delivery.pickupLat,
+              pickupLng: delivery.pickupLng,
+            )),
+          );
           final zones = ref.watch(zonesProvider).valueOrNull ?? [];
           return _DetailBody(delivery: delivery, drivers: drivers, zones: zones);
         },
@@ -248,12 +253,7 @@ class _DetailBody extends ConsumerWidget {
                     for (final driver in drivers)
                       DropdownMenuItem<String?>(
                         value: driver.id,
-                        child: Text(
-                          delivery.zoneId != null &&
-                                  driver.zoneId == delivery.zoneId
-                              ? '${driver.displayName} (Suggested)'
-                              : driver.displayName,
-                        ),
+                        child: Text(driver.displayName),
                       ),
                   ],
                   onChanged: delivery.status == DeliveryStatus.cancelled

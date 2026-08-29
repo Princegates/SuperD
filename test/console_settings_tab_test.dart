@@ -223,18 +223,26 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // The driver-web-login switch sits below the new pricing card, so it
-    // may start outside the ListView's viewport.
+    // The driver-web-login switch sits well below the new pricing/
+    // commission cards, so it may start outside the ListView's viewport -
+    // and there's now a second Switch ("Driver commission") above it, so
+    // scroll to and target this one specifically by its own label rather
+    // than by type alone.
+    final webLoginLabel = find.text('Allow driver sign-in on the web');
     await tester.scrollUntilVisible(
-      find.byType(Switch),
+      webLoginLabel,
       300,
       scrollable: find.byType(Scrollable).first,
     );
+    final webLoginSwitch = find.descendant(
+      of: find.ancestor(of: webLoginLabel, matching: find.byType(Card)),
+      matching: find.byType(Switch),
+    );
 
-    expect(find.byType(Switch), findsOneWidget);
-    expect(tester.widget<Switch>(find.byType(Switch)).value, false);
+    expect(webLoginSwitch, findsOneWidget);
+    expect(tester.widget<Switch>(webLoginSwitch).value, false);
 
-    await tester.tap(find.byType(Switch));
+    await tester.tap(webLoginSwitch);
     await tester.pumpAndSettle();
 
     expect(fakeRepo.lastAllowDriverWebLogin, true);

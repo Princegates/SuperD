@@ -846,13 +846,14 @@ Customer Delivery Price = Base Delivery Fare + Distance Charge
   (`submit_delivery_request`) never uses a distance smaller than the
   straight-line one — a customer can't under-report distance to pay less,
   since that's a physical impossibility for any real route.
-- **Capped at 50** (in the app's currency) — however far the drop-off,
-  this is the most a single delivery is ever quoted or charged. The
-  request form shows this as a low-high **range** (roughly 15% below the
-  capped amount up to it, since a straight-line distance to a freshly
-  dropped pin is necessarily an estimate) via the anonymous-safe
-  `get_delivery_price_estimate()` RPC — refreshed the moment a drop-off
-  location is set, before the customer submits anything.
+- **No upper bound** (`0047_remove_price_cap.sql`) — a single delivery's
+  price is base fare + distance charge, however far the drop-off, with
+  nothing capping it. The request form shows this as a low-high **range**
+  (roughly 15% below the amount up to it, since a straight-line distance
+  to a freshly dropped pin is necessarily an estimate) via the
+  anonymous-safe `get_delivery_price_estimate()` RPC — refreshed the
+  moment a drop-off location is set, before the customer submits
+  anything.
 - The real charge is computed **server-side**, inside
   `submit_delivery_request` — never trusted from the client, and always
   matching the estimate's high end — and a `payments` row is created for

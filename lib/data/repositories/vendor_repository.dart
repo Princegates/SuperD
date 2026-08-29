@@ -241,9 +241,9 @@ class VendorRepository {
 
   /// A low-high price range for [code]'s vendor, optionally narrowed by a
   /// drop-off location - for showing a live estimate on the request form
-  /// before a customer submits. Anonymous-safe, zone-aware, and capped at
-  /// 50 server-side - see `get_delivery_price_estimate()` in
-  /// `0028_road_distance_pricing.sql`. [roadDistanceKm] - see
+  /// before a customer submits. Anonymous-safe, zone-aware, with no upper
+  /// bound - see `get_delivery_price_estimate()` in
+  /// `0047_remove_price_cap.sql`. [roadDistanceKm] - see
   /// [submitDeliveryRequest].
   Future<PriceEstimate> fetchPriceEstimate({
     required String code,

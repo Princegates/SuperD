@@ -143,6 +143,21 @@ class SettingsRepository {
         .eq('id', true);
   }
 
+  /// Changes the automatic-assignment radius - see
+  /// [AppSettings.autoAssignRadiusKm]. The database itself also enforces
+  /// 1-to-100 (see `app_settings_auto_assign_radius_km_check` in
+  /// `0052_high_performer_assignment_fallback.sql`), this is just the
+  /// friendlier client-side check.
+  Future<void> updateAutoAssignRadius(double km) async {
+    if (km < 1 || km > 100) {
+      throw ArgumentError('The radius must be between 1 and 100 km.');
+    }
+    await _client
+        .from(_table)
+        .update({'auto_assign_radius_km': km})
+        .eq('id', true);
+  }
+
   /// Changes (or clears) the support number included in the
   /// driver-assigned SMS/email - see [AppSettings.supportPhone].
   Future<void> updateSupportPhone(String? phone) async {

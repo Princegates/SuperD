@@ -27,6 +27,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   final _freeDayThresholdController = TextEditingController();
   final _zoneAutoAssignCapController = TextEditingController();
   final _zoneDetectionRadiusController = TextEditingController();
+  final _autoAssignRadiusController = TextEditingController();
   final _supportPhoneController = TextEditingController();
   final _adminAlertEmailController = TextEditingController();
   final _adminAlertPhoneController = TextEditingController();
@@ -36,6 +37,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   bool _isSavingFreeDayThreshold = false;
   bool _isSavingZoneAutoAssignCap = false;
   bool _isSavingZoneDetectionRadius = false;
+  bool _isSavingAutoAssignRadius = false;
   bool _isSavingSupportPhone = false;
   bool _isSavingAdminAlerts = false;
 
@@ -47,6 +49,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     _freeDayThresholdController.dispose();
     _zoneAutoAssignCapController.dispose();
     _zoneDetectionRadiusController.dispose();
+    _autoAssignRadiusController.dispose();
     _supportPhoneController.dispose();
     _adminAlertEmailController.dispose();
     _adminAlertPhoneController.dispose();
@@ -214,6 +217,28 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     }
   }
 
+  Future<void> _saveAutoAssignRadius(double km) async {
+    setState(() => _isSavingAutoAssignRadius = true);
+    try {
+      await ref.read(settingsRepositoryProvider).updateAutoAssignRadius(km);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'auto_assign_radius_changed',
+        entityType: 'app_settings',
+        summary:
+            'Changed the automatic-assignment radius to '
+            '${km.toStringAsFixed(1)} km',
+      );
+    } on ArgumentError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingAutoAssignRadius = false);
+    }
+  }
+
   Future<void> _saveSupportPhone(String? phone) async {
     setState(() => _isSavingSupportPhone = true);
     try {
@@ -262,6 +287,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
             '${settings.commissionFlatFee}|'
             '${settings.freeDayDeliveryThreshold}|'
             '${settings.zoneAutoAssignCap}|${settings.zoneDetectionRadiusKm}|'
+            '${settings.autoAssignRadiusKm}|'
             '${settings.supportPhone}|'
             '${settings.adminAlertEmail}|${settings.adminAlertPhone}';
         if (_syncedFromSettings != syncKey) {
@@ -275,6 +301,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
           _zoneAutoAssignCapController.text = settings.zoneAutoAssignCap
               .toString();
           _zoneDetectionRadiusController.text = settings.zoneDetectionRadiusKm
+              .toStringAsFixed(1);
+          _autoAssignRadiusController.text = settings.autoAssignRadiusKm
               .toStringAsFixed(1);
           _supportPhoneController.text = settings.supportPhone ?? '';
           _adminAlertEmailController.text = settings.adminAlertEmail ?? '';
@@ -733,6 +761,85 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                                   _saveZoneDetectionRadius(km);
                                 },
                           child: _isSavingZoneDetectionRadius
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Save'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Auto-assign radius',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'A new delivery is auto-assigned to the nearest '
+                      'online driver within this distance of the vendor. '
+                      "If nobody's online and eligible within it, the "
+                      'search widens to every online eligible driver, '
+                      "and picks whoever has the best average customer "
+                      "rating - rewarding a high-performing driver with "
+                      "the job instead of leaving it unassigned just "
+                      "because nobody's nearby. Must be between 1 and "
+                      '100 km.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _autoAssignRadiusController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Radius in km (1-100)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _isSavingAutoAssignRadius
+                              ? null
+                              : () {
+                                  final km = double.tryParse(
+                                    _autoAssignRadiusController.text.trim(),
+                                  );
+                                  if (km == null || km < 1 || km > 100) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Enter a number between 1 and 100.',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  _saveAutoAssignRadius(km);
+                                },
+                          child: _isSavingAutoAssignRadius
                               ? const SizedBox(
                                   height: 18,
                                   width: 18,

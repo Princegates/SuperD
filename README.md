@@ -96,6 +96,7 @@ supabase/
     0049_driver_commission_history_read.sql    lets a driver read their own commission_payments rows, so their own app can show a commission payment history (driver_daily_fees already allowed this)
     0050_bundle_commission_with_daily_fee.sql  bundles a driver's outstanding per-delivery commission into the same in-app daily-fee payment (driver_total_amount_due()), settling both ledgers together once paid
     0051_vehicle_types.sql                     lets a super admin define vehicle types with a flat surcharge each (Console > Settings), and a customer pick one on the request form - defaults to whichever is marked is_default (motorcycle out of the box)
+    0052_high_performer_assignment_fallback.sql  adds a two-tier auto-assign fallback: nearest driver within auto_assign_radius_km, or (if nobody's within it) whichever eligible driver has the best average customer rating, any distance
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -1069,16 +1070,33 @@ and zone reporting going forward.
 
 A customer-submitted request doesn't need a dispatcher at all when
 someone's available: `submit_delivery_request`
-(`0044_proximity_based_auto_assignment.sql`) looks for whichever driver
+(`0044_proximity_based_auto_assignment.sql`,
+`0052_high_performer_assignment_fallback.sql`) looks for whichever driver
 is **online**, **active**, **not frozen**, **paid up on today's
 commission**, **under the automatic-assignment cap**, and has shared a
 **live GPS location within the last 15 minutes** (`profiles.last_lat`/
 `last_lng`, pushed every ~15s by the driver's own app while it's open -
-see **Live driver location** below), then picks whoever's **physically
-closest to the vendor's pickup point** right now (plain haversine
-distance). It assigns them immediately (status goes straight to
-`assigned`, same as a dispatcher assigning one by hand) instead of
-sitting at `pending`.
+see **Live driver location** below). From that pool, it assigns in two
+tiers instead of one flat search:
+
+1. **Nearest driver within the auto-assign radius** - whoever's
+   physically closest to the vendor's pickup point (plain haversine
+   distance), as long as they're within **Console > Settings > Auto-assign
+   radius** (`app_settings.auto_assign_radius_km`, 1-100 km, default 8) of
+   it. This is the normal case and behaves exactly as before.
+2. **Best-rated driver, any distance** - only if tier 1 finds *nobody*
+   within the radius: the search widens to the same eligible pool with no
+   distance limit at all, and picks whoever has the **highest average
+   customer rating** on their completed deliveries
+   (`driver_average_rating()` - a driver with no ratings yet always loses
+   to one with at least a single rating), tie-broken by most completed
+   deliveries, then distance. A high-performing driver only gets pulled in
+   from farther away because nobody eligible was closer - it's a
+   fallback, not a way to skip past a genuinely nearby driver.
+
+Either way it assigns immediately (status goes straight to `assigned`,
+same as a dispatcher assigning one by hand) instead of sitting at
+`pending`.
 
 This used to match on a driver's manually-set `zone_id` instead - dropped
 because it depends on a dispatcher remembering to set (and keep current)
@@ -1093,11 +1111,12 @@ gets picked anymore. If the vendor has no pinned coordinates, or nobody
 qualifies, the delivery lands at `pending` exactly as before, for a
 dispatcher to assign by hand.
 
-The same proximity rule applies when a driver already mid-trip cancels
-and gets auto-replaced (`driver_cancel_delivery`, see **Driver
-cancellation** below) - except there the reference point is the
-*cancelling* driver's own last known position (the package is already
-with them), not the vendor.
+The plain nearest-driver search (tier 1 above, with no radius limit and
+no high-performer fallback) still applies unchanged when a driver
+already mid-trip cancels and gets auto-replaced (`driver_cancel_delivery`,
+see **Driver cancellation** below) - except there the reference point is
+the *cancelling* driver's own last known position (the package is
+already with them), not the vendor.
 
 The **cap** (`app_settings.zone_auto_assign_cap` - name unchanged, no
 longer zone-scoped; a super admin sets 3-20 from **Console > Settings**

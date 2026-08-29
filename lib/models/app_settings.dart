@@ -16,6 +16,7 @@ class AppSettings {
     this.freeDayDeliveryThreshold,
     this.zoneAutoAssignCap = 5,
     this.zoneDetectionRadiusKm = 5,
+    this.autoAssignRadiusKm = 8,
     this.supportPhone,
     this.adminAlertEmail,
     this.adminAlertPhone,
@@ -83,6 +84,13 @@ class AppSettings {
   /// zone. Always 1-50.
   final double zoneDetectionRadiusKm;
 
+  /// How far (km) from the vendor automatic assignment searches for the
+  /// nearest driver before falling back to whichever eligible driver has
+  /// the best average customer rating, regardless of distance - see
+  /// `submit_delivery_request()` in
+  /// `0052_high_performer_assignment_fallback.sql`. Always 1-100.
+  final double autoAssignRadiusKm;
+
   /// Business support/customer-service number, included in the
   /// driver-assigned SMS/email to the customer and vendor - see
   /// `0034_notifications_tracking_ratings.sql`. Null means it's just left
@@ -114,6 +122,8 @@ class AppSettings {
       zoneAutoAssignCap: (map['zone_auto_assign_cap'] as num?)?.toInt() ?? 5,
       zoneDetectionRadiusKm:
           (map['zone_detection_radius_km'] as num?)?.toDouble() ?? 5,
+      autoAssignRadiusKm:
+          (map['auto_assign_radius_km'] as num?)?.toDouble() ?? 8,
       supportPhone: map['support_phone'] as String?,
       adminAlertEmail: map['admin_alert_email'] as String?,
       adminAlertPhone: map['admin_alert_phone'] as String?,

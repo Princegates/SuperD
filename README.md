@@ -93,10 +93,15 @@ supabase/
     0043_fix_auto_assigned_signature_mismatch.sql   fixes 0042 rewriting the wrong overload of submit_delivery_request() (missing the customer_email parameter added in 0034)
     0044_proximity_based_auto_assignment.sql   automatic driver matching switches from a driver's manually-set zone_id to live GPS proximity to the vendor (or, for a mid-trip hand-off, to the cancelling driver's own position)
     0045_paystack_daily_fee.sql                switches the driver daily-fee real-time Mobile Money gateway from Hubtel to Paystack - renames the gateway-specific columns on driver_daily_fees to generic names
+    0046_driver_notices.sql                    driver_notices table - a dispatcher/super admin can broadcast a promotion to every driver or message one directly, shown as a dismissible banner on the driver's dashboard
+    0047_remove_price_cap.sql                  removes the flat 50-currency-unit ceiling on a customer's quoted/charged delivery price - base fare + distance charge, uncapped
+    0048_manual_assignment_cap.sql             the simultaneous-deliveries-per-driver cap (app_settings.zone_auto_assign_cap) becomes a hard limit enforced for manual assignment too, not just the automatic matcher
     0049_driver_commission_history_read.sql    lets a driver read their own commission_payments rows, so their own app can show a commission payment history (driver_daily_fees already allowed this)
     0050_bundle_commission_with_daily_fee.sql  bundles a driver's outstanding per-delivery commission into the same in-app daily-fee payment (driver_total_amount_due()), settling both ledgers together once paid
     0051_vehicle_types.sql                     lets a super admin define vehicle types with a flat surcharge each (Console > Settings), and a customer pick one on the request form - defaults to whichever is marked is_default (motorcycle out of the box)
     0052_high_performer_assignment_fallback.sql  adds a two-tier auto-assign fallback: nearest driver within auto_assign_radius_km, or (if nobody's within it) whichever eligible driver has the best average customer rating, any distance
+    0053_add_auditor_role_enum.sql             adds the 'auditor' value to the user_role enum - run on its own, see 0054's note on why
+    0054_auditor_role_permissions.sql          wires up the auditor role: full read access everywhere a super admin has it, same day-to-day dispatch writes a dispatcher has, but blocked from Settings/Zones/Team/driver-notices writes
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -2076,10 +2081,11 @@ back out of. What shows up in the nav is role-based:
     staff added/removed, vendors registered/edited/(de)activated, drivers
     assigned, deliveries created, and payments marked paid. Entries are
     written by a `log_audit_event` database function the instant each
-    action succeeds elsewhere in the app, and only a super admin can ever
-    read them back (RLS on `audit_log` has no policy for anyone else, and
-    there's no insert/update/delete policy at all - the log can only
-    grow, through that one function, never be edited after the fact).
+    action succeeds elsewhere in the app, and only a super admin or
+    auditor can ever read them back (RLS on `audit_log` has no select
+    policy for anyone else, and there's no insert/update/delete policy at
+    all - the log can only grow, through that one function, never be
+    edited after the fact).
   - **Onboarding** - a single triage view of recently added staff and
     vendors, flagging what's incomplete (a driver who hasn't set their
     own password yet, a vendor with no zone or a deactivated link) with a
@@ -2099,13 +2105,48 @@ back out of. What shows up in the nav is role-based:
     changed it. All of these are backed by the single-row `app_settings`
     table.
 
-A dispatcher literally has no way to reach the super-admin-only Admin
-Console sections (Team, Overview, Reports, Finance, Audit log,
-Onboarding, Zones, Settings) - they're not just hidden, there's no route
-for them to type into the address bar either, since they live as plain
-in-app navigation state rather than their own URLs. The underlying data
-is independently RLS-protected regardless (e.g. `audit_log`'s select
-policy is `is_super_admin()` only), so it's not relying on the UI alone.
+A dispatcher literally has no way to reach the Admin Console sections
+(Team, Overview, Reports, Finance, Audit log, Onboarding, Zones,
+Settings) - they're not just hidden, there's no route for them to type
+into the address bar either, since they live as plain in-app navigation
+state rather than their own URLs. The underlying data is independently
+RLS-protected regardless (e.g. `audit_log`'s select policy is
+`is_super_admin() or is_auditor()`), so it's not relying on the UI alone.
+
+#### The auditor role: full visibility, no admin-level writes
+
+A fourth role - **auditor** - sees every one of the sections above
+exactly like a super admin does (added to `_AdminSection.superAdminOnly`'s
+nav check, see `admin_shell_screen.dart`), for someone who needs full
+visibility into the business (an investor, accountant, or advisor, say)
+without being handed the ability to change anything administrative. An
+auditor keeps the same day-to-day dispatch access a plain dispatcher has
+- assigning drivers, updating delivery status, recording payments,
+managing the driver roster, confirming commission/daily-fee payments -
+but every Settings field, Zones CRUD control, and Team management action
+is inert for them (`AbsorbPointer` in the Console tabs themselves), and
+posting/ending/deleting a driver notice is blocked too. This is enforced
+in the database, not just the UI: `is_dispatcher_or_above()` now also
+returns true for an auditor (so every table already gated on it - most
+of the Console's own data - opens up automatically, no per-table changes
+needed), while `driver_notices` writes and `profiles` writes on a
+non-driver row are explicitly narrowed to exclude `is_auditor()` - see
+`0054_auditor_role_permissions.sql`. Settings/Zones/fee-tier writes
+needed no extra narrowing at all: they already required `is_super_admin()`
+specifically, which an auditor was never going to satisfy. Adding the
+role itself needs its own migration
+(`0053_add_auditor_role_enum.sql`) run and committed *before*
+`0054_auditor_role_permissions.sql`, which uses the literal value -
+Postgres refuses to use a brand-new enum value inside the same
+transaction that added it. A super admin assigns the role from the same
+Team screen role-control dropdown used for promoting/demoting
+dispatchers (`PersonCard`'s `RoleControl` - it lists every `UserRole`
+value, so the new one just appears there with no extra UI needed).
+Staff account creation/deletion (the `admin-create-driver`/
+`admin-delete-driver` Edge Functions) already used a hardcoded
+`["dispatcher", "super_admin"]` allowlist rather than
+`is_dispatcher_or_above()`, so an auditor is rejected there automatically
+too, with no Edge Function changes needed.
 
 ### Live driver tracking
 

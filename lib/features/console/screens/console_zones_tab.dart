@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../models/user_role.dart';
 import '../../../models/zone.dart';
 import '../../../models/zone_location.dart';
 import '../../../shared/screens/location_picker_screen.dart';
@@ -16,7 +17,10 @@ import '../../admin/providers/admin_providers.dart';
 /// Super-admin management of zones and the named places within each one.
 /// Drivers/vendors only ever pick a zone by name from a dropdown elsewhere
 /// in the app - this is where that dropdown's contents (and what each zone
-/// actually covers) get defined.
+/// actually covers) get defined. An auditor can see this tab too (see
+/// [UserRole.canViewAdminConsole]) but every control here is inert for
+/// them, enforced server-side either way (`0054_auditor_role_
+/// permissions.sql`).
 class ConsoleZonesTab extends ConsumerWidget {
   const ConsoleZonesTab({super.key});
 
@@ -59,13 +63,18 @@ class ConsoleZonesTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final zonesState = ref.watch(zonesProvider);
+    final isSuperAdmin =
+        ref.watch(currentProfileProvider).valueOrNull?.role ==
+        UserRole.superAdmin;
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _addZone(context, ref),
-        icon: const Icon(Icons.add_location_alt_outlined),
-        label: const Text('Add zone'),
-      ),
+      floatingActionButton: isSuperAdmin
+          ? FloatingActionButton.extended(
+              onPressed: () => _addZone(context, ref),
+              icon: const Icon(Icons.add_location_alt_outlined),
+              label: const Text('Add zone'),
+            )
+          : null,
       body: AsyncValueView<List<Zone>>(
         value: zonesState,
         data: (zones) {
@@ -74,19 +83,27 @@ class ConsoleZonesTab extends ConsumerWidget {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'No zones yet. Tap "Add zone" to create the first one.',
+                  isSuperAdmin
+                      ? 'No zones yet. Tap "Add zone" to create the first '
+                            'one.'
+                      : 'No zones yet.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey.shade600),
                 ),
               ),
             );
           }
-          return ListView.separated(
+          final list = ListView.separated(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             itemCount: zones.length,
             separatorBuilder: (_, _) => const SizedBox(height: 10),
             itemBuilder: (context, index) => _ZoneCard(zone: zones[index]),
           );
+          // AbsorbPointer rather than threading a read-only flag into
+          // _ZoneCard's own edit/rename/delete/location controls - an
+          // auditor can see every zone's coverage and pricing, just can't
+          // interact with any of it. RLS is the real backstop either way.
+          return isSuperAdmin ? list : AbsorbPointer(child: list);
         },
       ),
     );

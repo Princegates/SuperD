@@ -5,14 +5,19 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/app_settings.dart';
 import '../../../models/driver_daily_fee_tier.dart';
+import '../../../models/user_role.dart';
 import '../../../models/vehicle_type.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/widgets/async_value_view.dart';
 
-/// Super-admin-only app-wide settings: the currency payments are recorded
-/// and displayed in everywhere else in the app (delivery fees, the
-/// Finance tab, payment cards on delivery detail), the UI theme, and
+/// App-wide settings: the currency payments are recorded and displayed in
+/// everywhere else in the app (delivery fees, the Finance tab, payment
+/// cards on delivery detail), the UI theme, vehicle-type surcharges, and
 /// whether a driver may sign in on the web dashboard for testing.
+/// Writable by a super admin only - an auditor sees this tab too (see
+/// [UserRole.canViewAdminConsole]) but every control is inert for them,
+/// enforced server-side either way (see
+/// `0054_auditor_role_permissions.sql`).
 class ConsoleSettingsTab extends ConsumerStatefulWidget {
   const ConsoleSettingsTab({super.key});
 
@@ -275,6 +280,9 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   @override
   Widget build(BuildContext context) {
     final settingsState = ref.watch(appSettingsProvider);
+    final isSuperAdmin =
+        ref.watch(currentProfileProvider).valueOrNull?.role ==
+        UserRole.superAdmin;
 
     return AsyncValueView<AppSettings>(
       value: settingsState,
@@ -308,9 +316,10 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
           _adminAlertEmailController.text = settings.adminAlertEmail ?? '';
           _adminAlertPhoneController.text = settings.adminAlertPhone ?? '';
         }
-        return ListView(
+        final content = ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (!isSuperAdmin) const _ReadOnlySettingsBanner(),
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -1094,6 +1103,14 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
             ),
           ],
         );
+        // AbsorbPointer rather than hiding/rebuilding each control
+        // individually - an auditor can see every field's current value
+        // (that's the point of giving them this tab at all), just can't
+        // interact with any of them. RLS is the real backstop either way
+        // (`0054_auditor_role_permissions.sql`) - this is purely to avoid
+        // a confusing "could not save" error from a button that was always
+        // going to be rejected server-side.
+        return isSuperAdmin ? content : AbsorbPointer(child: content);
       },
     );
   }
@@ -1396,6 +1413,42 @@ class _VehicleTypesCard extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shown at the top of Settings for anyone who can see this tab but isn't a
+/// super admin (i.e. an auditor - see [UserRole.canViewAdminConsole]) -
+/// every field below is visible but inert.
+class _ReadOnlySettingsBanner extends StatelessWidget {
+  const _ReadOnlySettingsBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppTheme.neutral.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.visibility_outlined,
+            size: 18,
+            color: AppTheme.neutral,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "You can view these settings but can't change them - ask a "
+              'super admin to make changes.',
+              style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5),
+            ),
+          ),
+        ],
       ),
     );
   }

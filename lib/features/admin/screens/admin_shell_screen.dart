@@ -39,30 +39,35 @@ class _AdminSection {
   final String label;
   final Widget body;
 
-  /// Team/reporting/finance/audit/onboarding/zones/settings are
-  /// super-admin only - dispatchers never see these in the nav at all, on
-  /// top of the RLS that already keeps their underlying data out of reach
-  /// either way. Also decides where `_NavList` draws its "ADMIN CONSOLE"
-  /// divider - see the ordering note on `_restOfSections`.
+  /// Team/reporting/finance/audit/onboarding/zones/settings are hidden
+  /// from a plain dispatcher's nav entirely, on top of the RLS that
+  /// already keeps most of their underlying writes out of reach either
+  /// way. Shown to a super admin AND an auditor (see
+  /// [UserRole.canViewAdminConsole]) - an auditor sees exactly the same
+  /// sections a super admin does, just without the ability to write to
+  /// the admin-level ones (Team, Zones, Settings) once inside - see
+  /// `0054_auditor_role_permissions.sql`.
   final bool superAdminOnly;
 }
 
 /// The whole back-office experience in one place: every section a
-/// dispatcher or super admin can reach, behind a single persistent
-/// navigation surface instead of separate full-screen pages you push into
-/// and back out of. What shows up in the nav is role-based - a dispatcher
-/// sees Deliveries/Drivers/Vendors/Commission/Daily Fees/Notices
-/// (confirming what a driver owes/has paid, managing the driver roster
-/// itself, and posting a promotion/message to drivers, are all routine
-/// dispatch work, not a super-admin-only decision - matching the RLS on
-/// `commission_payments`/`driver_daily_fees`/`driver_notices`, which
-/// already allow either role); a super admin also sees Team
-/// (dispatcher/super-admin management is exclusive to a super admin, so
-/// this is the one roster
-/// screen kept off a dispatcher's nav - see [DriversScreen] for why the
-/// driver roster is split out into its own section instead) and the
-/// remaining Console sections (Overview, Reports, Finance, Audit log,
-/// Onboarding, Zones, Settings).
+/// dispatcher, auditor, or super admin can reach, behind a single
+/// persistent navigation surface instead of separate full-screen pages you
+/// push into and back out of. What shows up in the nav is role-based - a
+/// dispatcher sees Deliveries/Drivers/Vendors/Commission/Daily
+/// Fees/Notices (confirming what a driver owes/has paid, managing the
+/// driver roster itself, and posting a promotion/message to drivers, are
+/// all routine dispatch work, not a super-admin-only decision - matching
+/// the RLS on `commission_payments`/`driver_daily_fees`/`driver_notices`,
+/// which already allow either role); a super admin AND an auditor also see
+/// Team and the remaining Console sections (Overview, Reports, Finance,
+/// Audit log, Onboarding, Zones, Settings) - an auditor can view every one
+/// of these but can't write to the admin-level ones (dispatcher/super-admin
+/// management is exclusive to a super admin, so is the rest of Team; an
+/// auditor's own read-only access is enforced server-side, not just by
+/// hiding buttons - see `0054_auditor_role_permissions.sql`). See
+/// [DriversScreen] for why the driver roster is split out into its own
+/// section instead of living under Team.
 class AdminShellScreen extends StatefulWidget {
   const AdminShellScreen({super.key});
 
@@ -151,9 +156,8 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
   Widget build(BuildContext context) {
     return Consumer(
       builder: (context, ref, _) {
-        final isSuperAdmin =
-            ref.watch(currentProfileProvider).valueOrNull?.role ==
-            UserRole.superAdmin;
+        final myRole = ref.watch(currentProfileProvider).valueOrNull?.role;
+        final canViewAdminSections = myRole?.canViewAdminConsole ?? false;
 
         // The full delivery list re-emits on every change - diffing by id
         // tells apart a genuinely new order (never seen this id before)
@@ -209,7 +213,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
 
         final restOfSections = [
           for (final section in _restOfSections)
-            if (!section.superAdminOnly || isSuperAdmin) section,
+            if (!section.superAdminOnly || canViewAdminSections) section,
         ];
 
         void goToLabel(String label) {

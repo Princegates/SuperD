@@ -6,6 +6,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/driver_notice.dart';
 import '../../../models/profile.dart';
+import '../../../models/user_role.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../admin/providers/admin_providers.dart';
@@ -153,116 +154,162 @@ class _ConsoleNoticesTabState extends ConsumerState<ConsoleNoticesTab> {
     final expiryLabel = expiresAt == null
         ? "Doesn't expire on its own"
         : 'Expires ${DateFormat('d MMM yyyy').format(expiresAt)}';
+    // Posting/ending/deleting a notice stays open to a plain dispatcher
+    // (unchanged) - only an auditor is blocked, per
+    // `0054_auditor_role_permissions.sql`. Note this is deliberately NOT
+    // "isSuperAdmin", unlike the other admin-only tabs - Notices isn't one
+    // of them (see admin_shell_screen.dart), a dispatcher reaches this
+    // screen too and must keep full access.
+    final canWrite =
+        ref.watch(currentProfileProvider).valueOrNull?.role !=
+        UserRole.auditor;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Post a notice',
-                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Send every driver a promotion or heads-up, or pick one '
-                    'driver to message directly. Shows as a dismissible '
-                    "banner on the driver's own dashboard.",
-                    style: TextStyle(color: Colors.grey.shade600),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _titleController,
-                    decoration: const InputDecoration(
-                      labelText: 'Title',
-                      border: OutlineInputBorder(),
+          if (!canWrite)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppTheme.neutral.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.visibility_outlined,
+                      size: 18,
+                      color: AppTheme.neutral,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: _bodyController,
-                    minLines: 2,
-                    maxLines: 5,
-                    decoration: const InputDecoration(
-                      labelText: 'Message',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  DropdownButtonFormField<String?>(
-                    initialValue: _targetDriverId,
-                    decoration: const InputDecoration(
-                      labelText: 'Send to',
-                      border: OutlineInputBorder(),
-                    ),
-                    items: [
-                      const DropdownMenuItem<String?>(
-                        value: null,
-                        child: Text('All drivers (broadcast)'),
-                      ),
-                      for (final driver in drivers)
-                        DropdownMenuItem<String?>(
-                          value: driver.id,
-                          child: Text(driver.displayName),
-                        ),
-                    ],
-                    onChanged: (value) =>
-                        setState(() => _targetDriverId = value),
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          expiryLabel,
-                          style: TextStyle(color: Colors.grey.shade700),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        "You can see what's been sent but can't post, end, "
+                        'or delete a notice - ask a dispatcher or super '
+                        'admin.',
+                        style: TextStyle(
+                          color: Colors.grey.shade700,
+                          fontSize: 12.5,
                         ),
                       ),
-                      TextButton(
-                        onPressed: _pickExpiry,
-                        child: Text(
-                          _expiresAt == null ? 'Set expiry' : 'Change',
-                        ),
-                      ),
-                      if (_expiresAt != null)
-                        IconButton(
-                          onPressed: () => setState(() => _expiresAt = null),
-                          icon: const Icon(Icons.close, size: 18),
-                          tooltip: 'Clear expiry',
-                        ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: FilledButton(
-                      onPressed: _isPosting ? null : _post,
-                      child: _isPosting
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : Text(
-                              _targetDriverId == null
-                                  ? 'Post to all drivers'
-                                  : 'Send message',
-                            ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
+          if (canWrite)
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Post a notice',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Send every driver a promotion or heads-up, or pick '
+                      'one driver to message directly. Shows as a '
+                      "dismissible banner on the driver's own dashboard.",
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _titleController,
+                      decoration: const InputDecoration(
+                        labelText: 'Title',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: _bodyController,
+                      minLines: 2,
+                      maxLines: 5,
+                      decoration: const InputDecoration(
+                        labelText: 'Message',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<String?>(
+                      initialValue: _targetDriverId,
+                      decoration: const InputDecoration(
+                        labelText: 'Send to',
+                        border: OutlineInputBorder(),
+                      ),
+                      items: [
+                        const DropdownMenuItem<String?>(
+                          value: null,
+                          child: Text('All drivers (broadcast)'),
+                        ),
+                        for (final driver in drivers)
+                          DropdownMenuItem<String?>(
+                            value: driver.id,
+                            child: Text(driver.displayName),
+                          ),
+                      ],
+                      onChanged: (value) =>
+                          setState(() => _targetDriverId = value),
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            expiryLabel,
+                            style: TextStyle(color: Colors.grey.shade700),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: _pickExpiry,
+                          child: Text(
+                            _expiresAt == null ? 'Set expiry' : 'Change',
+                          ),
+                        ),
+                        if (_expiresAt != null)
+                          IconButton(
+                            onPressed: () =>
+                                setState(() => _expiresAt = null),
+                            icon: const Icon(Icons.close, size: 18),
+                            tooltip: 'Clear expiry',
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton(
+                        onPressed: _isPosting ? null : _post,
+                        child: _isPosting
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : Text(
+                                _targetDriverId == null
+                                    ? 'Post to all drivers'
+                                    : 'Send message',
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
           const SizedBox(height: 20),
           const Text(
             'Sent notices',
@@ -290,8 +337,8 @@ class _ConsoleNoticesTabState extends ConsumerState<ConsoleNoticesTab> {
                         drivers,
                         notice.targetDriverId,
                       ),
-                      onDeactivate: () => _deactivate(notice),
-                      onDelete: () => _delete(notice),
+                      onDeactivate: canWrite ? () => _deactivate(notice) : null,
+                      onDelete: canWrite ? () => _delete(notice) : null,
                     ),
                 ],
               );
@@ -313,8 +360,12 @@ class _NoticeRow extends StatelessWidget {
 
   final DriverNotice notice;
   final String? driverName;
-  final VoidCallback onDeactivate;
-  final VoidCallback onDelete;
+
+  /// Null hides the action row entirely - for a viewer who can see notices
+  /// but can't write to them (an auditor - see
+  /// `0054_auditor_role_permissions.sql`).
+  final VoidCallback? onDeactivate;
+  final VoidCallback? onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -369,33 +420,37 @@ class _NoticeRow extends StatelessWidget {
               '$who · $when',
               style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
             ),
-            if (isLive) ...[
-              const SizedBox(height: 8),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: onDeactivate,
-                    child: const Text('End now'),
-                  ),
-                  TextButton(
+            if (onDeactivate != null || onDelete != null) ...[
+              if (isLive) ...[
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: onDeactivate,
+                      child: const Text('End now'),
+                    ),
+                    TextButton(
+                      onPressed: onDelete,
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.danger,
+                      ),
+                      child: const Text('Delete'),
+                    ),
+                  ],
+                ),
+              ] else
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
                     onPressed: onDelete,
                     style: TextButton.styleFrom(
                       foregroundColor: AppTheme.danger,
                     ),
                     child: const Text('Delete'),
                   ),
-                ],
-              ),
-            ] else
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: onDelete,
-                  style: TextButton.styleFrom(foregroundColor: AppTheme.danger),
-                  child: const Text('Delete'),
                 ),
-              ),
+            ],
           ],
         ),
       ),

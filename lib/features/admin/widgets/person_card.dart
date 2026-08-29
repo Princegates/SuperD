@@ -38,11 +38,16 @@ class PersonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // A super admin's own row (or any other super admin's, for that
-    // matter) isn't a roster edit through these icons - removing/editing
-    // one that way isn't wired up; the role control below is the one
-    // action available on this row, and only if it isn't your own.
-    final canManage = person.role != UserRole.superAdmin;
+    // A driver row can be managed by any dispatcher-or-above caller (this
+    // card is shared with DriversScreen, open to dispatchers/auditors too)
+    // - but a staff row (dispatcher/super admin/auditor) is Team
+    // management, exclusive to an actual super admin caller, same as the
+    // role control below. A super admin's own row (or any other super
+    // admin's) isn't editable through these icons either way - removing/
+    // editing one that way isn't wired up.
+    final canManage = person.role == UserRole.driver
+        ? true
+        : (isSuperAdmin && person.role != UserRole.superAdmin);
     final canFreeze = isSuperAdmin && onToggleFrozen != null;
 
     // A ListTile's title/subtitle only get whatever width is left after
@@ -229,6 +234,7 @@ class RoleControl extends ConsumerWidget {
     UserRole.driver => AppTheme.neutral,
     UserRole.dispatcher => AppTheme.primary,
     UserRole.superAdmin => AppTheme.accent,
+    UserRole.auditor => AppTheme.warning,
   };
 
   @override

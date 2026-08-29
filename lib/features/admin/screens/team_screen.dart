@@ -112,15 +112,18 @@ class TeamScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final myProfile = ref.watch(currentProfileProvider).valueOrNull;
+    final isSuperAdmin = myProfile?.role == UserRole.superAdmin;
     final peopleAsync = ref.watch(allProfilesProvider);
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () =>
-            context.push('/admin/team/new', extra: UserRole.dispatcher),
-        icon: const Icon(Icons.person_add_alt_1),
-        label: const Text('Add dispatcher'),
-      ),
+      floatingActionButton: isSuperAdmin
+          ? FloatingActionButton.extended(
+              onPressed: () =>
+                  context.push('/admin/team/new', extra: UserRole.dispatcher),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Add dispatcher'),
+            )
+          : null,
       body: AsyncValueView<List<Profile>>(
         value: peopleAsync,
         data: (items) {
@@ -130,13 +133,18 @@ class TeamScreen extends ConsumerWidget {
           final admins = items
               .where((p) => p.role == UserRole.superAdmin)
               .toList();
+          final auditors = items
+              .where((p) => p.role == UserRole.auditor)
+              .toList();
 
-          if (dispatchers.isEmpty && admins.isEmpty) {
+          if (dispatchers.isEmpty && admins.isEmpty && auditors.isEmpty) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'No other staff yet. Tap "Add dispatcher" below.',
+                  isSuperAdmin
+                      ? 'No other staff yet. Tap "Add dispatcher" below.'
+                      : 'No other staff yet.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey.shade600),
                 ),
@@ -155,7 +163,7 @@ class TeamScreen extends ConsumerWidget {
                     child: PersonCard(
                       person: person,
                       isMe: person.id == myProfile?.id,
-                      isSuperAdmin: true,
+                      isSuperAdmin: isSuperAdmin,
                       onToggleActive: () => _toggleActive(context, ref, person),
                       onEdit: () =>
                           context.push('/admin/team/edit', extra: person),
@@ -171,7 +179,23 @@ class TeamScreen extends ConsumerWidget {
                     child: PersonCard(
                       person: person,
                       isMe: person.id == myProfile?.id,
-                      isSuperAdmin: true,
+                      isSuperAdmin: isSuperAdmin,
+                      onToggleActive: () => _toggleActive(context, ref, person),
+                      onEdit: () =>
+                          context.push('/admin/team/edit', extra: person),
+                      onDelete: () => _confirmDelete(context, ref, person),
+                    ),
+                  ),
+              ],
+              if (auditors.isNotEmpty) ...[
+                _SectionHeader('Auditors (${auditors.length})'),
+                for (final person in auditors)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: PersonCard(
+                      person: person,
+                      isMe: person.id == myProfile?.id,
+                      isSuperAdmin: isSuperAdmin,
                       onToggleActive: () => _toggleActive(context, ref, person),
                       onEdit: () =>
                           context.push('/admin/team/edit', extra: person),

@@ -13,6 +13,7 @@ import '../../console/screens/console_audit_log_tab.dart';
 import '../../console/screens/console_commission_tab.dart';
 import '../../console/screens/console_daily_fees_tab.dart';
 import '../../console/screens/console_finance_tab.dart';
+import '../../console/screens/console_notices_tab.dart';
 import '../../console/screens/console_reports_tab.dart';
 import '../../console/screens/console_onboarding_tab.dart';
 import '../../console/screens/console_overview_tab.dart';
@@ -50,12 +51,14 @@ class _AdminSection {
 /// dispatcher or super admin can reach, behind a single persistent
 /// navigation surface instead of separate full-screen pages you push into
 /// and back out of. What shows up in the nav is role-based - a dispatcher
-/// sees Deliveries/Drivers/Vendors/Commission/Daily Fees (confirming what
-/// a driver owes/has paid, and managing the driver roster itself, is
-/// routine dispatch work, not a super-admin-only decision - matching the
-/// RLS on `commission_payments`/`driver_daily_fees`, which already allow
-/// either role); a super admin also sees Team (dispatcher/super-admin
-/// management is exclusive to a super admin, so this is the one roster
+/// sees Deliveries/Drivers/Vendors/Commission/Daily Fees/Notices
+/// (confirming what a driver owes/has paid, managing the driver roster
+/// itself, and posting a promotion/message to drivers, are all routine
+/// dispatch work, not a super-admin-only decision - matching the RLS on
+/// `commission_payments`/`driver_daily_fees`/`driver_notices`, which
+/// already allow either role); a super admin also sees Team
+/// (dispatcher/super-admin management is exclusive to a super admin, so
+/// this is the one roster
 /// screen kept off a dispatcher's nav - see [DriversScreen] for why the
 /// driver roster is split out into its own section instead) and the
 /// remaining Console sections (Overview, Reports, Finance, Audit log,
@@ -93,6 +96,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       'Daily Fees',
       ConsoleDailyFeesTab(),
     ),
+    _AdminSection(Icons.campaign_outlined, 'Notices', ConsoleNoticesTab()),
     _AdminSection(
       Icons.badge_outlined,
       'Team',

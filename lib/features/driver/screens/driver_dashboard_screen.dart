@@ -18,6 +18,7 @@ import '../../../shared/widgets/delivery_card.dart';
 import '../../../shared/widgets/staggered_list_item.dart';
 import '../providers/driver_providers.dart';
 import '../widgets/daily_fee_banner.dart';
+import '../widgets/driver_notice_banner.dart';
 
 class DriverDashboardScreen extends ConsumerStatefulWidget {
   const DriverDashboardScreen({super.key});
@@ -195,6 +196,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
     final dailyFeeOn =
         (appSettings?.driverCommissionEnabled ?? true) &&
         (ref.watch(dailyFeeTiersProvider).valueOrNull?.isNotEmpty ?? false);
+    final notices = ref.watch(myVisibleNoticesProvider).valueOrNull ?? [];
 
     // A driver's own delivery list re-emits the full set on every change -
     // only ids that weren't there last time are a genuinely new assignment.
@@ -236,6 +238,10 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         children: [
           if (profile != null) _AvailabilityBar(profile: profile),
           if (profile?.isFrozen ?? false) const _FrozenBanner(),
+          if (notices.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            DriverNoticeList(notices: notices),
+          ],
           if (dailyFeeBalance > 0)
             DailyFeeBanner(
               feeAmount: dailyFeeBalance,

@@ -5,6 +5,7 @@ import '../../../models/daily_fee_status.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/driver_daily_fee.dart';
+import '../../../models/driver_notice.dart';
 
 /// Only the deliveries assigned to the signed-in driver. Derives the
 /// driver's id from [authStateProvider] (reactive), not just a one-time
@@ -148,4 +149,25 @@ final freeDayBalanceProvider = StreamProvider<int>((ref) {
   return ref
       .watch(driverDailyFeeRepositoryProvider)
       .watchFreeDayBalance(userId);
+});
+
+/// Every notice currently visible to the signed-in driver - broadcasts
+/// (promotions, platform-wide heads-up) and their own direct messages -
+/// with anything they've already closed filtered out. RLS already limits
+/// the underlying stream to active/unexpired/broadcast-or-theirs rows
+/// (see [DriverNoticeRepository.watchVisibleNotices]); this just adds the
+/// per-driver dismissal filter, newest first.
+final myVisibleNoticesProvider = StreamProvider<List<DriverNotice>>((ref) {
+  final authState = ref.watch(authStateProvider).valueOrNull;
+  final userId =
+      authState?.session?.user.id ??
+      ref.watch(supabaseClientProvider).auth.currentUser?.id;
+  if (userId == null) return Stream.value(const []);
+  return ref
+      .watch(driverNoticeRepositoryProvider)
+      .watchVisibleNotices()
+      .map(
+        (notices) =>
+            notices.where((n) => !n.isDismissedBy(userId)).toList(),
+      );
 });

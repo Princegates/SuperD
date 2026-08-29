@@ -330,15 +330,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
               hint: const Text('Loading...'),
               items: [
                 for (final type in vehicleTypes)
-                  DropdownMenuItem(
-                    value: type.id,
-                    child: Text(
-                      type.extraFee > 0
-                          ? '${type.name} (+${_estimate?.currency ?? 'GHS'} '
-                                '${type.extraFee.toStringAsFixed(2)})'
-                          : type.name,
-                    ),
-                  ),
+                  DropdownMenuItem(value: type.id, child: Text(type.name)),
               ],
               onChanged: vehicleTypes.isEmpty
                   ? null

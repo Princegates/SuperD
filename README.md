@@ -310,6 +310,19 @@ this app tries to avoid stacking additional billed services where a free
 one does the job. The map tiles themselves still render via Google Maps
 regardless of which of the three methods set the pin.
 
+The address/location text field itself - on the customer request form,
+the public vendor signup form, and the admin "Add/edit vendor" form -
+suggests matching places the moment someone starts typing (debounced
+450ms, from 3+ characters), same free Nominatim search, via
+`AddressAutocompleteField` (`lib/shared/widgets/
+address_autocomplete_field.dart`). Picking a suggestion sets
+lat/lng exactly like the map picker does, so pricing (customer form) or
+the "must have real coordinates" requirement (vendor forms) both still
+work whether the location came from typing or from the map. The vendor
+forms' location field used to be `readOnly` (map-only); it's now
+editable, since typing is now a first-class way to set a real point
+too, not just free text.
+
 ## 3. Run it
 
 ```bash

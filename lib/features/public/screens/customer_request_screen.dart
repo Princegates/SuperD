@@ -11,7 +11,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/vehicle_type.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
+import '../../../shared/utils/geocode_search.dart';
 import '../../../shared/utils/reverse_geocode.dart';
+import '../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/schedule_picker.dart';
 import '../providers/public_providers.dart';
@@ -148,6 +150,19 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
     await _refreshEstimate();
   }
 
+  /// The customer picked one of the as-you-type suggestions instead of
+  /// using the map - same effect as [_pickLocation] once a point is
+  /// chosen, just skipping the map screen and reverse-geocode step since
+  /// the suggestion already carries both.
+  void _selectSuggestion(GeocodeResult result) {
+    setState(() {
+      _lat = result.location.latitude;
+      _lng = result.location.longitude;
+      _roadDistanceKm = null;
+    });
+    unawaited(_refreshPricing());
+  }
+
   Future<void> _pickLocation() async {
     final initial = (_lat != null && _lng != null)
         ? LatLng(_lat!, _lng!)
@@ -282,11 +297,12 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
               decoration: const InputDecoration(labelText: 'Email (optional)'),
             ),
             const SizedBox(height: 14),
-            TextFormField(
+            AddressAutocompleteField(
               controller: _addressController,
               decoration: const InputDecoration(labelText: 'Delivery address'),
               validator: (v) =>
                   (v == null || v.trim().isEmpty) ? 'Required' : null,
+              onPlaceSelected: _selectSuggestion,
             ),
             const SizedBox(height: 8),
             Align(

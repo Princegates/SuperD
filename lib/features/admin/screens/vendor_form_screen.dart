@@ -9,8 +9,10 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/audit_log.dart';
+import '../../../shared/utils/geocode_search.dart';
 import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/utils/vendor_link.dart';
+import '../../../shared/widgets/address_autocomplete_field.dart';
 import '../providers/admin_providers.dart';
 
 /// Dispatcher/super-admin "Add vendor" form when [existing] is null - the
@@ -73,6 +75,17 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
     _emailController.dispose();
     _locationController.dispose();
     super.dispose();
+  }
+
+  /// The dispatcher/super admin picked one of the as-you-type suggestions
+  /// instead of using the map - same effect as [_pickLocation] once a
+  /// point is chosen, just skipping the map screen and reverse-geocode
+  /// step since the suggestion already carries both.
+  void _selectSuggestion(GeocodeResult result) {
+    setState(() {
+      _lat = result.location.latitude;
+      _lng = result.location.longitude;
+    });
   }
 
   Future<void> _pickLocation() async {
@@ -242,15 +255,16 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
                         onChanged: (value) => setState(() => _zoneId = value),
                       ),
                       const SizedBox(height: 14),
-                      TextFormField(
+                      AddressAutocompleteField(
                         controller: _locationController,
-                        readOnly: true,
                         decoration: const InputDecoration(
                           labelText: 'Exact location',
-                          helperText: 'Tap below to pin it on the map',
+                          helperText:
+                              'Start typing, or pin it on the map below',
                         ),
                         validator: (v) =>
                             (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        onPlaceSelected: _selectSuggestion,
                       ),
                       const SizedBox(height: 8),
                       Align(

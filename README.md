@@ -100,9 +100,9 @@ supabase/
     hubtel-daily-fee-charge/       Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Hubtel
     hubtel-daily-fee-webhook/      Edge Function: Hubtel's callback once a daily-fee charge resolves (public, no Supabase session)
     notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, and both customer + vendor when a driver is assigned
-    notify-vendor-registered/      Edge Function: emails a vendor their link when they register
-    notify-driver-application/     Edge Function: emails staff when a driver signs themselves up
-    notify-driver-approved/        Edge Function: emails a driver once their signup is approved
+    notify-vendor-registered/      Edge Function: texts/emails a vendor their link when they register, and staff too
+    notify-driver-application/     Edge Function: texts/emails staff and the applicant when a driver signs themselves up
+    notify-driver-approved/        Edge Function: texts/emails a driver once their signup is approved
     get-road-distance/             Edge Function: real driving distance via Google Directions, for pricing
 ```
 
@@ -489,20 +489,22 @@ called from the app itself, so they fire no matter which screen changed
 the row.
 
 - **Application submitted** - the moment a driver self-signs-up, two
-  emails go out from the same trigger: every active dispatcher and super
-  admin is emailed the applicant's name, email, and phone with a nudge to
-  review them from Drivers, and the applicant themselves gets a short
-  receipt ("we've received your application, a dispatcher will review it
-  soon"). An admin-created driver never triggers either (they land
-  already active).
+  notices go out from the same trigger: every active dispatcher and super
+  admin is texted/emailed the applicant's name, email, and phone with a
+  nudge to review them from Drivers, and the applicant themselves gets a
+  short receipt by SMS/email ("we've received your application, a
+  dispatcher will review it soon"). Each channel is independent - a staff
+  member with no phone on file just gets the email, one with no email
+  just gets the text, and so on. An admin-created driver never triggers
+  either (they land already active).
 - **Application approved** - the moment a dispatcher/super admin flips a
-  pending driver's toggle to active, that driver is emailed to let them
-  know they can now sign in and start receiving deliveries. Deactivating
-  someone, or any other profile edit, doesn't trigger this - only the
-  pending → active transition does.
+  pending driver's toggle to active, that driver is texted/emailed to let
+  them know they can now sign in and start receiving deliveries.
+  Deactivating someone, or any other profile edit, doesn't trigger this -
+  only the pending → active transition does.
 
-**Setup** (reusing the same Resend account and secret as everywhere else
-in this README):
+**Setup** (reusing the same Twilio/Resend accounts and secrets as
+everywhere else in this README):
 
 ```bash
 supabase functions deploy notify-driver-application
@@ -1583,23 +1585,25 @@ Leave it out entirely for a web-only deployment. Without it, on a non-web
 build, vendor links fall back to a bare `/v/<code>` path - accurate, but
 not something you can actually hand a customer.
 
-### Emailing a vendor their link
+### Texting/emailing a vendor their link
 
-A vendor can give an email address when registering (self-signup or the
-"Add vendor" screen). If they do, they're emailed both their `/v/<code>`
-public link and their private `/vendor-orders/<ordersCode>` link (clearly
-labeled as private, never for customers) the moment their record is
-created - one less thing for whoever registered them to remember to
-share. SMS delivery of the same links is planned as a follow-up; email
-comes first.
+A vendor is required to give a phone number when registering (self-signup
+or the "Add vendor" screen), and can optionally give an email too. They're
+texted both their `/v/<code>` public link and their private
+`/vendor-orders/<ordersCode>` link (clearly labeled as private, never for
+customers) the moment their record is created, and emailed the same thing
+too if they gave an address - one less thing for whoever registered them
+to remember to share. Every active dispatcher/super admin gets a shorter
+heads-up notice ("new vendor registered") the same way.
 
 Like the customer SMS notification above, this is wired up as a
 **Supabase Database Webhook** (not called from the app itself), so it
 fires no matter which screen registered the vendor:
 
-1. **Reuse your existing Resend account** (the same one from **Emailing
-   the new account its password**) - no new signup needed, just deploy the
-   function with that same secret already set:
+1. **Reuse your existing Resend/Twilio accounts** (the same ones from
+   **Emailing the new account its password** and **Delivery
+   notifications**) - no new signup needed, just deploy the function with
+   those same secrets already set:
    ```bash
    supabase functions deploy notify-vendor-registered
    ```

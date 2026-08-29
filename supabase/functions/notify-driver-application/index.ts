@@ -1,7 +1,8 @@
-// Emails every active dispatcher/super admin, and the applicant
+// Texts and emails every active dispatcher/super admin, and the applicant
 // themselves, the moment a driver signs themselves up (self-signup lands
 // as `is_active = false`, pending approval - see migration
-// 0014_driver_self_signup.sql). Wired up as a Supabase Database Webhook
+// 0014_driver_self_signup.sql) - SMS wherever a phone is on file, email
+// wherever an address is. Wired up as a Supabase Database Webhook
 // (Database -> Webhooks in the dashboard) on the "profiles" table for
 // INSERT - see the README for the exact setup steps. Runs with the
 // service-role key, same reasoning as the other admin-*/notify-*
@@ -9,6 +10,39 @@
 // Deploy with `supabase functions deploy notify-driver-application`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+
+async function sendSms(to: string, body: string): Promise<boolean> {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const fromNumber = Deno.env.get("TWILIO_FROM_NUMBER");
+  if (!accountSid || !authToken || !fromNumber) {
+    console.error("sendSms: Twilio secrets are not fully set");
+    return false;
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ To: to, From: fromNumber, Body: body }),
+      },
+    );
+    if (!res.ok) {
+      console.error(
+        `sendSms: Twilio responded ${res.status} - ${await res.text()}`,
+      );
+    }
+    return res.ok;
+  } catch (e) {
+    console.error("sendSms: fetch to Twilio failed -", e);
+    return false;
+  }
+}
 
 async function sendEmail(
   to: string[],
@@ -75,7 +109,7 @@ Deno.serve(async (req) => {
 
     const { data: staff, error: staffError } = await admin
       .from("profiles")
-      .select("email")
+      .select("email, phone")
       .in("role", ["dispatcher", "super_admin"])
       .eq("is_active", true);
     if (staffError) {
@@ -84,6 +118,9 @@ Deno.serve(async (req) => {
     const staffEmails = (staff ?? [])
       .map((s) => s.email as string)
       .filter((email) => email.length > 0);
+    const staffPhones = (staff ?? [])
+      .map((s) => s.phone as string | null)
+      .filter((phone): phone is string => Boolean(phone));
 
     let sentToStaff: boolean | undefined;
     if (staffEmails.length > 0) {
@@ -102,6 +139,16 @@ Deno.serve(async (req) => {
         `,
       );
     }
+    let sentToStaffSms: boolean | undefined;
+    if (staffPhones.length > 0) {
+      const staffSmsBody = `SuperD: new driver application from ` +
+        `${applicant.full_name} (${applicant.phone ?? "no phone on file"}). ` +
+        `Review it in the Team screen.`;
+      const staffSmsResults = await Promise.all(
+        staffPhones.map((phone) => sendSms(phone, staffSmsBody)),
+      );
+      sentToStaffSms = staffSmsResults.some(Boolean);
+    }
 
     let sentToApplicant: boolean | undefined;
     if (applicant.email) {
@@ -116,8 +163,21 @@ Deno.serve(async (req) => {
         `,
       );
     }
+    let sentToApplicantSms: boolean | undefined;
+    if (applicant.phone) {
+      sentToApplicantSms = await sendSms(
+        applicant.phone as string,
+        `Hi ${applicant.full_name}, thanks for applying to drive with ` +
+          `SuperD. We'll text/email you once your application is reviewed.`,
+      );
+    }
 
-    return jsonResponse({ sentToStaff, sentToApplicant });
+    return jsonResponse({
+      sentToStaff,
+      sentToStaffSms,
+      sentToApplicant,
+      sentToApplicantSms,
+    });
   } catch (e) {
     return jsonResponse(
       { error: e instanceof Error ? e.message : String(e) },

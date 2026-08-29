@@ -95,6 +95,7 @@ supabase/
     0045_paystack_daily_fee.sql                switches the driver daily-fee real-time Mobile Money gateway from Hubtel to Paystack - renames the gateway-specific columns on driver_daily_fees to generic names
     0049_driver_commission_history_read.sql    lets a driver read their own commission_payments rows, so their own app can show a commission payment history (driver_daily_fees already allowed this)
     0050_bundle_commission_with_daily_fee.sql  bundles a driver's outstanding per-delivery commission into the same in-app daily-fee payment (driver_total_amount_due()), settling both ledgers together once paid
+    0051_vehicle_types.sql                     lets a super admin define vehicle types with a flat surcharge each (Console > Settings), and a customer pick one on the request form - defaults to whichever is marked is_default (motorcycle out of the box)
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -828,9 +829,15 @@ A delivery a *customer* submits through a vendor's link (`/v/:code`, no
 login) is quoted automatically:
 
 ```
-Customer Delivery Price = Base Delivery Fare + Distance Charge
+Customer Delivery Price = Base Delivery Fare + Distance Charge + Vehicle Surcharge
 ```
 
+- **Vehicle type** — the request form has the customer pick one (a plain
+  dropdown, right below "What are we delivering?"), pre-selected to
+  whichever type a super admin has marked default (**motorcycle**, out of
+  the box). Each type is just a name plus a flat surcharge added straight
+  onto the price above — see **Vehicle types** below for how a super
+  admin manages the list.
 - **Base fare** and **price per km** are super-admin-configurable from
   **Console > Settings** (same `app_settings` row as currency/theme —
   `0022_delivery_pricing.sql`), defaulting to 5 and 1.5 in the app's
@@ -862,14 +869,36 @@ Customer Delivery Price = Base Delivery Fare + Distance Charge
   the delivery automatically when the quoted amount is greater than zero.
   The confirmation screen shows this actual server-quoted fee once
   submitted.
-- **Optional extras** (e.g. a fragile-item surcharge) aren't a configurable
-  line-item catalog yet — a dispatcher can still adjust a delivery's
-  payment amount by hand from the delivery detail screen if a particular
-  order needs one.
+- **Other optional extras** (e.g. a fragile-item surcharge unrelated to
+  vehicle) still aren't a configurable line-item catalog — a dispatcher
+  can still adjust a delivery's payment amount by hand from the delivery
+  detail screen if a particular order needs one.
 
 Deliveries created directly by a dispatcher/super admin (the "New
 delivery" form in the admin console) are unaffected — those already let
-the dispatcher set the delivery fee by hand.
+the dispatcher set the delivery fee by hand, and have no vehicle picker.
+
+### Vehicle types
+
+Super-admin-managed from **Console > Settings** (`vehicle_types` in
+`0051_vehicle_types.sql`) — each row is just a **name** and a flat
+**extra charge**, added to the base fare + distance price above whenever
+a customer picks it. Seeded with one row, **Motorcycle** at no extra
+charge, marked as the default; a super admin can add as many more as the
+business actually uses (car, van, truck, tricycle, ...) with whatever
+surcharge each should carry, from the same "add/edit/remove" list the
+driver daily fee's tiers already use.
+
+Exactly one type is ever the **default** — the request form's starting
+selection — enforced by a partial unique index in the database, not just
+app code. Changing it goes through `set_default_vehicle_type()` rather
+than a plain edit, and the database refuses to delete whichever type is
+currently default (set a different one as default first). Any
+authenticated role can read the list (`using (true)`, same as the daily
+fee's tiers); an anonymous customer reads it through the
+`get_vehicle_types()` RPC instead — table RLS is never opened to `anon`
+in this app, following the same pattern `get_vendor_by_code()` set in
+`0010_vendors_zones.sql`.
 
 ### Road-distance pricing setup
 

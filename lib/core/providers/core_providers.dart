@@ -10,10 +10,12 @@ import '../../data/repositories/driver_notice_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/settings_repository.dart';
+import '../../data/repositories/vehicle_type_repository.dart';
 import '../../data/repositories/vendor_repository.dart';
 import '../../models/app_settings.dart';
 import '../../models/driver_daily_fee_tier.dart';
 import '../../models/profile.dart';
+import '../../models/vehicle_type.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
@@ -59,6 +61,10 @@ final driverDailyFeeRepositoryProvider = Provider<DriverDailyFeeRepository>((
 
 final driverNoticeRepositoryProvider = Provider<DriverNoticeRepository>((ref) {
   return DriverNoticeRepository(ref.watch(supabaseClientProvider));
+});
+
+final vehicleTypeRepositoryProvider = Provider<VehicleTypeRepository>((ref) {
+  return VehicleTypeRepository(ref.watch(supabaseClientProvider));
 });
 
 /// The app-wide settings row (currently just the currency), kept live so a
@@ -107,6 +113,20 @@ final dailyFeeTiersProvider = StreamProvider<List<DriverDailyFeeTier>>((ref) {
         (tiers) =>
             [...tiers]
               ..sort((a, b) => a.minDeliveries.compareTo(b.minDeliveries)),
+      );
+});
+
+/// Every configured vehicle type, live, sorted by surcharge ascending -
+/// powers Console > Settings' editor. See `vehicle_types` in
+/// `0051_vehicle_types.sql`; the customer request form uses
+/// [VehicleTypeRepository.fetchAllPublic] instead (no session to read
+/// this live stream with).
+final vehicleTypesProvider = StreamProvider<List<VehicleType>>((ref) {
+  return ref
+      .watch(vehicleTypeRepositoryProvider)
+      .watchAll()
+      .map(
+        (types) => [...types]..sort((a, b) => a.extraFee.compareTo(b.extraFee)),
       );
 });
 

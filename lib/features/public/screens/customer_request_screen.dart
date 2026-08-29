@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../models/vehicle_type.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/reverse_geocode.dart';
@@ -83,6 +84,11 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   PriceEstimate? _estimate;
   DateTime? _scheduledAt;
 
+  /// Null until either the customer picks one, or [publicVehicleTypesProvider]
+  /// loads and the default (motorcycle, out of the box) is applied - see the
+  /// `ref.listen` in [build].
+  String? _vehicleTypeId;
+
   /// The real road distance to [_lat]/[_lng] from the vendor's location,
   /// fetched via Google Directions (see [_refreshRoadDistance]) - null
   /// until that finishes (or if it fails), in which case pricing just
@@ -108,6 +114,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
             dropoffLat: _lat,
             dropoffLng: _lng,
             roadDistanceKm: _roadDistanceKm,
+            vehicleTypeId: _vehicleTypeId,
           );
       if (mounted) setState(() => _estimate = estimate);
     } catch (_) {
@@ -199,6 +206,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
             customerEmail: _emailController.text.trim().isEmpty
                 ? null
                 : _emailController.text.trim(),
+            vehicleTypeId: _vehicleTypeId,
           );
       if (mounted) setState(() => _quote = quote);
     } catch (e) {
@@ -216,6 +224,25 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
     if (_quote != null) {
       return _SubmittedCard(quote: _quote!, scheduledAt: _scheduledAt);
     }
+
+    final vehicleTypes =
+        ref.watch(publicVehicleTypesProvider).valueOrNull ?? const [];
+    // Applies the default vehicle type (motorcycle, out of the box) the
+    // moment the list loads - only once, and only if the customer hasn't
+    // already picked one themselves.
+    ref.listen<AsyncValue<List<VehicleType>>>(publicVehicleTypesProvider, (
+      previous,
+      next,
+    ) {
+      final types = next.valueOrNull;
+      if (types == null || types.isEmpty || _vehicleTypeId != null) return;
+      final defaultType = types.firstWhere(
+        (t) => t.isDefault,
+        orElse: () => types.first,
+      );
+      setState(() => _vehicleTypeId = defaultType.id);
+      unawaited(_refreshEstimate());
+    });
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -282,6 +309,43 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
               decoration: const InputDecoration(
                 labelText: 'What are we delivering? (optional)',
               ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Vehicle',
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade600,
+                letterSpacing: 0.3,
+              ),
+            ),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: _vehicleTypeId,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              hint: const Text('Loading...'),
+              items: [
+                for (final type in vehicleTypes)
+                  DropdownMenuItem(
+                    value: type.id,
+                    child: Text(
+                      type.extraFee > 0
+                          ? '${type.name} (+${_estimate?.currency ?? 'GHS'} '
+                                '${type.extraFee.toStringAsFixed(2)})'
+                          : type.name,
+                    ),
+                  ),
+              ],
+              onChanged: vehicleTypes.isEmpty
+                  ? null
+                  : (value) {
+                      setState(() => _vehicleTypeId = value);
+                      unawaited(_refreshEstimate());
+                    },
             ),
             const SizedBox(height: 16),
             Text(

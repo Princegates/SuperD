@@ -220,6 +220,7 @@ class VendorRepository {
     double? roadDistanceKm,
     DateTime? scheduledAt,
     String? customerEmail,
+    String? vehicleTypeId,
   }) async {
     final rows = await _client.rpc(
       'submit_delivery_request',
@@ -234,6 +235,7 @@ class VendorRepository {
         'road_distance_km': roadDistanceKm,
         'scheduled_at': scheduledAt?.toIso8601String(),
         'customer_email': customerEmail,
+        'p_vehicle_type_id': vehicleTypeId,
       },
     ) as List;
     return DeliveryQuote.fromMap(rows.first as Map<String, dynamic>);
@@ -243,13 +245,14 @@ class VendorRepository {
   /// drop-off location - for showing a live estimate on the request form
   /// before a customer submits. Anonymous-safe, zone-aware, with no upper
   /// bound - see `get_delivery_price_estimate()` in
-  /// `0047_remove_price_cap.sql`. [roadDistanceKm] - see
+  /// `0051_vehicle_types.sql`. [roadDistanceKm]/[vehicleTypeId] - see
   /// [submitDeliveryRequest].
   Future<PriceEstimate> fetchPriceEstimate({
     required String code,
     double? dropoffLat,
     double? dropoffLng,
     double? roadDistanceKm,
+    String? vehicleTypeId,
   }) async {
     final rows = await _client.rpc(
       'get_delivery_price_estimate',
@@ -258,6 +261,7 @@ class VendorRepository {
         'dropoff_lat': dropoffLat,
         'dropoff_lng': dropoffLng,
         'road_distance_km': roadDistanceKm,
+        'p_vehicle_type_id': vehicleTypeId,
       },
     ) as List;
     return PriceEstimate.fromMap(rows.first as Map<String, dynamic>);

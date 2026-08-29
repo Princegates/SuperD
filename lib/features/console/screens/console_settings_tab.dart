@@ -5,6 +5,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/app_settings.dart';
 import '../../../models/driver_daily_fee_tier.dart';
+import '../../../models/vehicle_type.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/widgets/async_value_view.dart';
 
@@ -863,6 +864,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
               ),
             ),
             const SizedBox(height: 16),
+            _VehicleTypesCard(currency: settings.currency),
+            const SizedBox(height: 16),
             _DailyFeeTiersCard(currency: settings.currency),
             const SizedBox(height: 16),
             Card(
@@ -985,6 +988,308 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
           ],
         );
       },
+    );
+  }
+}
+
+/// Admin editor for the vehicle types a customer can pick on the
+/// delivery request form - name + flat surcharge, add/edit/remove, live
+/// via [vehicleTypesProvider]. Exactly one is the default (motorcycle,
+/// out of the box) - see `vehicle_types` in `0051_vehicle_types.sql`.
+class _VehicleTypesCard extends ConsumerWidget {
+  const _VehicleTypesCard({required this.currency});
+
+  final String currency;
+
+  Future<void> _openVehicleTypeDialog(
+    BuildContext context,
+    WidgetRef ref, {
+    VehicleType? existing,
+  }) async {
+    final nameController = TextEditingController(text: existing?.name ?? '');
+    final extraFeeController = TextEditingController(
+      text: existing?.extraFee.toStringAsFixed(2) ?? '0',
+    );
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          existing == null ? 'Add vehicle type' : 'Edit vehicle type',
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'Name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: extraFeeController,
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
+              decoration: InputDecoration(
+                labelText: 'Extra charge ($currency)',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+    if (save != true || !context.mounted) return;
+
+    final name = nameController.text.trim();
+    final extraFee = double.tryParse(extraFeeController.text.trim());
+    if (name.isEmpty || extraFee == null || extraFee < 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Enter a name and an extra charge of 0 or more.'),
+        ),
+      );
+      return;
+    }
+
+    final repo = ref.read(vehicleTypeRepositoryProvider);
+    try {
+      if (existing == null) {
+        await repo.addVehicleType(name: name, extraFee: extraFee);
+      } else {
+        await repo.updateVehicleType(
+          id: existing.id,
+          name: name,
+          extraFee: extraFee,
+        );
+      }
+      if (!context.mounted) return;
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: existing == null
+            ? 'vehicle_type_added'
+            : 'vehicle_type_changed',
+        entityType: 'vehicle_types',
+        summary:
+            '${existing == null ? 'Added' : 'Changed'} vehicle type '
+            '$name (+$currency ${extraFee.toStringAsFixed(2)})',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not save that vehicle type: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _setDefault(
+    BuildContext context,
+    WidgetRef ref,
+    VehicleType vehicleType,
+  ) async {
+    try {
+      await ref.read(vehicleTypeRepositoryProvider).setDefault(vehicleType.id);
+      if (!context.mounted) return;
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'vehicle_type_default_changed',
+        entityType: 'vehicle_types',
+        summary: 'Set ${vehicleType.name} as the default vehicle type',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not change the default: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _deleteVehicleType(
+    BuildContext context,
+    WidgetRef ref,
+    VehicleType vehicleType,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Remove vehicle type?'),
+        content: Text(
+          'Customers will no longer be able to pick ${vehicleType.name} on '
+          'the delivery request form.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            style: FilledButton.styleFrom(backgroundColor: AppTheme.danger),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+    try {
+      await ref
+          .read(vehicleTypeRepositoryProvider)
+          .deleteVehicleType(vehicleType.id);
+      if (!context.mounted) return;
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'vehicle_type_removed',
+        entityType: 'vehicle_types',
+        summary: 'Removed vehicle type ${vehicleType.name}',
+      );
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not remove that vehicle type: $e')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final typesState = ref.watch(vehicleTypesProvider);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Vehicle types',
+                    style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () => _openVehicleTypeDialog(context, ref),
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add type'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'What a customer can choose on the delivery request form - '
+              'each with its own flat charge added on top of the usual base '
+              "fare + distance price. The default is the picker's starting "
+              'selection (motorcycle, out of the box); it can only be '
+              'removed by making a different type the default first.',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 16),
+            AsyncValueView<List<VehicleType>>(
+              value: typesState,
+              data: (types) {
+                if (types.isEmpty) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      'No vehicle types yet.',
+                      style: TextStyle(color: Colors.grey.shade500),
+                    ),
+                  );
+                }
+                return Column(
+                  children: [
+                    for (final type in types)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      type.extraFee > 0
+                                          ? '${type.name}  ·  +$currency '
+                                                '${type.extraFee.toStringAsFixed(2)}'
+                                          : type.name,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  if (type.isDefault) ...[
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primary.withValues(
+                                          alpha: 0.12,
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        'Default',
+                                        style: TextStyle(
+                                          color: AppTheme.primary,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            if (!type.isDefault)
+                              TextButton(
+                                onPressed: () =>
+                                    _setDefault(context, ref, type),
+                                child: const Text('Set default'),
+                              ),
+                            IconButton(
+                              icon: const Icon(Icons.edit_outlined, size: 18),
+                              onPressed: () => _openVehicleTypeDialog(
+                                context,
+                                ref,
+                                existing: type,
+                              ),
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.delete_outline,
+                                size: 18,
+                                color: AppTheme.danger,
+                              ),
+                              onPressed: type.isDefault
+                                  ? null
+                                  : () =>
+                                        _deleteVehicleType(context, ref, type),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                );
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

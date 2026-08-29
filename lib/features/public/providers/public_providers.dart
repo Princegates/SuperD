@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
+import '../../../models/vehicle_type.dart';
 import '../../../models/vendor.dart';
 
 /// Public vendor lookup by their link code - powers the customer request
@@ -10,6 +11,14 @@ final vendorByCodeProvider = FutureProvider.family<VendorPublicInfo?, String>((
   code,
 ) {
   return ref.watch(vendorRepositoryProvider).fetchVendorByCode(code);
+});
+
+/// Every configured vehicle type - powers the customer request form's
+/// vehicle picker, defaulting to whichever one has [VehicleType.isDefault]
+/// set (motorcycle out of the box). No session required - see
+/// [VehicleTypeRepository.fetchAllPublic].
+final publicVehicleTypesProvider = FutureProvider<List<VehicleType>>((ref) {
+  return ref.watch(vehicleTypeRepositoryProvider).fetchAllPublic();
 });
 
 /// A vendor's own order history, keyed by their PRIVATE `ordersCode` (not

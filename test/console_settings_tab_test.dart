@@ -6,9 +6,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:superd/core/providers/core_providers.dart';
 import 'package:superd/data/repositories/driver_daily_fee_repository.dart';
 import 'package:superd/data/repositories/settings_repository.dart';
+import 'package:superd/data/repositories/vehicle_type_repository.dart';
 import 'package:superd/features/console/screens/console_settings_tab.dart';
 import 'package:superd/models/app_settings.dart';
 import 'package:superd/models/driver_daily_fee_tier.dart';
+import 'package:superd/models/vehicle_type.dart';
 
 /// Records what was asked of it instead of touching the network, so the
 /// currency dropdown's behavior can be tested without a live Supabase
@@ -123,6 +125,15 @@ class _FakeDriverDailyFeeRepository extends DriverDailyFeeRepository {
   }
 }
 
+/// Records vehicle-type add/edit/remove/default calls instead of touching
+/// the network - same purpose as [_FakeDriverDailyFeeRepository].
+class _FakeVehicleTypeRepository extends VehicleTypeRepository {
+  _FakeVehicleTypeRepository() : super(_testClient());
+
+  @override
+  Stream<List<VehicleType>> watchAll() => Stream.value(const []);
+}
+
 /// A `SupabaseClient` with token auto-refresh disabled, so it doesn't leave
 /// a background timer running past the end of the test.
 SupabaseClient _testClient() => SupabaseClient(
@@ -143,6 +154,9 @@ void main() {
           settingsRepositoryProvider.overrideWithValue(fakeRepo),
           driverDailyFeeRepositoryProvider.overrideWithValue(
             _FakeDriverDailyFeeRepository(),
+          ),
+          vehicleTypeRepositoryProvider.overrideWithValue(
+            _FakeVehicleTypeRepository(),
           ),
           supabaseClientProvider.overrideWithValue(_testClient()),
         ],
@@ -176,6 +190,9 @@ void main() {
           settingsRepositoryProvider.overrideWithValue(fakeRepo),
           driverDailyFeeRepositoryProvider.overrideWithValue(
             _FakeDriverDailyFeeRepository(),
+          ),
+          vehicleTypeRepositoryProvider.overrideWithValue(
+            _FakeVehicleTypeRepository(),
           ),
           supabaseClientProvider.overrideWithValue(_testClient()),
         ],
@@ -215,6 +232,9 @@ void main() {
           settingsRepositoryProvider.overrideWithValue(fakeRepo),
           driverDailyFeeRepositoryProvider.overrideWithValue(
             _FakeDriverDailyFeeRepository(),
+          ),
+          vehicleTypeRepositoryProvider.overrideWithValue(
+            _FakeVehicleTypeRepository(),
           ),
           supabaseClientProvider.overrideWithValue(_testClient()),
         ],

@@ -31,9 +31,13 @@ alter table public.app_settings
 
 comment on column public.app_settings.auto_assign_radius_km is 'How far (km) from the vendor automatic assignment searches for the nearest driver before falling back to the best-rated available driver regardless of distance. Always 1-100.';
 
--- A driver's average customer rating across their completed, rated
--- deliveries - null if they have none yet. Used by the fallback tier
--- below, and reusable for an admin-facing "top performer" display.
+-- A driver's average customer rating - null if they have none yet. Used
+-- by the fallback tier below, and reusable for an admin-facing "top
+-- performer" display. Ratings live in their own table
+-- (`delivery_ratings`, see `0034_notifications_tracking_ratings.sql`),
+-- not a column on `deliveries` - it already carries driver_id itself
+-- (captured at submission time) precisely so this can be computed
+-- without joining back through deliveries.
 create or replace function public.driver_average_rating(p_driver_id uuid)
 returns numeric
 language sql
@@ -42,8 +46,8 @@ set search_path = public
 stable
 as $$
   select avg(rating)::numeric
-  from public.deliveries
-  where assigned_driver_id = p_driver_id and rating is not null;
+  from public.delivery_ratings
+  where driver_id = p_driver_id;
 $$;
 
 grant execute on function public.driver_average_rating(uuid) to authenticated;

@@ -15,8 +15,11 @@
     --navy-deep: #0d1428;
     --gold: #f5a623;
     --gold-light: #ffd77a;
-    --ink: #eef1f8;
-    --muted: #aeb6cc;
+    --ink: #16213e;
+    --muted: #5b6b85;
+    --bg: #ffffff;
+    --bg-alt: #f7f8fa;
+    --border: #e7eaee;
   }
 
   * { box-sizing: border-box; }
@@ -26,7 +29,7 @@
   body {
     margin: 0;
     font-family: 'Inter', system-ui, sans-serif;
-    background: var(--navy-deep);
+    background: var(--bg);
     color: var(--ink);
     overflow-x: hidden;
   }
@@ -47,8 +50,8 @@
     text-align: center;
     padding: 48px 20px 64px;
     background:
-      radial-gradient(circle at 50% 18%, rgba(245, 166, 35, 0.16), transparent 55%),
-      linear-gradient(160deg, var(--navy) 0%, var(--navy-deep) 70%);
+      radial-gradient(circle at 50% 18%, rgba(245, 166, 35, 0.14), transparent 55%),
+      linear-gradient(160deg, var(--bg) 0%, var(--bg-alt) 70%);
     background-size: 100% 100%, 140% 140%;
     animation: drift 18s ease-in-out infinite alternate;
   }
@@ -176,12 +179,12 @@
   .btn-primary:hover { box-shadow: 0 12px 30px rgba(245, 166, 35, 0.4); }
 
   .btn-ghost {
-    background: rgba(255, 255, 255, 0.06);
-    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(22, 33, 62, 0.05);
+    border: 1px solid rgba(22, 33, 62, 0.18);
     color: var(--ink);
   }
 
-  .btn-ghost:hover { background: rgba(255, 255, 255, 0.12); }
+  .btn-ghost:hover { background: rgba(22, 33, 62, 0.1); }
 
   .track-note {
     margin-top: 22px;
@@ -197,7 +200,7 @@
     transform: translateX(-50%);
     width: 26px;
     height: 42px;
-    border: 2px solid rgba(255, 255, 255, 0.35);
+    border: 2px solid rgba(22, 33, 62, 0.25);
     border-radius: 14px;
   }
 
@@ -224,7 +227,7 @@
 
   .features {
     padding: 88px 20px;
-    background: var(--navy-deep);
+    background: var(--bg-alt);
   }
 
   .features h2 {
@@ -251,8 +254,8 @@
   }
 
   .card {
-    background: linear-gradient(160deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.02));
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--bg);
+    border: 1px solid var(--border);
     border-radius: 18px;
     padding: 26px 22px;
     opacity: 0;
@@ -293,7 +296,7 @@
 
   .access {
     padding: 80px 20px 96px;
-    background: linear-gradient(180deg, var(--navy-deep), var(--navy));
+    background: linear-gradient(180deg, var(--bg-alt), var(--bg));
     text-align: center;
   }
 
@@ -322,10 +325,11 @@
   .access-card {
     flex: 1 1 220px;
     max-width: 280px;
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.09);
+    background: var(--bg);
+    border: 1px solid var(--border);
     border-radius: 16px;
     padding: 28px 20px;
+    box-shadow: 0 1px 3px rgba(22, 33, 62, 0.06);
     transition: transform 0.2s ease, border-color 0.2s ease;
   }
 
@@ -348,14 +352,14 @@
 
   footer {
     padding: 28px 20px 36px;
-    background: var(--navy);
+    background: var(--bg-alt);
     text-align: center;
     font-size: 12.5px;
     color: var(--muted);
-    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    border-top: 1px solid var(--border);
   }
 
-  footer a.foot-link { color: var(--gold-light); font-weight: 600; }
+  footer a.foot-link { color: var(--gold); font-weight: 600; }
 </style>
 </head>
 <body>

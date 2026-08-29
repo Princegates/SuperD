@@ -78,6 +78,16 @@ class SettingsRepository {
         .eq('id', true);
   }
 
+  /// Master off-switch for driver commission - see
+  /// [AppSettings.driverCommissionEnabled]. Only takes effect if the caller
+  /// is a super admin - enforced by RLS.
+  Future<void> setDriverCommissionEnabled(bool enabled) async {
+    await _client
+        .from(_table)
+        .update({'driver_commission_enabled': enabled})
+        .eq('id', true);
+  }
+
   /// Changes the flat commission fee owed per completed delivery - see
   /// [AppSettings.commissionFlatFee]. Only takes effect going forward;
   /// commission already recorded keeps whatever fee applied at the time.
@@ -86,20 +96,6 @@ class SettingsRepository {
         .from(_table)
         .update({'commission_flat_fee': flatFee})
         .eq('id', true);
-  }
-
-  /// Changes the flat daily Mobile Money fee every driver owes - see
-  /// [AppSettings.driverDailyFee]. The database itself also enforces
-  /// 0-or-10-to-100 (see `app_settings_driver_daily_fee_check` in
-  /// `0031_driver_daily_fee.sql`), this is just the friendlier client-side
-  /// check so a super admin sees why a bad value was rejected.
-  Future<void> updateDriverDailyFee(double fee) async {
-    if (fee != 0 && (fee < 10 || fee > 100)) {
-      throw ArgumentError(
-        'The daily fee must be 0 (off) or between 10 and 100.',
-      );
-    }
-    await _client.from(_table).update({'driver_daily_fee': fee}).eq('id', true);
   }
 
   /// Changes (or clears) the automatic free-day threshold - see
@@ -119,8 +115,9 @@ class SettingsRepository {
   /// Changes the automatic-assignment cap - see
   /// [AppSettings.zoneAutoAssignCap]. The database itself also enforces
   /// 3-to-20 (see `app_settings_zone_auto_assign_cap_check` in
-  /// `0033_zone_auto_recognition_and_cap.sql`), this is just the
-  /// friendlier client-side check.
+  /// `0033_zone_auto_recognition_and_cap.sql`, column name unchanged
+  /// since - just its meaning, see `0044_proximity_based_auto_assignment.sql`),
+  /// this is just the friendlier client-side check.
   Future<void> updateZoneAutoAssignCap(int cap) async {
     if (cap < 3 || cap > 20) {
       throw ArgumentError('The cap must be between 3 and 20.');
@@ -128,6 +125,21 @@ class SettingsRepository {
     await _client
         .from(_table)
         .update({'zone_auto_assign_cap': cap})
+        .eq('id', true);
+  }
+
+  /// Changes the automatic zone-detection radius - see
+  /// [AppSettings.zoneDetectionRadiusKm]. The database itself also
+  /// enforces 1-to-50 (see `app_settings_zone_detection_radius_km_check`
+  /// in `0040_zone_detection_radius_and_override.sql`), this is just the
+  /// friendlier client-side check.
+  Future<void> updateZoneDetectionRadius(double km) async {
+    if (km < 1 || km > 50) {
+      throw ArgumentError('The radius must be between 1 and 50 km.');
+    }
+    await _client
+        .from(_table)
+        .update({'zone_detection_radius_km': km})
         .eq('id', true);
   }
 

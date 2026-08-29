@@ -6,12 +6,15 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/driver_daily_fee_repository.dart';
 import '../../../models/daily_fee_status.dart';
 
-/// Shown at the top of the driver dashboard whenever today's platform fee
-/// (Console > Settings > Driver daily fee) hasn't been paid yet - the UI
-/// side of a hard block enforced in the database (see
-/// `0031_driver_daily_fee.sql`): a driver in this state simply cannot be
+/// Shown at the top of the driver dashboard whenever today's tiered
+/// platform fee (Console > Settings > Driver daily fee) has a balance
+/// still owed - the UI side of a hard block enforced in the database (see
+/// `0037_tiered_daily_fee.sql`): a driver in this state simply cannot be
 /// given a new delivery, so this exists to make the reason obvious and
-/// give them a way to fix it on the spot.
+/// give them a way to fix it on the spot. [feeAmount] is the live balance
+/// still due, not necessarily the full tier amount - it can shrink to 0
+/// after a partial payment, or grow again after crossing into a higher
+/// tier.
 class DailyFeeBanner extends StatelessWidget {
   const DailyFeeBanner({
     super.key,
@@ -136,7 +139,7 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
     super.dispose();
   }
 
-  Future<void> _payViaHubtel() async {
+  Future<void> _payViaPaystack() async {
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
       setState(() => _error = 'Enter a Mobile Money number.');
@@ -150,7 +153,7 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
     try {
       final message = await ref
           .read(driverDailyFeeRepositoryProvider)
-          .chargeViaHubtel(phone: phone, network: _network);
+          .chargeViaPaystack(phone: phone, network: _network);
       if (mounted) setState(() => _message = message);
     } on DailyFeeException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -233,7 +236,7 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
             ),
             const SizedBox(height: 14),
             ElevatedButton(
-              onPressed: _isCharging ? null : _payViaHubtel,
+              onPressed: _isCharging ? null : _payViaPaystack,
               child: _isCharging
                   ? const SizedBox(
                       height: 20,

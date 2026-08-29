@@ -84,17 +84,26 @@ supabase/
     0034_notifications_tracking_ratings.sql   optional customer email + support phone for notifications, driver location/drop-off point for vendor tracking, and delivery_ratings
     0035_super_admin_delete_deliveries.sql    restricts permanently deleting a delivery to a super admin (a dispatcher could before, just had no button for it)
     0036_driver_cancel_and_incident_reporting.sql   a driver rejecting or cancelling mid-trip now records a full explanation for the Console's incident report; cancelling also auto-reassigns to another driver and alerts an admin
+    0037_tiered_daily_fee.sql                 replaces the flat driver daily fee with admin-defined tiers priced by how many deliveries a driver has completed that day, re-evaluated live
+    0038_daily_fee_tier_overrides.sql          lets a super admin pin a specific driver to one daily-fee tier, overriding the automatic delivery-count calculation for them
+    0039_customer_live_tracking.sql            adds the driver's live position and the drop-off point to get_delivery_by_tracking_code(), so a customer's own tracking page can show a live map too, same as a vendor's orders page already could
+    0040_zone_detection_radius_and_override.sql   moves the zone-detection radius into app_settings (was hardcoded) and lets a dispatcher/super admin correct a specific delivery's zone by hand
+    0041_driver_commission_toggle.sql          master on/off switch for driver commission (both the flat fee and the tiered daily fee), for testing without losing the configured amounts
+    0042_auto_assigned_indicator.sql           adds deliveries.auto_assigned, set when a driver was picked automatically rather than by a dispatcher
+    0043_fix_auto_assigned_signature_mismatch.sql   fixes 0042 rewriting the wrong overload of submit_delivery_request() (missing the customer_email parameter added in 0034)
+    0044_proximity_based_auto_assignment.sql   automatic driver matching switches from a driver's manually-set zone_id to live GPS proximity to the vendor (or, for a mid-trip hand-off, to the cancelling driver's own position)
+    0045_paystack_daily_fee.sql                switches the driver daily-fee real-time Mobile Money gateway from Hubtel to Paystack - renames the gateway-specific columns on driver_daily_fees to generic names
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
     admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
-    hubtel-daily-fee-charge/       Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Hubtel
-    hubtel-daily-fee-webhook/      Edge Function: Hubtel's callback once a daily-fee charge resolves (public, no Supabase session)
-    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link at creation, and both customer + vendor when a driver is assigned
-    notify-vendor-registered/      Edge Function: emails a vendor their link when they register
-    notify-driver-application/     Edge Function: emails staff when a driver signs themselves up
-    notify-driver-approved/        Edge Function: emails a driver once their signup is approved
+    paystack-daily-fee-charge/     Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Paystack
+    paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee charge resolves (public, no Supabase session)
+    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, and both customer + vendor when a driver is assigned
+    notify-vendor-registered/      Edge Function: texts/emails a vendor their link when they register, and staff too
+    notify-driver-application/     Edge Function: texts/emails staff and the applicant when a driver signs themselves up
+    notify-driver-approved/        Edge Function: texts/emails a driver once their signup is approved
     get-road-distance/             Edge Function: real driving distance via Google Directions, for pricing
 ```
 
@@ -168,10 +177,11 @@ exception.) For the very first account, create it straight from Supabase:
    ```
 
 From then on, that account can promote/demote anyone else (to `driver`,
-`dispatcher`, or `super_admin`) right from the app's Team screen — no more
-SQL needed except for this one bootstrap step. Roles can't be changed from
-within the app by anyone but a super admin; a database trigger enforces
-this even if a client is compromised or modified.
+`dispatcher`, or `super_admin`) right from the app's Team or Drivers
+screen — no more SQL needed except for this one bootstrap step. Roles
+can't be changed from within the app by anyone but a super admin; a
+database trigger enforces this even if a client is compromised or
+modified.
 
 ### Enable "Forgot password?"
 
@@ -421,7 +431,7 @@ This is a dashboard for dispatchers and super admins, not a driver app -
 so on **web** specifically, a driver account signing in gets signed
 straight back out, with a message explaining why. Drivers still exist as
 a role (a dispatcher/super admin still creates and manages them from
-Team), they just can't sign in through this particular deployment; a
+Drivers), they just can't sign in through this particular deployment; a
 native mobile build wouldn't have this restriction, once one exists.
 
 A super admin can temporarily lift this from **Console > Settings**
@@ -457,7 +467,7 @@ password immediately, no temporary one to change later.
 
 That account starts **inactive**, though - pending approval - and can't
 be assigned any deliveries until a dispatcher or super admin approves it
-from the Team screen (the same toggle used to deactivate any existing
+from the Drivers screen (the same toggle used to deactivate any existing
 driver later). Until then, signing in shows a "pending approval" screen
 instead of the driver dashboard. Recently self-signed-up drivers also show
 a "Pending approval" badge on the Console's Onboarding tab, alongside the
@@ -467,7 +477,7 @@ spot new signups needing a look.
 This is safe against a spoofed client: what decides whether a new account
 starts active or pending is `raw_app_meta_data`, which can only be set
 server-side with the service-role key (by the `admin-create-driver` Edge
-Function, for accounts a dispatcher creates from Team) - never by
+Function, for accounts a dispatcher creates from Drivers) - never by
 `user_metadata` a signing-up client controls. See
 `supabase/migrations/0014_driver_self_signup.sql`.
 
@@ -480,20 +490,22 @@ called from the app itself, so they fire no matter which screen changed
 the row.
 
 - **Application submitted** - the moment a driver self-signs-up, two
-  emails go out from the same trigger: every active dispatcher and super
-  admin is emailed the applicant's name, email, and phone with a nudge to
-  review them from Team, and the applicant themselves gets a short
-  receipt ("we've received your application, a dispatcher will review it
-  soon"). An admin-created driver never triggers either (they land
-  already active).
+  notices go out from the same trigger: every active dispatcher and super
+  admin is texted/emailed the applicant's name, email, and phone with a
+  nudge to review them from Drivers, and the applicant themselves gets a
+  short receipt by SMS/email ("we've received your application, a
+  dispatcher will review it soon"). Each channel is independent - a staff
+  member with no phone on file just gets the email, one with no email
+  just gets the text, and so on. An admin-created driver never triggers
+  either (they land already active).
 - **Application approved** - the moment a dispatcher/super admin flips a
-  pending driver's toggle to active, that driver is emailed to let them
-  know they can now sign in and start receiving deliveries. Deactivating
-  someone, or any other profile edit, doesn't trigger this - only the
-  pending → active transition does.
+  pending driver's toggle to active, that driver is texted/emailed to let
+  them know they can now sign in and start receiving deliveries.
+  Deactivating someone, or any other profile edit, doesn't trigger this -
+  only the pending → active transition does.
 
-**Setup** (reusing the same Resend account and secret as everywhere else
-in this README):
+**Setup** (reusing the same Twilio/Resend accounts and secrets as
+everywhere else in this README):
 
 ```bash
 supabase functions deploy notify-driver-application
@@ -632,20 +644,27 @@ notify-driver-application` / `notify-driver-approved`).
 ## Staff management
 
 Dispatchers and super admins can add, edit, and remove drivers straight from
-the Team screen — Full name, email, telephone number, residential address,
-Ghana card number, and vehicle number. Super admins can also add, edit, and
-remove **dispatchers** the same way — Full name, date of birth, email,
-telephone number, and residential address are all required for a
-dispatcher (checked both in the form and server-side). Dispatcher
+the **Drivers** screen — Full name, email, telephone number, residential
+address, Ghana card number, and vehicle number, grouped by vehicle type.
+It's its own section, separate from **Team**, precisely so driver-specific
+settings (approve/deactivate, freeze, and anything added later - e.g. a
+daily-fee tier pin from Console > Daily Fees) have a dedicated home instead
+of being buried in a general staff list; both dispatchers and super admins
+can reach it, since managing the driver roster is routine dispatch work.
+
+Super admins can also add, edit, and remove **dispatchers** from the
+**Team** screen the same way — Full name, date of birth, email, telephone
+number, and residential address are all required for a dispatcher (checked
+both in the form and server-side). Team is super-admin-only: dispatcher
 management is exclusive to the super admin role, since dispatchers managing
 other dispatchers would be a peer managing peers. A super admin's own
-account can't be removed from this screen either way; that's not a roster
-edit.
+account can't be removed from either screen either way; that's not a
+roster edit.
 
-The same screen has a toggle to approve a driver who signed themselves up
-(see **Driver self-signup** above) or deactivate any existing driver or
-dispatcher - an inactive driver shows a "Pending approval" badge and can't
-be assigned deliveries until switched on.
+Both screens have a toggle to deactivate an existing driver/dispatcher; on
+Drivers, the same toggle also approves a driver who signed themselves up
+(see **Driver self-signup** above) - an inactive driver shows a "Pending
+approval" badge and can't be assigned deliveries until switched on.
 
 Creating or deleting a login needs Supabase's admin API, which requires the
 project's service-role key. That key must never be embedded in the app
@@ -827,13 +846,14 @@ Customer Delivery Price = Base Delivery Fare + Distance Charge
   (`submit_delivery_request`) never uses a distance smaller than the
   straight-line one — a customer can't under-report distance to pay less,
   since that's a physical impossibility for any real route.
-- **Capped at 50** (in the app's currency) — however far the drop-off,
-  this is the most a single delivery is ever quoted or charged. The
-  request form shows this as a low-high **range** (roughly 15% below the
-  capped amount up to it, since a straight-line distance to a freshly
-  dropped pin is necessarily an estimate) via the anonymous-safe
-  `get_delivery_price_estimate()` RPC — refreshed the moment a drop-off
-  location is set, before the customer submits anything.
+- **No upper bound** (`0047_remove_price_cap.sql`) — a single delivery's
+  price is base fare + distance charge, however far the drop-off, with
+  nothing capping it. The request form shows this as a low-high **range**
+  (roughly 15% below the amount up to it, since a straight-line distance
+  to a freshly dropped pin is necessarily an estimate) via the
+  anonymous-safe `get_delivery_price_estimate()` RPC — refreshed the
+  moment a drop-off location is set, before the customer submits
+  anything.
 - The real charge is computed **server-side**, inside
   `submit_delivery_request` — never trusted from the client, and always
   matching the estimate's high end — and a `payments` row is created for
@@ -894,46 +914,89 @@ the moment they're not. `detect_zone_for_point()`
 (`0033_zone_auto_recognition_and_cap.sql`) instead looks at the
 **customer's actual drop-off coordinates** and finds the nearest named
 zone location (the reference points a super admin pins in **Console >
-Zones**) within 5km. If one's close enough, that location's zone is used
-for the delivery - for pricing (any zone-specific rate override) and for
-auto-assignment (below) alike. If nothing is close enough (or the
-request has no coordinates at all), it falls back to the vendor's own
-zone; if that's also unset, the delivery simply has no zone, same as
-before.
+Zones**) within a configurable radius (**Console > Settings > Zone
+detection radius**, 1-50km, default 5 - see
+`0040_zone_detection_radius_and_override.sql`). If one's close enough,
+that location's zone is used for the delivery - for pricing (any
+zone-specific rate override) and reporting. If
+nothing is close enough (or the request has no coordinates at all), it
+falls back to the vendor's own zone; if that's also unset, the delivery
+simply has no zone, same as before.
 
 This makes zone accuracy a direct function of how many locations a zone
 has pinned - see **Zones** below for adding many at once.
 
-### Automatic same-zone driver assignment
+If detection (or the vendor's own zone) still gets it wrong, a
+dispatcher/super admin can correct a specific delivery's zone by hand
+from its detail screen in the Console - a plain "Zone" dropdown next to
+"Assigned driver". This doesn't retroactively re-price the delivery or
+touch its driver assignment; it only affects driver-suggestion matching
+and zone reporting going forward.
+
+### Automatic proximity-based driver assignment
 
 A customer-submitted request doesn't need a dispatcher at all when
-someone's available: `submit_delivery_request` looks for a driver in the
-resolved zone (see above) who is **online**, **active**, **not frozen**,
-**paid up on today's commission**, and **under the automatic-assignment
-cap**, and assigns them immediately (status goes straight to `assigned`,
-same as a dispatcher assigning one by hand) instead of sitting at
-`pending`.
+someone's available: `submit_delivery_request`
+(`0044_proximity_based_auto_assignment.sql`) looks for whichever driver
+is **online**, **active**, **not frozen**, **paid up on today's
+commission**, **under the automatic-assignment cap**, and has shared a
+**live GPS location within the last 15 minutes** (`profiles.last_lat`/
+`last_lng`, pushed every ~15s by the driver's own app while it's open -
+see **Live driver location** below), then picks whoever's **physically
+closest to the vendor's pickup point** right now (plain haversine
+distance). It assigns them immediately (status goes straight to
+`assigned`, same as a dispatcher assigning one by hand) instead of
+sitting at `pending`.
 
-Among the drivers who qualify, it specifically prefers whoever **already
-has the most active deliveries in that same zone** — so several requests
-from the same area consolidate onto one driver's route instead of
-spreading across everyone at once — tie-broken by whoever currently has
-the lightest total workload (for a fair start when nobody in the zone has
-any yet). If nobody in the zone is online (or everyone's at the cap), the
-delivery lands at `pending` exactly as before, for a dispatcher to assign
-by hand.
+This used to match on a driver's manually-set `zone_id` instead - dropped
+because it depends on a dispatcher remembering to set (and keep current)
+every driver's zone by hand, which silently breaks automatic assignment
+entirely with no obvious symptom the moment it's missed. Live location is
+already being collected for the Live Map/customer tracking regardless, so
+proximity needs no extra per-driver setup and picks whoever's genuinely
+nearest rather than whoever happens to carry the right zone tag. A
+driver's `zone_id` still matters for other things (pricing via the
+delivery's own resolved zone, reporting) - just not for *which* driver
+gets picked anymore. If the vendor has no pinned coordinates, or nobody
+qualifies, the delivery lands at `pending` exactly as before, for a
+dispatcher to assign by hand.
 
-The **cap** (`app_settings.zone_auto_assign_cap`, a super admin sets
-3-20 from **Console > Settings**, default 5) is deliberately not "assign
-everything automatically forever" - once a driver already holds that
-many active deliveries in a zone, the *automatic* algorithm stops
-choosing them; a dispatcher can still assign them by hand past the cap
-any time they judge that's the right call. It's a ceiling on how much
-the system decides on its own, not a ceiling on a driver's workload.
+The same proximity rule applies when a driver already mid-trip cancels
+and gets auto-replaced (`driver_cancel_delivery`, see **Driver
+cancellation** below) - except there the reference point is the
+*cancelling* driver's own last known position (the package is already
+with them), not the vendor.
+
+The **cap** (`app_settings.zone_auto_assign_cap` - name unchanged, no
+longer zone-scoped; a super admin sets 3-20 from **Console > Settings**
+as "Simultaneous deliveries per driver", default 5) is a hard ceiling on
+a driver's workload, not just a hint to the automatic matcher: once a
+driver already holds that many active deliveries (anywhere, not per
+zone), the *automatic* algorithm skips them in favour of the
+next-closest eligible driver, AND a dispatcher assigning them by hand -
+or creating a delivery already assigned to them - is rejected the same
+way, enforced inside `enforce_delivery_update()`/`enforce_delivery_insert()`
+(the same before-triggers that already backstop the frozen-driver and
+unpaid-commission rules against every write to `assigned_driver_id` -
+see `0048_manual_assignment_cap.sql`) so it can't be bypassed by any
+code path that writes that column. The rejection surfaces as the
+trigger's own error message wherever it's triggered from (the delivery
+detail screen's driver dropdown, or creating a delivery with a driver
+pre-selected).
 
 This is just what happens automatically when nobody has to step in — a
 dispatcher can always reassign an auto-assigned delivery afterward, the
 same as any other one.
+
+### Turning commission off for testing
+
+Both commission mechanisms described below - the per-delivery flat fee
+and the tiered daily fee - share one master switch: **Console > Settings
+> Driver commission**. Off means nothing is charged, logged, or blocks a
+driver from getting new deliveries, but the configured flat fee/tiers are
+left untouched (see `0041_driver_commission_toggle.sql`) - flip it back
+on once the app is ready to go commercial and everything picks back up
+exactly as it was configured. Defaults to on.
 
 ### Driver commission
 
@@ -954,37 +1017,44 @@ person, weekly, however the business runs it).
 
 ### Driver daily fee
 
-A separate flat fee from commission above: instead of per-delivery, a
-super admin sets one app-wide **daily** platform fee (GHS 10–100, or `0`
-to turn it off entirely) from **Console > Settings**. Unlike every other
-"fee" in this app, this one is a real, enforced gate, not just a record:
-**a driver who hasn't paid today's fee cannot be given a new delivery at
-all** - not a warning, an actual `raise exception` in the database (see
-`enforce_delivery_update()`/`enforce_delivery_insert()` in
-`0031_driver_daily_fee.sql`) that fires no matter how the assignment is
+A separate fee from commission above: instead of per-delivery, a super
+admin defines **tiers** for an app-wide **daily** platform fee from
+**Console > Settings** - "a driver who's completed at least N deliveries
+today owes X" - any number of them, priced by however many deliveries the
+driver has completed *that day* so far. No tiers at all turns the whole
+thing off. The amount owed re-evaluates live as the driver completes more
+deliveries during the day - a driver who crosses into a higher tier owes
+the difference, and pays it the same two ways described below. Unlike
+every other "fee" in this app, this one is a real, enforced gate, not just
+a record: **a driver who hasn't paid up to their current tier cannot be
+given a new delivery at all** - not a warning, an actual `raise exception`
+in the database (see `enforce_delivery_update()`/`enforce_delivery_insert()`
+and `driver_daily_fee_paid()`/`driver_daily_fee_balance()` in
+`0037_tiered_daily_fee.sql`) that fires no matter how the assignment is
 attempted - a dispatcher picking them manually, or the automatic
-same-zone assignment inside `submit_delivery_request`. The Console's
+proximity-based assignment inside `submit_delivery_request`. The Console's
 driver picker also filters them out up front, so a dispatcher sees the
 restriction before hitting the error, not after.
 
-**Drivers never see the word "Hubtel," or any other payment-gateway
+**Drivers never see the word "Paystack," or any other payment-gateway
 name** - the app only ever shows them "commission" and a Mobile Money
 prompt. Internally it's still tracked as the daily fee described here
-(`driver_daily_fees`, `app_settings.driver_daily_fee`, Console > Daily
-Fees) - "commission" is purely the label a driver sees, chosen so they
-never need to know or care which gateway is doing the collecting.
+(`driver_daily_fees`, `driver_daily_fee_tiers`, Console > Daily Fees) -
+"commission" is purely the label a driver sees, chosen so they never need
+to know or care which gateway is doing the collecting.
 
-A driver sees a banner on their dashboard the moment they owe today's
-commission, with two ways to clear it, both landing in the same
-`driver_daily_fees` ledger:
+A driver sees a banner on their dashboard the moment they owe part of
+today's commission, with two ways to clear it, both landing in the same
+`driver_daily_fees` ledger (possibly more than one row a day now, since
+crossing into a higher tier means a second payment):
 
 1. **Pay via Mobile Money, right now** - the driver enters their number
    and network (MTN/Vodafone/AirtelTigo) and taps "Pay via Mobile
-   Money"; behind the scenes the app charges them through **Hubtel's
-   Receive Money API** (`supabase/functions/hubtel-daily-fee-charge`,
+   Money"; behind the scenes the app charges them through **Paystack's
+   Charge API** (`supabase/functions/paystack-daily-fee-charge`,
    never named as such anywhere the driver can see): a prompt appears on
-   their phone to approve, and Hubtel's callback
-   (`supabase/functions/hubtel-daily-fee-webhook`) flips the record to
+   their phone to approve, and Paystack's webhook
+   (`supabase/functions/paystack-daily-fee-webhook`) flips the record to
    paid the moment it resolves - the driver's banner disappears live,
    no refresh needed.
 2. **Pay the business directly, then confirm in-app** - the driver sends
@@ -992,12 +1062,29 @@ commission, with two ways to clear it, both landing in the same
    and submits the transaction reference; a dispatcher/super admin
    checks it against their MoMo statement and approves or rejects it
    from **Console > Daily Fees**. This needs no payment-gateway account
-   at all, so it works from day one and stays as a fallback if Hubtel's
-   ever unreachable.
+   at all, so it works from day one and stays as a fallback if
+   Paystack's ever unreachable.
 
 A dispatcher/super admin can also **waive** a specific driver's fee for a
 given day from Console > Daily Fees - a free first day, a goodwill
-gesture, or an escape hatch if Hubtel is down - with no payment involved.
+gesture, or an escape hatch if Paystack is down - with no payment
+involved.
+
+A **super admin** (not a dispatcher) can also pin a specific driver to one
+tier from the same screen's "Tier overrides" section - "this driver always
+owes tier 2's amount," regardless of how many deliveries they actually
+complete that day. This overrides the automatic calculation entirely for
+that driver until set back to "Automatic" - see
+`daily_fee_tier_override_id` in `0038_daily_fee_tier_overrides.sql`.
+
+### Confirming payments: dispatcher and super admin alike
+
+Marking a commission or daily fee paid/waived, and approving or rejecting
+a driver's manually-submitted Mobile Money reference, is routine dispatch
+work - both the **Commission** and **Daily Fees** Console sections are
+open to a dispatcher, not just a super admin (defining the commission
+rate, the daily-fee tiers themselves, and tier overrides stays
+super-admin-only, in **Console > Settings**/the section above).
 
 ### Free-day incentive
 
@@ -1029,33 +1116,42 @@ app, not only once dispatch happens to try assigning them something). A
 driver with an unspent balance sees a small "X free commission days
 banked" strip on their dashboard even on a day they don't need it yet.
 
-**Setting up real Hubtel collection** (optional - everything above works
+**Setting up real Paystack collection** (optional - everything above works
 through the manual-confirm path with zero setup):
 
-1. Create a Hubtel merchant account and get its **Client ID**, **Client
-   Secret**, and **POS Sales ID** from the Hubtel dashboard.
-2. Set them as Supabase secrets, plus a secret of your own choosing used
-   to protect the webhook (Hubtel doesn't document a verifiable signature
-   scheme precisely enough to check against, so this shared secret in the
-   callback URL is the practical alternative):
+1. Create a Paystack account and get its **Secret Key** from the
+   dashboard's **Settings → API Keys & Webhooks** page - use the test key
+   first, switch to the live key once you're confident it works.
+2. Set it as a Supabase secret:
    ```bash
-   supabase secrets set HUBTEL_CLIENT_ID=... HUBTEL_CLIENT_SECRET=... \
-     HUBTEL_POS_SALES_ID=... HUBTEL_WEBHOOK_SECRET=$(openssl rand -hex 24)
+   supabase secrets set PAYSTACK_SECRET_KEY=sk_...
    ```
 3. Deploy both functions - the webhook needs `verify_jwt = false` since
-   Hubtel calls it directly with no Supabase session (already set in
+   Paystack calls it directly with no Supabase session (already set in
    `supabase/config.toml`):
    ```bash
-   supabase functions deploy hubtel-daily-fee-charge
-   supabase functions deploy hubtel-daily-fee-webhook
+   supabase functions deploy paystack-daily-fee-charge
+   supabase functions deploy paystack-daily-fee-webhook
    ```
-4. **Verify against Hubtel's current docs before relying on this in
-   production.** Both functions are written against Hubtel's publicly
-   documented Receive Money Prompt API shape, but exact field names and
-   the callback payload's structure are worth double-checking in your own
-   Hubtel dashboard/sandbox first - third-party API details do shift over
-   time, and this fails loudly (an error back to the driver) rather than
-   silently, if something doesn't match.
+4. In the Paystack dashboard, under **Settings → API Keys & Webhooks**,
+   set your **Webhook URL** to
+   `https://your-project-ref.supabase.co/functions/v1/paystack-daily-fee-webhook`
+   - Paystack calls this directly (not through a Supabase Database
+   Webhook, so the "Webhooks page isn't there" workaround elsewhere in
+   this README doesn't apply here at all), and the function verifies
+   Paystack's own `x-paystack-signature` header against your secret key
+   rather than trusting the request blindly.
+5. **Verify against Paystack's current docs before relying on this in
+   production.** Both functions are written against Paystack's publicly
+   documented Charge API (mobile money charging for Ghana) and webhook
+   signature scheme, but exact field names and event shapes are worth
+   double-checking in your own Paystack dashboard/test mode first -
+   third-party API details do shift over time, and this fails loudly (an
+   error back to the driver) rather than silently, if something doesn't
+   match. One known gap: if Paystack ever responds asking for an OTP
+   (`data.status === "send_otp"`) - uncommon for Ghana mobile money, but
+   possible - there's no in-app screen to collect one yet, so the driver
+   is told to use the manual reference option instead.
 
 ### Scheduled deliveries
 
@@ -1064,8 +1160,8 @@ have a **When** section - "As soon as possible" (the historical default,
 `scheduled_at` left `null`) or "Schedule for later", which opens a
 date/time picker. A scheduled request still gets priced and tracked
 exactly the same way; the only behavioral difference is automatic
-same-zone driver assignment (see above) skips anything scheduled more
-than 15 minutes out, so it doesn't get handed to whoever happens to be
+proximity-based driver assignment (see above) skips anything scheduled
+more than 15 minutes out, so it doesn't get handed to whoever happens to be
 online right now for a job that isn't ready to start - it sits at
 `pending` for a dispatcher to assign closer to the time.
 
@@ -1081,6 +1177,19 @@ refresh. Individual delivery cards get a matching pulsing badge with the
 scheduled time, everywhere a `Delivery` is listed. See
 `0030_scheduled_delivery.sql`.
 
+## Driver delivery history
+
+A driver's dashboard shows both their active jobs and a "Completed"
+history of everything they've delivered or had cancelled - but once a
+delivery lands in that history, its pickup details (the vendor's name and
+location, for a vendor-submitted delivery) are replaced with "Pickup
+details hidden" and the map pin for it disappears. The real pickup
+address is still shown normally for anything still active - a driver
+needs it to actually do the job - this only applies once a delivery is
+done and there's no operational reason left to keep showing which
+business it was. A dispatcher/super admin is unaffected either way; see
+[`Delivery.withPickupHiddenIfHistory`](lib/models/delivery.dart).
+
 ## Driver actions: reject, cancel, and undo
 
 - **Reject** - a full-size button right next to "Accept & begin trip" while
@@ -1095,11 +1204,12 @@ scheduled time, everywhere a `Delivery` is listed. See
 - **Cancel trip** - in the "⋮" menu, only once the driver has actually
   accepted the job (`picked_up` or `in_transit`) - for when they can't
   finish it (a breakdown, an emergency, ...). Prompts for confirmation and
-  an optional reason, then tries to hand the delivery straight to another
-  available driver in the same zone (same eligibility rules as
-  auto-assignment on a new request - online, active, not frozen, paid up on
-  today's fee, under the zone's cap); if nobody qualifies, it falls back to
-  `pending` for a dispatcher to assign by hand. Either way, an admin can
+  an optional reason, then tries to hand the delivery straight to whichever
+  other available driver is physically closest to *this* driver's own last
+  known position (same eligibility rules as auto-assignment on a new
+  request - online, active, not frozen, paid up on today's fee, under the
+  cap, live location within the last 15 minutes); if nobody qualifies, it
+  falls back to `pending` for a dispatcher to assign by hand. Either way, an admin can
   still reassign it themselves at any point from the delivery detail
   screen's driver dropdown, same as any other delivery - this doesn't lock
   anything in.
@@ -1157,19 +1267,20 @@ Three more per-driver fields, all added in
 `0025_driver_categories_and_status.sql`:
 
 - **Vehicle type** — Motorbike, Car, Van/Truck, or Tricycle. Set from the
-  Add/Edit driver form (**Team**) or a driver's own self-signup form; both
-  are optional, so a driver can stay unset until edited. The **Team**
-  screen groups drivers by this (with an "Unspecified vehicle" group for
-  anyone without one), separately from dispatchers and super admins.
+  Add/Edit driver form (**Drivers**) or a driver's own self-signup form;
+  both are optional, so a driver can stay unset until edited. The
+  **Drivers** screen groups drivers by this (with an "Unspecified vehicle"
+  group for anyone without one).
 - **Online/offline** — a driver's own "available for new deliveries"
   toggle, shown as a bar at the top of their dashboard, and as an
-  "Online"/"Offline" badge on their row in **Team** so a dispatcher/super
-  admin can see it too. It's also what the zone auto-assignment algorithm
-  (above) checks before handing a driver a new customer request - one
-  who's offline is skipped, same as one who's inactive or frozen.
+  "Online"/"Offline" badge on their row in **Drivers** so a dispatcher/super
+  admin can see it too. It's also what the automatic proximity-based
+  assignment algorithm (above) checks before handing a driver a new
+  customer request - one who's offline is skipped, same as one who's
+  inactive or frozen.
 - **Frozen** — a super-admin-only control (e.g. for unpaid commission),
-  toggled from **Team** with a confirmation prompt and a "Frozen" badge on
-  the driver's row. A frozen driver keeps full access to whatever's
+  toggled from **Drivers** with a confirmation prompt and a "Frozen" badge
+  on the driver's row. A frozen driver keeps full access to whatever's
   already assigned to them - they can still work it to completion - but
   can't accept a delivery still sitting at `assigned`, and can't be newly
   assigned another one either (both blocked server-side, not just in the
@@ -1206,7 +1317,7 @@ itself, outside the remounted widget tree.
 Adding a 7th theme is a matter of adding one more `ThemePreset` entry to
 `kThemePresets` - nothing else needs to change.
 
-## Delivery notifications (tracking link + driver assigned + cancellation alert)
+## Delivery notifications (tracking link + new order + driver assigned + cancellation alert)
 
 One Edge Function, `notify-delivery-events`, handles three separate
 moments in a delivery's life - both by SMS via
@@ -1218,9 +1329,17 @@ moments in a delivery's life - both by SMS via
    SMS, and by email too if they gave one on the request form (an
    optional field - see `deliveries.customer_email`,
    `0034_notifications_tracking_ratings.sql`) - so they have a way back
-   to it even if they close the page they submitted from.
+   to it even if they close the page they submitted from. In the same
+   instant, if the order came in through a vendor's public link, the
+   **vendor** gets a new-order notice too - the customer's name, the
+   drop-off address, and a link to their own private orders page
+   (`/vendor-orders/<ordersCode>`) - by SMS (every vendor has a phone on
+   file, required at registration) and by email wherever one's on file.
+   This is separate from and earlier than notification 2 below - a
+   vendor hears about the order right away, not only once a driver
+   happens to be assigned.
 2. **The moment a driver is assigned** - whether that's immediate
-   (auto-assignment, see **Automatic same-zone driver assignment**
+   (auto-assignment, see **Automatic proximity-based driver assignment**
    above), set later from the delivery detail screen, or an automatic
    reassignment after a cancellation (below) - both the **customer and
    the vendor** get the rider's name and phone number. Every one of
@@ -1292,6 +1411,84 @@ already on for this exact feature. Self-hosted: run
 `create extension if not exists pg_net;` once first if the webhook won't
 save.
 
+### If the Webhooks page isn't there
+
+Some Supabase projects (ones that never used a Database Webhook before)
+don't have the `supabase_functions` schema provisioned, and the
+**Database → Webhooks** page just won't show up in the dashboard. If
+that's what you're seeing, wire it up by hand instead with a `pg_net`
+trigger, from the SQL Editor:
+
+```sql
+create extension if not exists pg_net;
+
+create or replace function public.trigger_notify_delivery_insert()
+returns trigger
+language plpgsql
+as $$
+begin
+  perform net.http_post(
+    url := 'https://your-project-ref.supabase.co/functions/v1/notify-delivery-events',
+    headers := '{"Content-type": "application/json"}'::jsonb,
+    body := jsonb_build_object(
+      'type', 'INSERT',
+      'table', 'deliveries',
+      'record', row_to_json(new)
+    )
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists notify_delivery_insert on public.deliveries;
+create trigger notify_delivery_insert
+after insert on public.deliveries
+for each row
+execute function public.trigger_notify_delivery_insert();
+
+create or replace function public.trigger_notify_delivery_update()
+returns trigger
+language plpgsql
+as $$
+begin
+  perform net.http_post(
+    url := 'https://your-project-ref.supabase.co/functions/v1/notify-delivery-events',
+    headers := '{"Content-type": "application/json"}'::jsonb,
+    body := jsonb_build_object(
+      'type', 'UPDATE',
+      'table', 'deliveries',
+      'record', row_to_json(new),
+      'old_record', row_to_json(old)
+    )
+  );
+  return new;
+end;
+$$;
+
+drop trigger if exists notify_delivery_update on public.deliveries;
+create trigger notify_delivery_update
+after update on public.deliveries
+for each row
+execute function public.trigger_notify_delivery_update();
+```
+
+Swap in your real project ref in both `url :=` lines. Unlike the
+`pg_net` examples elsewhere in this README, these payloads explicitly
+set `'type'` - `notify-delivery-events` branches its logic on
+`payload.type` (`"INSERT"` sends the tracking link and the new-order
+notice to the vendor; `"UPDATE"` handles driver-assigned and
+driver-cancelled notices), so leaving it out would make the function
+silently do nothing on every call.
+
+This bypasses Supabase's automatic auth for Edge Functions webhooks, so
+the function also needs `verify_jwt = false` in `supabase/config.toml`
+(already set for `notify-delivery-events` in this repo) - then redeploy
+so the config takes effect:
+
+```bash
+supabase functions deploy notify-delivery-events
+```
+
 ### Notes
 
 - **Customer and vendor phone numbers should be in international
@@ -1321,8 +1518,8 @@ updates the same row rather than adding a second one, so a customer can
 always come back and revise their rating.
 
 There's no dispatcher/admin screen surfacing these yet (a driver's average
-rating in **Console > Team** is a reasonable next step) - for now, reading
-them means querying `delivery_ratings` directly.
+rating on their row in **Drivers** is a reasonable next step) - for now,
+reading them means querying `delivery_ratings` directly.
 
 ## Vendors, zones, and public delivery requests
 
@@ -1338,9 +1535,9 @@ both at once):
   form ("Ordering from *Vendor name*") for them to fill in their name,
   phone, and drop-off location. Pickup is always the vendor's registered
   location, so the customer only ever supplies the drop-off. Depending on
-  driver availability in the vendor's zone it's either auto-assigned
+  whether an eligible driver is nearby it's either auto-assigned
   immediately or lands as `pending` for a dispatcher to assign by hand
-  (see **Automatic same-zone driver assignment** above).
+  (see **Automatic proximity-based driver assignment** above).
 - **The private orders link**, e.g.
   `https://your-app.example/vendor-orders/QK7RS2T9WXYZ` - for the vendor
   themselves only, **never** the customers. It's a live list of every
@@ -1363,7 +1560,11 @@ address, and driver's phone for that vendor - if you're running an older
 version of SuperD, apply that migration to close this. A customer tracking
 their *own* order instead uses a third, per-delivery link -
 `https://your-app.example/t/<trackingCode>` - shown right after they
-submit a request, which only ever shows that one delivery.
+submit a request, which only ever shows that one delivery. It gets the
+same opt-in **Track live** button as the vendor's orders page once a
+driver is assigned - a bottom sheet with a live map of the driver's last
+known position and the drop-off point, on the same 5-second poll
+(`0039_customer_live_tracking.sql`).
 
 "Live" on both the orders page and a customer's own tracking page means
 polled every 5 seconds, not true Postgres realtime - these pages are
@@ -1403,23 +1604,25 @@ Leave it out entirely for a web-only deployment. Without it, on a non-web
 build, vendor links fall back to a bare `/v/<code>` path - accurate, but
 not something you can actually hand a customer.
 
-### Emailing a vendor their link
+### Texting/emailing a vendor their link
 
-A vendor can give an email address when registering (self-signup or the
-"Add vendor" screen). If they do, they're emailed both their `/v/<code>`
-public link and their private `/vendor-orders/<ordersCode>` link (clearly
-labeled as private, never for customers) the moment their record is
-created - one less thing for whoever registered them to remember to
-share. SMS delivery of the same links is planned as a follow-up; email
-comes first.
+A vendor is required to give a phone number when registering (self-signup
+or the "Add vendor" screen), and can optionally give an email too. They're
+texted both their `/v/<code>` public link and their private
+`/vendor-orders/<ordersCode>` link (clearly labeled as private, never for
+customers) the moment their record is created, and emailed the same thing
+too if they gave an address - one less thing for whoever registered them
+to remember to share. Every active dispatcher/super admin gets a shorter
+heads-up notice ("new vendor registered") the same way.
 
 Like the customer SMS notification above, this is wired up as a
 **Supabase Database Webhook** (not called from the app itself), so it
 fires no matter which screen registered the vendor:
 
-1. **Reuse your existing Resend account** (the same one from **Emailing
-   the new account its password**) - no new signup needed, just deploy the
-   function with that same secret already set:
+1. **Reuse your existing Resend/Twilio accounts** (the same ones from
+   **Emailing the new account its password** and **Delivery
+   notifications**) - no new signup needed, just deploy the function with
+   those same secrets already set:
    ```bash
    supabase functions deploy notify-vendor-registered
    ```
@@ -1516,11 +1719,13 @@ has no real orders against it yet.
 ### Zones
 
 **Zones** are a fixed, admin-managed list of named areas (e.g. "East Legon",
-"Osu") used to group both drivers and vendors, so a dispatcher assigning a
-driver can see who's actually nearby, price customer requests by area, and
-auto-assign a driver without a dispatcher at all when one's available (see
-**Automatic same-zone driver assignment** above). Assign a driver to one
-from their edit screen in **Team**, and a vendor to one when they're
+"Osu") used to group both drivers and vendors - for a vendor, this drives
+per-area pricing (a zone can override the app-wide base fare/rate) and
+reporting; for a driver, it's informational only now (which area they
+generally cover, shown to a dispatcher), no longer what picks who gets a
+new delivery automatically - that's live GPS proximity instead (see
+**Automatic proximity-based driver assignment** above). Assign a driver to
+one from their edit screen in **Drivers**, and a vendor to one when they're
 registered.
 
 Only a super admin can create a zone or change what it covers - that
@@ -1575,13 +1780,21 @@ commission or SMS log entry tied to it stays, with `delivery_id` set to
 
 ### Rider suggestions
 
-When assigning a driver - whether creating a delivery or from an existing
-one's detail screen - drivers already in the same zone as the delivery are
-listed first, then everyone else ordered by who currently has the fewest
-active jobs. Same-zone matches are labelled "(Suggested)". This is a plain,
-free, instant calculation done entirely on-device - not a call to any
-external AI service - since "suggest the best rider" reduces to exactly
-that: proximity (by zone) and current workload.
+When assigning a driver by hand - creating a delivery, or from an
+existing one's detail screen - the "Driver" dropdown
+(`rankedDriversProvider`) lists whoever has a recent live location
+(within 15 minutes - [Profile.hasRecentLocation]) and is physically
+closest to the pickup point first, then everyone else, ordered within
+each group by who currently has the fewest active jobs. Same reference
+point and the same idea as automatic assignment itself (see **Automatic
+proximity-based driver assignment** above) - a plain, free, instant
+calculation done entirely on-device, not a call to any external AI
+service. This replaced an earlier version that ranked same-zone drivers
+first instead, dropped for the same reason automatic assignment itself
+moved off zone_id - it depends on a dispatcher keeping every driver's
+zone current by hand. No explicit "(Suggested)" tag is shown anymore
+(the ordering speaks for itself); a dispatcher who wants to see it on a
+map can also check **Live Map**.
 
 ## Admin dashboard
 
@@ -1595,13 +1808,32 @@ back out of. What shows up in the nav is role-based:
   row of quick-glance KPI cards, all deliveries broken down by status, and
   one-tap links into every other section this role can reach), **Deliveries**
   (the live job board: filter by status, create one, tap in for details),
-  **Team** (add/edit/remove drivers, and dispatchers if you're a super
-  admin), **Vendors** (register/edit vendors, copy their links,
-  activate/deactivate), and **Live Map** (every driver currently sharing
-  their location, live on Google Maps - see **Live driver tracking**
-  below).
+  **Drivers** (add/edit/remove drivers, grouped by vehicle type - split out
+  from Team into its own section so driver-specific settings, e.g. freeze
+  or a daily-fee tier pin, have a dedicated home), **Vendors** (register/edit
+  vendors, copy their links, activate/deactivate), **Live Map** (every
+  driver currently sharing their location, live on Google Maps - see
+  **Live driver tracking** below), **Commission** (what drivers owe the
+  business, not what customers owe for the delivery - see **Driver
+  commission** below: outstanding vs collected vs waived per currency, a
+  per-driver "owed" breakdown, and a recent-commission feed with a one-tap
+  "Mark paid" action), and **Daily Fees** (the tiered daily Mobile Money
+  platform fee, shown to drivers as "commission" - see **Driver daily
+  fee** below: who hasn't paid today with a one-tap "Waive today" per
+  driver, each driver's banked free-day balance and completed-delivery
+  count with a "Grant" button, Mobile Money references awaiting
+  confirmation from the manual-pay fallback, and a recent-payments feed.
+  A super admin additionally sees a "Tier overrides" section here to pin
+  a specific driver to one tier, overriding the automatic
+  delivery-count calculation for them - see **Driver daily fee** below).
+  Confirming what a driver owes/has paid is routine dispatch work, not a
+  super-admin-only decision.
 - **Super admins additionally see**, grouped under an "Admin Console"
   header in the nav:
+  - **Team** - add/edit/remove dispatchers and other super admins.
+    Exclusive to a super admin: dispatcher management is a peer managing
+    peers, so it's kept off a dispatcher's nav entirely (unlike Drivers
+    above).
   - **Overview** - reporting/analytics computed live from existing data,
     all-time and always current (no date filter - see **Reports** below
     for that): total deliveries by status, completion/cancellation rate,
@@ -1624,17 +1856,6 @@ back out of. What shows up in the nav is role-based:
     recorded: collected vs outstanding (and failed/refunded, when
     present) per currency, a breakdown by payment method, and a
     recent-payments feed.
-  - **Commission** - what drivers owe the business, not what customers
-    owe for the delivery (see **Driver commission** below): outstanding
-    vs collected vs waived per currency, a per-driver "owed" breakdown,
-    and a recent-commission feed with a one-tap "Mark paid" action.
-  - **Daily Fees** - the flat daily Mobile Money platform fee, shown to
-    drivers as "commission" (see **Driver daily fee** above): who hasn't
-    paid today (with a one-tap "Waive today" per driver), each driver's
-    banked free-day balance and completed-delivery count with a "Grant"
-    button (see **Free-day incentive**), Mobile Money references awaiting
-    confirmation from the manual-pay fallback, and a recent-payments
-    feed.
   - **Audit log** - a chronological record of who did what: role changes,
     staff added/removed, vendors registered/edited/(de)activated, drivers
     assigned, deliveries created, and payments marked paid. Entries are
@@ -1646,14 +1867,15 @@ back out of. What shows up in the nav is role-based:
   - **Onboarding** - a single triage view of recently added staff and
     vendors, flagging what's incomplete (a driver who hasn't set their
     own password yet, a vendor with no zone or a deactivated link) with a
-    direct link into the Team/Vendors edit forms to fix it. It doesn't
-    duplicate those forms - just surfaces who needs attention.
+    direct link into the Drivers/Team/Vendors edit forms to fix it. It
+    doesn't duplicate those forms - just surfaces who needs attention.
   - **Zones** - create, rename, or delete zones (the fixed list drivers
     and vendors pick from elsewhere), and define what each one covers by
     pinning named locations within it. Deleting a zone still in use by a
     vendor, driver, or delivery is rejected (reassign those first).
   - **Settings** - app-wide settings: currency (see **Payments** above),
-    the UI theme, delivery pricing (see **Delivery pricing** above), and
+    the UI theme, delivery pricing (see **Delivery pricing** above), the
+    zone-detection radius (see **Automatic zone recognition** above), and
     whether drivers may sign in on web (see **Web dashboard is
     back-office only**). Six built-in color themes (Navy & Gold, Ocean
     Blue, Forest Green, Sunset Orange, Royal Purple, Charcoal) - picking
@@ -1661,12 +1883,13 @@ back out of. What shows up in the nav is role-based:
     changed it. All of these are backed by the single-row `app_settings`
     table.
 
-A dispatcher literally has no way to reach the Admin Console sections -
-they're not just hidden, there's no route for them to type into the
-address bar either, since they live as plain in-app navigation state
-rather than their own URLs. The underlying data is independently
-RLS-protected regardless (e.g. `audit_log`'s select policy is
-`is_super_admin()` only), so it's not relying on the UI alone.
+A dispatcher literally has no way to reach the super-admin-only Admin
+Console sections (Team, Overview, Reports, Finance, Audit log,
+Onboarding, Zones, Settings) - they're not just hidden, there's no route
+for them to type into the address bar either, since they live as plain
+in-app navigation state rather than their own URLs. The underlying data
+is independently RLS-protected regardless (e.g. `audit_log`'s select
+policy is `is_super_admin()` only), so it's not relying on the UI alone.
 
 ### Live driver tracking
 

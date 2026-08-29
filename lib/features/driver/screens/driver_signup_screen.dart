@@ -135,8 +135,11 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                             controller: _phoneController,
                             keyboardType: TextInputType.phone,
                             decoration: const InputDecoration(
-                              labelText: 'Telephone number (optional)',
+                              labelText: 'Telephone number',
                             ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Required'
+                                : null,
                           ),
                           const SizedBox(height: 14),
                           TextFormField(

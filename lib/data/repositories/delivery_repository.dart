@@ -23,14 +23,21 @@ class DeliveryRepository {
         .map((rows) => rows.map(Delivery.fromMap).toList());
   }
 
-  /// Only the deliveries assigned to [driverId]. Used by the driver dashboard.
+  /// Only the deliveries assigned to [driverId]. Used by the driver
+  /// dashboard - a completed/cancelled one has its pickup (vendor) details
+  /// stripped, see [Delivery.withPickupHiddenIfHistory].
   Stream<List<Delivery>> watchDriverDeliveries(String driverId) {
     return _client
         .from(_table)
         .stream(primaryKey: ['id'])
         .eq('assigned_driver_id', driverId)
         .order('created_at', ascending: false)
-        .map((rows) => rows.map(Delivery.fromMap).toList());
+        .map(
+          (rows) => rows
+              .map(Delivery.fromMap)
+              .map((d) => d.withPickupHiddenIfHistory)
+              .toList(),
+        );
   }
 
   Stream<Delivery?> watchById(String id) {
@@ -100,6 +107,21 @@ class DeliveryRepository {
               ? DeliveryStatus.pending.wireValue
               : DeliveryStatus.assigned.wireValue,
         })
+        .eq('id', deliveryId);
+  }
+
+  /// Corrects a delivery's zone by hand - e.g. automatic detection got it
+  /// wrong, or a dispatcher just disagrees. Doesn't retroactively re-price
+  /// or reassign anything already done; it only affects driver-suggestion
+  /// matching and zone reporting going forward. See
+  /// `0040_zone_detection_radius_and_override.sql`.
+  Future<void> setZone({
+    required String deliveryId,
+    required String? zoneId,
+  }) async {
+    await _client
+        .from(_table)
+        .update({'zone_id': zoneId})
         .eq('id', deliveryId);
   }
 

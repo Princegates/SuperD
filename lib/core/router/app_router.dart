@@ -60,15 +60,16 @@ final routerProvider = Provider<GoRouter>((ref) {
   final refresh = ref.watch(_routerRefreshProvider);
 
   return GoRouter(
-    // No initialLocation: go_router's own _effectiveInitialLocation()
-    // swaps the platform's actual URL for initialLocation specifically
-    // when that URL is the bare root ('/') - which would silently boot
-    // every fresh visit to '/' at '/splash' instead of ever reaching the
-    // WelcomeScreen route below. Every other path (e.g. a direct visit to
-    // '/admin' or '/login') is unaffected either way - this only changes
-    // what happens for the bare root, where WelcomeScreen doesn't need
-    // the splash-then-redirect dance since it doesn't care about auth
-    // state at all.
+    // Web: no initialLocation, so go_router's own _effectiveInitialLocation()
+    // uses the platform's actual URL - the bare root ('/') then reaches the
+    // WelcomeScreen route below, which doesn't need the splash-then-redirect
+    // dance since it doesn't care about auth state at all.
+    //
+    // Native (Android/iOS): there's no real "current URL" to preserve, and
+    // this is the app's front door, not a marketing site - it should start
+    // straight at the splash-then-login/home flow like it always has,
+    // never at WelcomeScreen (see the '/' exemption below, also web-only).
+    initialLocation: kIsWeb ? null : '/splash',
     refreshListenable: refresh,
     redirect: (context, state) {
       // Read fresh every time this runs (triggered by refreshListenable),
@@ -86,13 +87,19 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       final loc = state.matchedLocation;
 
-      // Public, no-login pages: the bare-root welcome screen, a vendor's
-      // self-signup form, the customer request page behind a vendor's
-      // public code, a vendor's own orders page behind their PRIVATE
-      // ordersCode, and a customer's single-order tracking page behind
-      // their tracking code. These must work for a completely anonymous
-      // visitor, so they're exempt from every session/role check below.
-      if (loc == '/' ||
+      // Public, no-login pages: a vendor's self-signup form, the customer
+      // request page behind a vendor's public code, a vendor's own orders
+      // page behind their PRIVATE ordersCode, and a customer's single-
+      // order tracking page behind their tracking code. These must work
+      // for a completely anonymous visitor, so they're exempt from every
+      // session/role check below.
+      //
+      // The bare-root welcome screen is in this same exemption, but web
+      // only - it's this app's marketing front door there. Native builds
+      // have no such front door: '/' falls through to the normal
+      // auth/role redirect below, landing on splash-then-login/home
+      // exactly like every other route.
+      if ((kIsWeb && loc == '/') ||
           loc == '/vendor' ||
           loc.startsWith('/v/') ||
           loc.startsWith('/vendor-orders/') ||

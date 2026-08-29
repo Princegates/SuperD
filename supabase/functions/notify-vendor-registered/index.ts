@@ -1,13 +1,47 @@
-// Emails a vendor their unique link the moment they register, and
-// separately emails every active dispatcher/super admin so staff know a
-// new vendor is on the platform. Wired up as a Supabase Database Webhook
-// (Database -> Webhooks in the dashboard) on the "vendors" table for
-// INSERT only - see the README for the exact setup steps. Runs with the
-// service-role key, same reasoning as the other admin-*/notify-*
-// functions.
+// Texts and emails a vendor their unique link the moment they register
+// (SMS wherever a phone is on file, email wherever an address is), and
+// separately notifies every active dispatcher/super admin the same way so
+// staff know a new vendor is on the platform. Wired up as a Supabase
+// Database Webhook (Database -> Webhooks in the dashboard) on the
+// "vendors" table for INSERT only - see the README for the exact setup
+// steps. Runs with the service-role key, same reasoning as the other
+// admin-*/notify-* functions.
 // Deploy with `supabase functions deploy notify-vendor-registered`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+
+async function sendSms(to: string, body: string): Promise<boolean> {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const fromNumber = Deno.env.get("TWILIO_FROM_NUMBER");
+  if (!accountSid || !authToken || !fromNumber) {
+    console.error("sendSms: Twilio secrets are not fully set");
+    return false;
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ To: to, From: fromNumber, Body: body }),
+      },
+    );
+    if (!res.ok) {
+      console.error(
+        `sendSms: Twilio responded ${res.status} - ${await res.text()}`,
+      );
+    }
+    return res.ok;
+  } catch (e) {
+    console.error("sendSms: fetch to Twilio failed -", e);
+    return false;
+  }
+}
 
 async function sendEmail(
   to: string | string[],
@@ -58,7 +92,7 @@ Deno.serve(async (req) => {
 
     const { data: vendor, error: vendorError } = await admin
       .from("vendors")
-      .select("vendor_name, code, orders_code, email")
+      .select("vendor_name, code, orders_code, email, phone")
       .eq("id", vendorId)
       .single();
     if (vendorError || !vendor) {
@@ -100,10 +134,19 @@ Deno.serve(async (req) => {
     } else if (vendor.email && !link) {
       console.error("notify-vendor-registered: APP_BASE_URL is not set");
     }
+    let sentToVendorSms: boolean | undefined;
+    if (vendor.phone) {
+      sentToVendorSms = await sendSms(
+        vendor.phone as string,
+        `Hi ${vendor.vendor_name}, you're registered on SuperD. ` +
+          (link ? `Your customer link: ${link}. ` : "") +
+          (ordersLink ? `Your private orders link: ${ordersLink}` : ""),
+      );
+    }
 
     const { data: staff, error: staffError } = await admin
       .from("profiles")
-      .select("email")
+      .select("email, phone")
       .in("role", ["dispatcher", "super_admin"])
       .eq("is_active", true);
     if (staffError) {
@@ -112,6 +155,9 @@ Deno.serve(async (req) => {
     const staffEmails = (staff ?? [])
       .map((s) => s.email as string)
       .filter((email) => email.length > 0);
+    const staffPhones = (staff ?? [])
+      .map((s) => s.phone as string | null)
+      .filter((phone): phone is string => Boolean(phone));
 
     let sentToStaff: boolean | undefined;
     if (staffEmails.length > 0) {
@@ -132,8 +178,22 @@ Deno.serve(async (req) => {
         `,
       );
     }
+    let sentToStaffSms: boolean | undefined;
+    if (staffPhones.length > 0) {
+      const staffSmsBody = `SuperD: new vendor registered - ` +
+        `${vendor.vendor_name}.` + (link ? ` Link: ${link}` : "");
+      const staffSmsResults = await Promise.all(
+        staffPhones.map((phone) => sendSms(phone, staffSmsBody)),
+      );
+      sentToStaffSms = staffSmsResults.some(Boolean);
+    }
 
-    return jsonResponse({ sentToVendor, sentToStaff });
+    return jsonResponse({
+      sentToVendor,
+      sentToVendorSms,
+      sentToStaff,
+      sentToStaffSms,
+    });
   } catch (e) {
     return jsonResponse(
       { error: e instanceof Error ? e.message : String(e) },

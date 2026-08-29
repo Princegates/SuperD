@@ -26,6 +26,14 @@ class Delivery {
   final String? vendorId;
   final String? zoneId;
 
+  /// True if the *current* [assignedDriverId] was picked by the system
+  /// automatically - submit_delivery_request()'s same-zone matching at
+  /// creation, or driver_cancel_delivery()'s same-zone hand-off - rather
+  /// than a dispatcher choosing by hand. Always false once unassigned, or
+  /// once a dispatcher (re)assigns the delivery themselves - see
+  /// `0042_auto_assigned_indicator.sql`.
+  final bool autoAssigned;
+
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? assignedAt;
@@ -58,6 +66,7 @@ class Delivery {
     this.assignedDriverId,
     this.vendorId,
     this.zoneId,
+    this.autoAssigned = false,
     this.assignedAt,
     this.pickedUpAt,
     this.deliveredAt,
@@ -88,6 +97,7 @@ class Delivery {
       assignedDriverId: map['assigned_driver_id'] as String?,
       vendorId: map['vendor_id'] as String?,
       zoneId: map['zone_id'] as String?,
+      autoAssigned: map['auto_assigned'] as bool? ?? false,
       createdAt: parseDate(map['created_at']) ?? DateTime.now(),
       updatedAt: parseDate(map['updated_at']) ?? DateTime.now(),
       assignedAt: parseDate(map['assigned_at']),
@@ -99,6 +109,48 @@ class Delivery {
 
   bool get hasPickupCoordinates => pickupLat != null && pickupLng != null;
   bool get hasDropoffCoordinates => dropoffLat != null && dropoffLng != null;
+
+  /// A copy with the pickup identity - the vendor's name/location for a
+  /// vendor-submitted delivery - stripped out, once this delivery is done
+  /// (delivered or cancelled). A driver still needs the real pickup
+  /// details while a delivery is active to actually do the job; once it's
+  /// history, there's no operational reason to keep showing which
+  /// business it was. Only ever applied on the driver-facing side (see
+  /// `DeliveryRepository.watchDriverDeliveries()` and
+  /// `DeliveryDetailDriverScreen`) - a dispatcher/super admin still sees
+  /// the real pickup details everywhere, including their own reports.
+  Delivery get withPickupHiddenIfHistory {
+    if (status != DeliveryStatus.delivered &&
+        status != DeliveryStatus.cancelled) {
+      return this;
+    }
+    return Delivery(
+      id: id,
+      trackingCode: trackingCode,
+      status: status,
+      customerName: customerName,
+      customerPhone: customerPhone,
+      customerEmail: customerEmail,
+      pickupAddress: 'Pickup details hidden',
+      dropoffAddress: dropoffAddress,
+      dropoffLat: dropoffLat,
+      dropoffLng: dropoffLng,
+      packageDescription: packageDescription,
+      notes: notes,
+      proofOfDeliveryUrl: proofOfDeliveryUrl,
+      createdBy: createdBy,
+      assignedDriverId: assignedDriverId,
+      vendorId: vendorId,
+      zoneId: zoneId,
+      autoAssigned: autoAssigned,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      assignedAt: assignedAt,
+      pickedUpAt: pickedUpAt,
+      deliveredAt: deliveredAt,
+      scheduledAt: scheduledAt,
+    );
+  }
 
   /// Still needs a driver (or hasn't been picked up yet) and its scheduled
   /// time is within [threshold] of now - the condition the animated

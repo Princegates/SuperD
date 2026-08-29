@@ -11,10 +11,11 @@ class AppSettings {
     required this.allowDriverWebLogin,
     this.baseFare = 5,
     this.pricePerKm = 1.5,
+    this.driverCommissionEnabled = true,
     this.commissionFlatFee = 0,
-    this.driverDailyFee = 0,
     this.freeDayDeliveryThreshold,
     this.zoneAutoAssignCap = 5,
+    this.zoneDetectionRadiusKm = 5,
     this.supportPhone,
     this.adminAlertEmail,
     this.adminAlertPhone,
@@ -39,16 +40,18 @@ class AppSettings {
   /// dropoff, on top of [baseFare].
   final double pricePerKm;
 
+  /// Master off-switch for driver commission - both this flat fee and the
+  /// tiered daily fee ([DriverDailyFeeTier]) stop being charged/enforced
+  /// while this is false, without losing their configured amounts. Meant
+  /// for testing the app before it goes commercial - see
+  /// `0041_driver_commission_toggle.sql`.
+  final bool driverCommissionEnabled;
+
   /// Flat amount a driver owes the business per completed delivery - see
   /// `commission_payments` in `0029_commission_payments.sql`. 0 means
-  /// commission tracking is effectively off.
+  /// commission tracking is effectively off. Ignored entirely while
+  /// [driverCommissionEnabled] is false.
   final double commissionFlatFee;
-
-  /// Flat daily Mobile Money fee every driver owes the business - see
-  /// `driver_daily_fees` in `0031_driver_daily_fee.sql`. 0 means the whole
-  /// feature is off (no driver is blocked from getting deliveries);
-  /// otherwise always between 10 and 100.
-  final double driverDailyFee;
 
   /// Automatic free-day incentive: every this many completed deliveries
   /// earns a driver 1 free commission day, credited to
@@ -58,12 +61,27 @@ class AppSettings {
   /// either way).
   final int? freeDayDeliveryThreshold;
 
-  /// Max active same-zone deliveries a driver can hold before automatic
-  /// assignment stops picking them and a new request waits for a
-  /// dispatcher instead - see `detect_zone_for_point()`/
-  /// `submit_delivery_request()` in
-  /// `0033_zone_auto_recognition_and_cap.sql`. Always 3-20.
+  /// Max active deliveries a driver can hold at once - a hard cap, not
+  /// just a hint to the automatic matcher. Automatic assignment stops
+  /// picking a driver in favour of the next-closest eligible one once
+  /// they're at the cap (falling to Pending for a dispatcher if everyone
+  /// eligible is) - see `submit_delivery_request()`/
+  /// `driver_cancel_delivery()` in
+  /// `0044_proximity_based_auto_assignment.sql`. A dispatcher assigning a
+  /// driver by hand, or creating a delivery already assigned to someone,
+  /// is blocked the same way, inside `enforce_delivery_update()`/
+  /// `enforce_delivery_insert()` - see `0048_manual_assignment_cap.sql`.
+  /// No longer scoped to a zone - matching itself is purely
+  /// proximity-based (live GPS distance to the vendor), zones only
+  /// affect pricing. Always 3-20.
   final int zoneAutoAssignCap;
+
+  /// How close (km) a delivery's drop-off must be to a zone's pinned
+  /// reference location for `detect_zone_for_point()` to trust it and use
+  /// that zone - see `0040_zone_detection_radius_and_override.sql`.
+  /// Beyond this, detection falls back to the vendor's own registered
+  /// zone. Always 1-50.
+  final double zoneDetectionRadiusKm;
 
   /// Business support/customer-service number, included in the
   /// driver-assigned SMS/email to the customer and vendor - see
@@ -88,11 +106,14 @@ class AppSettings {
       allowDriverWebLogin: map['allow_driver_web_login'] as bool? ?? false,
       baseFare: (map['base_fare'] as num?)?.toDouble() ?? 5,
       pricePerKm: (map['price_per_km'] as num?)?.toDouble() ?? 1.5,
+      driverCommissionEnabled:
+          map['driver_commission_enabled'] as bool? ?? true,
       commissionFlatFee: (map['commission_flat_fee'] as num?)?.toDouble() ?? 0,
-      driverDailyFee: (map['driver_daily_fee'] as num?)?.toDouble() ?? 0,
       freeDayDeliveryThreshold: (map['free_day_delivery_threshold'] as num?)
           ?.toInt(),
       zoneAutoAssignCap: (map['zone_auto_assign_cap'] as num?)?.toInt() ?? 5,
+      zoneDetectionRadiusKm:
+          (map['zone_detection_radius_km'] as num?)?.toDouble() ?? 5,
       supportPhone: map['support_phone'] as String?,
       adminAlertEmail: map['admin_alert_email'] as String?,
       adminAlertPhone: map['admin_alert_phone'] as String?,

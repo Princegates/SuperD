@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:latlong2/latlong.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -8,6 +9,7 @@ import '../../../models/delivery_status.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/utils/navigation_launcher.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/map_preview.dart';
 import '../../../shared/widgets/status_badge.dart';
 import '../providers/public_providers.dart';
 
@@ -20,6 +22,14 @@ class TrackOrderScreen extends ConsumerWidget {
   const TrackOrderScreen({super.key, required this.trackingCode});
 
   final String trackingCode;
+
+  void _showTracking(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (context) => _LiveTrackingSheet(trackingCode: trackingCode),
+    );
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -44,6 +54,10 @@ class TrackOrderScreen extends ConsumerWidget {
                   );
                 }
                 final status = DeliveryStatus.fromString(order.status);
+                final canTrack =
+                    status != DeliveryStatus.delivered &&
+                    status != DeliveryStatus.cancelled &&
+                    order.hasDriverLocation;
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
                   child: Card(
@@ -94,6 +108,17 @@ class TrackOrderScreen extends ConsumerWidget {
                                   : () => launchPhoneCall(order.driverPhone!),
                             ),
                           ],
+                          if (canTrack) ...[
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: OutlinedButton.icon(
+                                onPressed: () => _showTracking(context),
+                                icon: const Icon(Icons.map_outlined, size: 16),
+                                label: const Text('Track live'),
+                              ),
+                            ),
+                          ],
                           if (status == DeliveryStatus.delivered) ...[
                             const SizedBox(height: 16),
                             const Divider(),
@@ -120,6 +145,69 @@ class TrackOrderScreen extends ConsumerWidget {
               },
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// A live map of this one order, opened from the "Track live" button - "if
+/// they want to", not shown by default. Keeps watching the same polling
+/// provider ([trackedDeliveryProvider]) the order card behind it uses, so
+/// the driver's position (and the order's status) update every ~5s while
+/// this sheet is open. Mirrors `_TrackingSheet` in vendor_orders_screen.dart,
+/// which does the same thing for a vendor watching one of their own orders.
+class _LiveTrackingSheet extends ConsumerWidget {
+  const _LiveTrackingSheet({required this.trackingCode});
+
+  final String trackingCode;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final order = ref.watch(trackedDeliveryProvider(trackingCode)).valueOrNull;
+
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Tracking #$trackingCode',
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              order?.driverName != null
+                  ? '${order!.driverName} is on the way'
+                  : 'Waiting for a location update...',
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 14),
+            if (order?.hasDriverLocation ?? false) ...[
+              MapPreview(
+                pickup: LatLng(order!.driverLat!, order.driverLng!),
+                dropoff: order.dropoffLat != null && order.dropoffLng != null
+                    ? LatLng(order.dropoffLat!, order.dropoffLng!)
+                    : null,
+                height: 260,
+              ),
+              const SizedBox(height: 10),
+              OutlinedButton.icon(
+                onPressed: () => launchMapView(
+                  lat: order.driverLat!,
+                  lng: order.driverLng!,
+                ),
+                icon: const Icon(Icons.open_in_new, size: 16),
+                label: const Text('Open in Google Maps'),
+              ),
+            ] else
+              const SizedBox(
+                height: 120,
+                child: Center(child: Text('No live location yet')),
+              ),
+          ],
         ),
       ),
     );

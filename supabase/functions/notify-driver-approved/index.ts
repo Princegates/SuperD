@@ -1,6 +1,7 @@
-// Emails a driver the moment a dispatcher/super admin approves their
-// self-signup (flips `is_active` from false to true - see migration
-// 0014_driver_self_signup.sql). Wired up as a Supabase Database Webhook
+// Texts and emails a driver the moment a dispatcher/super admin approves
+// their self-signup (flips `is_active` from false to true - see migration
+// 0014_driver_self_signup.sql) - SMS if they have a phone on file, email
+// if they have an address. Wired up as a Supabase Database Webhook
 // (Database -> Webhooks in the dashboard) on the "profiles" table for
 // UPDATE - see the README for the exact setup steps. Runs with the
 // service-role key, same reasoning as the other admin-*/notify-*
@@ -8,6 +9,39 @@
 // Deploy with `supabase functions deploy notify-driver-approved`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+
+async function sendSms(to: string, body: string): Promise<boolean> {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const fromNumber = Deno.env.get("TWILIO_FROM_NUMBER");
+  if (!accountSid || !authToken || !fromNumber) {
+    console.error("sendSms: Twilio secrets are not fully set");
+    return false;
+  }
+
+  try {
+    const res = await fetch(
+      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({ To: to, From: fromNumber, Body: body }),
+      },
+    );
+    if (!res.ok) {
+      console.error(
+        `sendSms: Twilio responded ${res.status} - ${await res.text()}`,
+      );
+    }
+    return res.ok;
+  } catch (e) {
+    console.error("sendSms: fetch to Twilio failed -", e);
+    return false;
+  }
+}
 
 async function sendEmail(
   to: string,
@@ -68,28 +102,38 @@ Deno.serve(async (req) => {
 
     const { data: driver, error: driverError } = await admin
       .from("profiles")
-      .select("full_name, email, role")
+      .select("full_name, email, phone, role")
       .eq("id", profileId)
       .single();
     if (driverError || !driver) {
       return jsonResponse({ error: "Profile not found" }, 404);
     }
-    if (driver.role !== "driver" || !driver.email) {
+    if (driver.role !== "driver") {
       return jsonResponse({ skipped: true });
     }
 
-    const html = `
-      <p>Hi ${driver.full_name},</p>
-      <p>Good news - your SuperD driver account has been approved. You can
-      now sign in to the app and start receiving deliveries.</p>
-    `;
-
-    const sent = await sendEmail(
-      driver.email,
-      "Your SuperD driver account is approved",
-      html,
-    );
-    return jsonResponse({ sent });
+    let sent: boolean | undefined;
+    if (driver.email) {
+      sent = await sendEmail(
+        driver.email,
+        "Your SuperD driver account is approved",
+        `
+          <p>Hi ${driver.full_name},</p>
+          <p>Good news - your SuperD driver account has been approved. You
+          can now sign in to the app and start receiving deliveries.</p>
+        `,
+      );
+    }
+    let sentSms: boolean | undefined;
+    if (driver.phone) {
+      sentSms = await sendSms(
+        driver.phone as string,
+        `Hi ${driver.full_name}, good news - your SuperD driver account ` +
+          `has been approved. Sign in to the app to start receiving ` +
+          `deliveries.`,
+      );
+    }
+    return jsonResponse({ sent, sentSms });
   } catch (e) {
     return jsonResponse(
       { error: e instanceof Error ? e.message : String(e) },

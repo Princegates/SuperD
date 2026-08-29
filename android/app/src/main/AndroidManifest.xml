@@ -5,6 +5,22 @@
          resolves without ever showing the permission dialog. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Lets a driver opt into "Allow all the time" so their live position
+         keeps reaching dispatch/customers while the app is backgrounded or
+         the phone is locked - see DriverDashboardScreen's
+         _requestBackgroundPermissionIfPossible(). Android only shows the
+         system prompt for this on first request; after that the driver has
+         to grant it from Settings themselves - a platform restriction, not
+         something requestable on demand. FOREGROUND_SERVICE(_LOCATION) is
+         what lets background updates keep running at all past Android 9 -
+         geolocator_android runs its own foreground service (with the
+         required persistent notification) once this is granted, no extra
+         <service> declaration needed here. Note for Play Store submission:
+         declaring ACCESS_BACKGROUND_LOCATION requires filling out Google
+         Play's separate "background location" disclosure in Play Console. -->
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION" />
     <application
         android:label="superd"
         android:name="${applicationName}"

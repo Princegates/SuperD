@@ -482,7 +482,7 @@ class _DailyFeeSummaryCard extends StatelessWidget {
       title: 'Driver daily fees',
       child: dailyFees.isEmpty
           ? const _EmptyRow(
-              'No daily fee payments recorded yet - set an amount in '
+              'No daily fee payments recorded yet - add a tier in '
               'Console > Settings to start collecting it',
             )
           : Column(

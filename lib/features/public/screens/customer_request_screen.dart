@@ -90,15 +90,6 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   double? _roadDistanceKm;
 
   @override
-  void initState() {
-    super.initState();
-    // A base-fare-only estimate shows immediately, even before a location
-    // is set - refreshed with a real distance-based range the moment one
-    // is.
-    _refreshEstimate();
-  }
-
-  @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
@@ -307,7 +298,8 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
               value: _scheduledAt,
               onChanged: (value) => setState(() => _scheduledAt = value),
             ),
-            if (_estimate case final estimate?) ...[
+            if (_estimate case final estimate?
+                when _lat != null && _lng != null) ...[
               const SizedBox(height: 14),
               Container(
                 padding: const EdgeInsets.all(12),
@@ -332,6 +324,32 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                                   '${estimate.low.toStringAsFixed(2)}–'
                                   '${estimate.high.toStringAsFixed(2)}',
                         style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ] else if (_lat == null || _lng == null) ...[
+              const SizedBox(height: 14),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 18,
+                      color: Colors.grey.shade600,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Pin your delivery location on the map to see '
+                        'the price.',
+                        style: TextStyle(color: Colors.grey.shade700),
                       ),
                     ),
                   ],

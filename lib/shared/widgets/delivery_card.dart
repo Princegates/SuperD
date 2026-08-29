@@ -78,6 +78,10 @@ class _DeliveryCardState extends State<DeliveryCard>
                           letterSpacing: 0.5,
                         ),
                       ),
+                      if (delivery.autoAssigned) ...[
+                        const SizedBox(width: 6),
+                        const _AutoAssignedBadge(),
+                      ],
                       const Spacer(),
                       StatusBadge(status: delivery.status),
                     ],
@@ -163,6 +167,43 @@ class _DeliveryCardState extends State<DeliveryCard>
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Small pill next to the tracking code marking a delivery whose current
+/// driver was picked by the system automatically (same-zone matching at
+/// creation, or a mid-trip auto-hand-off) rather than a dispatcher's own
+/// choice - see [Delivery.autoAssigned].
+class _AutoAssignedBadge extends StatelessWidget {
+  const _AutoAssignedBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Assigned automatically by the system, not a dispatcher',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppTheme.neutral.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.bolt, size: 12, color: AppTheme.neutral),
+            const SizedBox(width: 3),
+            Text(
+              'Auto',
+              style: TextStyle(
+                color: AppTheme.neutral,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
         ),
       ),
     );

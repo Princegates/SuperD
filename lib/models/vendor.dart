@@ -197,10 +197,9 @@ class DeliveryQuote {
 /// A low-high price range a customer's request would likely be quoted at,
 /// returned by the anonymous-safe `get_delivery_price_estimate()` RPC - for
 /// showing an estimate on the request form immediately as a drop-off
-/// location is set, before submitting. Zone-aware and capped at 50 in the
-/// app's currency server-side, same as the real quote
-/// `submit_delivery_request` returns on actual submission - see
-/// `0026_zone_pricing_and_auto_assign.sql`.
+/// location is set, before submitting. Zone-aware, with no upper bound -
+/// same as the real quote `submit_delivery_request` returns on actual
+/// submission - see `0047_remove_price_cap.sql`.
 class PriceEstimate {
   final double low;
   final double high;

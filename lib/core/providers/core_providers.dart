@@ -6,11 +6,13 @@ import '../../data/repositories/auth_repository.dart';
 import '../../data/repositories/commission_repository.dart';
 import '../../data/repositories/delivery_repository.dart';
 import '../../data/repositories/driver_daily_fee_repository.dart';
+import '../../data/repositories/driver_notice_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/vendor_repository.dart';
 import '../../models/app_settings.dart';
+import '../../models/driver_daily_fee_tier.dart';
 import '../../models/profile.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
@@ -55,6 +57,10 @@ final driverDailyFeeRepositoryProvider = Provider<DriverDailyFeeRepository>((
   return DriverDailyFeeRepository(ref.watch(supabaseClientProvider));
 });
 
+final driverNoticeRepositoryProvider = Provider<DriverNoticeRepository>((ref) {
+  return DriverNoticeRepository(ref.watch(supabaseClientProvider));
+});
+
 /// The app-wide settings row (currently just the currency), kept live so a
 /// super admin's change in Console > Settings is picked up everywhere else
 /// without a restart.
@@ -87,6 +93,23 @@ final driverWebLoginAllowedProvider = FutureProvider<bool>((ref) async {
 /// drivers use the mobile app). The login screen watches this to show a
 /// one-time explanation, then resets it.
 final driverWebBlockedProvider = StateProvider<bool>((ref) => false);
+
+/// Every configured driver daily-fee tier, live, sorted ascending by
+/// [DriverDailyFeeTier.minDeliveries] - empty means the whole feature is
+/// off. Shared between the driver dashboard (to work out what today's fee
+/// is) and Console > Settings/Daily Fees (to manage and enforce the tier
+/// list) - see `driver_daily_fee_tiers` in `0037_tiered_daily_fee.sql`.
+final dailyFeeTiersProvider = StreamProvider<List<DriverDailyFeeTier>>((ref) {
+  return ref
+      .watch(driverDailyFeeRepositoryProvider)
+      .watchTiers()
+      .map(
+        (tiers) =>
+            [...tiers]..sort(
+              (a, b) => a.minDeliveries.compareTo(b.minDeliveries),
+            ),
+      );
+});
 
 /// The signed-in user's app profile (role, name, ...), kept live so a role
 /// change by an admin is picked up without a restart.

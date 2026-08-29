@@ -59,10 +59,12 @@ class ProfileRepository {
         .map((rows) => rows.map(Profile.fromMap).toList());
   }
 
-  /// Called every ~15s by a driver's own app, only while it's open and
-  /// location is granted - see DriverDashboardScreen. No background
-  /// tracking; the position just goes stale (and drops off the Live Map)
-  /// once updates stop.
+  /// Called roughly every ~15s (or on a meaningful move) by a driver's own
+  /// app, for as long as location is granted - see DriverDashboardScreen.
+  /// Keeps flowing while the app is backgrounded/the phone is locked if
+  /// the driver granted "Allow all the time"; with just "while in use" it
+  /// pauses once the app leaves the foreground. Either way, the position
+  /// just goes stale (and drops off the Live Map) once updates stop.
   Future<void> updateLiveLocation({
     required String userId,
     required double lat,
@@ -120,6 +122,19 @@ class ProfileRepository {
     await _client
         .from('profiles')
         .update({'is_frozen': isFrozen})
+        .eq('id', userId);
+  }
+
+  /// Super-admin only - enforced server-side by `enforce_profile_role_change()`
+  /// (same protection as `role`/`is_frozen`), not just this client. Pins
+  /// this driver to [tierId]'s daily-fee tier regardless of how many
+  /// deliveries they complete - null clears the pin, back to the normal
+  /// automatic tier-by-delivery-count behavior. See
+  /// `daily_fee_tier_override_id` in `0038_daily_fee_tier_overrides.sql`.
+  Future<void> setDailyFeeTierOverride(String userId, String? tierId) async {
+    await _client
+        .from('profiles')
+        .update({'daily_fee_tier_override_id': tierId})
         .eq('id', userId);
   }
 

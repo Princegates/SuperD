@@ -89,17 +89,18 @@ Deno.serve(async (req) => {
       .single();
     const currency = settings?.currency ?? "GHS";
 
-    // Never trust a client-supplied amount - the balance is always
-    // computed server-side from the tier the driver's today's completed
-    // count falls into, minus whatever they've already paid/been waived
-    // today (see driver_daily_fee_balance() in 0037_tiered_daily_fee.sql).
+    // Never trust a client-supplied amount - the total owed is always
+    // computed server-side: the tier the driver's today's completed count
+    // falls into (minus whatever's already paid/waived today), plus
+    // anything still due on their per-delivery commission ledger - see
+    // driver_total_amount_due() in 0050_bundle_commission_with_daily_fee.sql.
     const { data: amountData, error: amountError } = await admin.rpc(
-      "driver_daily_fee_balance",
+      "driver_total_amount_due",
       { p_driver_id: driverId },
     );
     if (amountError) {
       console.error(
-        "paystack-daily-fee-charge: driver_daily_fee_balance failed -",
+        "paystack-daily-fee-charge: driver_total_amount_due failed -",
         amountError,
       );
       return jsonResponse(

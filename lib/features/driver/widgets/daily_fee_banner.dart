@@ -7,24 +7,31 @@ import '../../../data/repositories/driver_daily_fee_repository.dart';
 import '../../../models/daily_fee_status.dart';
 
 /// Shown at the top of the driver dashboard whenever today's tiered
-/// platform fee (Console > Settings > Driver daily fee) has a balance
-/// still owed - the UI side of a hard block enforced in the database (see
+/// platform fee (Console > Settings > Driver daily fee) and/or
+/// per-delivery commission still due (see
+/// `0050_bundle_commission_with_daily_fee.sql`) add up to a balance still
+/// owed - the UI side of a hard block enforced in the database (see
 /// `0037_tiered_daily_fee.sql`): a driver in this state simply cannot be
 /// given a new delivery, so this exists to make the reason obvious and
-/// give them a way to fix it on the spot. [feeAmount] is the live balance
-/// still due, not necessarily the full tier amount - it can shrink to 0
-/// after a partial payment, or grow again after crossing into a higher
-/// tier.
+/// give them a way to fix it on the spot. [feeAmount] is the combined
+/// live balance still due - not necessarily the full tier amount, it can
+/// shrink to 0 after a partial payment, or grow again after crossing into
+/// a higher tier or completing another delivery. [commissionDueAmount] is
+/// how much of that total is per-delivery commission rather than today's
+/// tier - shown as a breakdown so it stays visible as its own count even
+/// though it's paid together with the daily fee.
 class DailyFeeBanner extends StatelessWidget {
   const DailyFeeBanner({
     super.key,
     required this.feeAmount,
+    required this.commissionDueAmount,
     required this.currency,
     required this.status,
     required this.driverPhone,
   });
 
   final double feeAmount;
+  final double commissionDueAmount;
   final String currency;
 
   /// Null means no attempt has been made yet today.
@@ -71,6 +78,14 @@ class DailyFeeBanner extends StatelessWidget {
               ),
             ],
           ),
+          if (commissionDueAmount > 0) ...[
+            const SizedBox(height: 2),
+            Text(
+              'Includes $currency ${commissionDueAmount.toStringAsFixed(2)} '
+              'in per-delivery commission',
+              style: TextStyle(color: color, fontSize: 11.5),
+            ),
+          ],
           const SizedBox(height: 4),
           Text(message, style: TextStyle(color: color, fontSize: 12.5)),
           const SizedBox(height: 8),

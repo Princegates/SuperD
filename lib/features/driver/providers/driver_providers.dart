@@ -111,17 +111,53 @@ final dailyFeeIsWaivedProvider = Provider<bool>((ref) {
   return records.any((r) => r.status == DailyFeeStatus.waived);
 });
 
-/// What the signed-in driver still needs to pay right now - 0 once fully
-/// waived, or once they've paid up to their current tier. This is the
-/// amount [DailyFeeBanner] shows and offers to collect; it only ever
-/// grows or shrinks to 0, since a lower tier can't reduce what's already
-/// been paid today.
+/// What the signed-in driver still needs to pay right now toward *today's
+/// tier* specifically - 0 once fully waived, or once they've paid up to
+/// their current tier. It only ever grows or shrinks to 0, since a lower
+/// tier can't reduce what's already been paid today. See
+/// [totalCommissionDueProvider] for what [DailyFeeBanner] actually shows/
+/// collects - this plus any per-delivery commission still due.
 final dailyFeeBalanceProvider = Provider<double>((ref) {
   if (ref.watch(dailyFeeIsWaivedProvider)) return 0;
   final owed = ref.watch(dailyFeeOwedProvider);
   final paid = ref.watch(dailyFeePaidAmountProvider);
   final balance = owed - paid;
   return balance > 0 ? balance : 0;
+});
+
+/// The signed-in driver's own still-due per-delivery commission rows,
+/// live - see [CommissionRepository.watchDueForDriver]. 0 while the
+/// master commission switch is off, mirroring the server-side guard in
+/// `driver_commission_due_amount()`.
+final myDueCommissionProvider = StreamProvider<List<CommissionPayment>>((ref) {
+  final authState = ref.watch(authStateProvider).valueOrNull;
+  final userId =
+      authState?.session?.user.id ??
+      ref.watch(supabaseClientProvider).auth.currentUser?.id;
+  if (userId == null) return Stream.value(const []);
+  return ref.watch(commissionRepositoryProvider).watchDueForDriver(userId);
+});
+
+/// The total of [myDueCommissionProvider] - 0 while commission is off.
+final commissionDueAmountProvider = Provider<double>((ref) {
+  final commissionEnabled =
+      ref.watch(appSettingsProvider).valueOrNull?.driverCommissionEnabled ??
+      true;
+  if (!commissionEnabled) return 0;
+  final due = ref.watch(myDueCommissionProvider).valueOrNull ?? const [];
+  return due.fold(0.0, (sum, c) => sum + c.amount);
+});
+
+/// What [DailyFeeBanner] actually shows and collects: today's tiered-fee
+/// balance plus any per-delivery commission still due - one payment
+/// (Mobile Money or a manual reference) settles both, see
+/// `driver_total_amount_due()` in
+/// `0050_bundle_commission_with_daily_fee.sql`. The per-delivery amount
+/// stays its own count for reporting (see [myCommissionHistoryProvider]/
+/// "My earnings") - this is only the combined figure charged in-app.
+final totalCommissionDueProvider = Provider<double>((ref) {
+  return ref.watch(dailyFeeBalanceProvider) +
+      ref.watch(commissionDueAmountProvider);
 });
 
 /// The most recent pending/failed payment attempt today, if any - drives

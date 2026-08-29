@@ -37,6 +37,24 @@ class CommissionRepository {
     return rows.map(CommissionPayment.fromMap).toList();
   }
 
+  /// Live: only the signed-in driver's own still-due rows - what
+  /// `driver_total_amount_due()` folds into the daily-fee payment balance
+  /// (see `0050_bundle_commission_with_daily_fee.sql`), kept live so the
+  /// dashboard's commission banner updates the moment a delivery is marked
+  /// delivered (a new "due" row lands) or a payment settles it.
+  Stream<List<CommissionPayment>> watchDueForDriver(String driverId) {
+    return _client
+        .from(_table)
+        .stream(primaryKey: ['id'])
+        .eq('driver_id', driverId)
+        .map(
+          (rows) => rows
+              .where((r) => r['status'] == 'due')
+              .map(CommissionPayment.fromMap)
+              .toList(),
+        );
+  }
+
   Future<void> updateStatus({
     required String commissionId,
     required CommissionStatus status,

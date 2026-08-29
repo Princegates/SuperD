@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
 
     const { data: existing } = await admin
       .from("driver_daily_fees")
-      .select("id, status")
+      .select("id, status, driver_id")
       .eq("payment_reference", reference)
       .maybeSingle();
     if (!existing) {
@@ -121,6 +121,24 @@ Deno.serve(async (req) => {
     if (updateError) {
       console.error("paystack-daily-fee-webhook: update failed -", updateError);
       return jsonResponse({ error: "Could not update payment record" }, 500);
+    }
+
+    // The charge amount already included whatever per-delivery commission
+    // was due at the time (see driver_total_amount_due() in
+    // 0050_bundle_commission_with_daily_fee.sql) - now that Paystack has
+    // confirmed the money actually landed, settle those rows too.
+    if (isSuccess) {
+      const { error: commissionError } = await admin
+        .from("commission_payments")
+        .update({ status: "paid", paid_at: new Date().toISOString() })
+        .eq("driver_id", existing.driver_id)
+        .eq("status", "due");
+      if (commissionError) {
+        console.error(
+          "paystack-daily-fee-webhook: commission settle failed -",
+          commissionError,
+        );
+      }
     }
 
     return jsonResponse({ ok: true });

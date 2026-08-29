@@ -189,7 +189,8 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   Widget build(BuildContext context) {
     final deliveries = ref.watch(myDeliveriesProvider);
     final profile = ref.watch(currentProfileProvider).valueOrNull;
-    final dailyFeeBalance = ref.watch(dailyFeeBalanceProvider);
+    final totalCommissionDue = ref.watch(totalCommissionDueProvider);
+    final commissionDueAmount = ref.watch(commissionDueAmountProvider);
     final appSettings = ref.watch(appSettingsProvider).valueOrNull;
     final currency = appSettings?.currency;
     final latestAttempt = ref.watch(dailyFeeLatestAttemptProvider);
@@ -245,9 +246,10 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
             const SizedBox(height: 10),
             DriverNoticeList(notices: notices),
           ],
-          if (dailyFeeBalance > 0)
+          if (totalCommissionDue > 0)
             DailyFeeBanner(
-              feeAmount: dailyFeeBalance,
+              feeAmount: totalCommissionDue,
+              commissionDueAmount: commissionDueAmount,
               currency: currency ?? 'GHS',
               status: latestAttempt?.status,
               driverPhone: profile?.phone,

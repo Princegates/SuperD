@@ -94,6 +94,7 @@ supabase/
     0044_proximity_based_auto_assignment.sql   automatic driver matching switches from a driver's manually-set zone_id to live GPS proximity to the vendor (or, for a mid-trip hand-off, to the cancelling driver's own position)
     0045_paystack_daily_fee.sql                switches the driver daily-fee real-time Mobile Money gateway from Hubtel to Paystack - renames the gateway-specific columns on driver_daily_fees to generic names
     0049_driver_commission_history_read.sql    lets a driver read their own commission_payments rows, so their own app can show a commission payment history (driver_daily_fees already allowed this)
+    0050_bundle_commission_with_daily_fee.sql  bundles a driver's outstanding per-delivery commission into the same in-app daily-fee payment (driver_total_amount_due()), settling both ledgers together once paid
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -1011,10 +1012,12 @@ Once a fee is set, `0029_commission_payments.sql` records it
 automatically: a database trigger fires the instant a delivery's status
 changes to `delivered`, inserting a `due` row into `commission_payments`
 for whoever the assigned driver was, in the app's currency at that
-moment. Nothing is collected in-app — same philosophy as customer
-payments — a dispatcher or super admin just marks it `paid` (or `waived`)
-from **Console > Commission** once the driver actually settles up (in
-person, weekly, however the business runs it).
+moment. A dispatcher or super admin can still mark a row `paid` (or
+`waived`) by hand from **Console > Commission** at any time (in person,
+weekly, however the business runs it) — but it's no longer collected
+*only* that way: see **Commission and the daily fee are billed together
+in-app** below for how it also rides along with a driver's own in-app
+daily-fee payment.
 
 ### Driver daily fee
 
@@ -1077,6 +1080,32 @@ owes tier 2's amount," regardless of how many deliveries they actually
 complete that day. This overrides the automatic calculation entirely for
 that driver until set back to "Automatic" - see
 `daily_fee_tier_override_id` in `0038_daily_fee_tier_overrides.sql`.
+
+### Commission and the daily fee are billed together in-app
+
+The per-delivery flat fee above stays its own ledger and its own count —
+Console > Commission, and a driver's own "My earnings > Commission" tab,
+both still show it as a distinct line from the daily fee. But whenever a
+driver actually pays "today's commission" from their dashboard banner —
+Mobile Money or a manual reference — the amount charged/collected covers
+**both**: today's daily-fee tier balance *and* everything still `due` on
+that driver's per-delivery commission, added together
+(`driver_total_amount_due()` in
+`0050_bundle_commission_with_daily_fee.sql`). The banner itself shows the
+combined total with a breakdown line underneath ("Includes GHS X in
+per-delivery commission") whenever any of it applies, so the two never
+look like one indistinct number even though they're paid in one go.
+
+Both payment paths settle both ledgers together once confirmed:
+Paystack's webhook flips the `driver_daily_fees` row to `paid` and marks
+every `due` `commission_payments` row for that driver `paid` in the same
+call; a dispatcher approving a manually-submitted reference from
+**Console > Daily Fees** does the same via `set_daily_fee_status()`. This
+does **not** change what blocks a driver from getting a new delivery —
+that's still only an unpaid daily-fee tier (see above); unpaid
+per-delivery commission on its own still isn't a hard block, it just no
+longer needs its own separate in-app payment step once a driver has a
+daily-fee balance to clear anyway.
 
 ### Confirming payments: dispatcher and super admin alike
 
@@ -1196,24 +1225,26 @@ business it was. A dispatcher/super admin is unaffected either way; see
 A driver's dashboard shows a live "Today's revenue: <currency> X" strip -
 what's been collected from customers, today, across every delivery
 assigned to them (see `todaysRevenueProvider`) - tapping it opens **My
-earnings**, with:
+earnings**, a two-tab screen:
 
-- **Revenue** - today/this week/this month/this year totals, all summed
-  from the same underlying data (`payments` for their own deliveries -
-  RLS already scoped this to "dispatcher or the delivery's own assigned
-  driver" since `0003_payments.sql`, so no new policy was needed). "This
-  week" is the current calendar week (Monday-Sunday), not a rolling
-  7-day window, to read naturally alongside the calendar month/year next
-  to it.
-- **Commission payments** - every charge either commission mechanism has
-  ever placed on this driver (see **Driver commission** and **Driver
-  daily fee** below), merged into one chronological list regardless of
-  which mechanism produced it, since a driver doesn't need to know or
-  care which table a row came from. This needed one new RLS policy -
-  `commission_payments` only had dispatcher-level read access before
-  (`0029_commission_payments.sql`); `0049_driver_commission_history_read.sql`
-  adds the same "driver reads own" treatment `driver_daily_fees` already
-  had.
+- **Revenue tab** - today/this week/this month/this year totals, all
+  summed from the same underlying data (`payments` for their own
+  deliveries - RLS already scoped this to "dispatcher or the delivery's
+  own assigned driver" since `0003_payments.sql`, so no new policy was
+  needed). "This week" is the current calendar week (Monday-Sunday), not
+  a rolling 7-day window, to read naturally alongside the calendar
+  month/year next to it.
+- **Commission tab** - every charge either commission mechanism has ever
+  placed on this driver (see **Driver commission** and **Driver daily
+  fee** below), merged into one chronological list regardless of which
+  mechanism produced it, since a driver doesn't need to know or care
+  which table a row came from - even though (see **Commission and the
+  daily fee are billed together in-app**) the two are now collected as
+  one in-app payment, this tab still lists each one on its own row. This
+  needed one new RLS policy - `commission_payments` only had
+  dispatcher-level read access before (`0029_commission_payments.sql`);
+  `0049_driver_commission_history_read.sql` adds the same "driver reads
+  own" treatment `driver_daily_fees` already had.
 
 ## Driver actions: reject, cancel, and undo
 

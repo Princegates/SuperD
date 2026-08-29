@@ -16,11 +16,12 @@ import '../providers/console_providers.dart';
 
 /// The tiered daily Mobile Money platform fee every driver owes, priced by
 /// how many deliveries they've completed today (tiers set from Console >
-/// Settings) - real-time Hubtel payments and manually-submitted references
-/// both land here. Unlike Commission (owed per delivery), an unpaid daily
-/// fee is a hard block: a driver can't be given a new delivery at all
-/// until they pay up to their current tier or a dispatcher waives that day
-/// for them (see `driver_daily_fee_paid()` in `0037_tiered_daily_fee.sql`).
+/// Settings) - real-time Paystack payments and manually-submitted
+/// references both land here. Unlike Commission (owed per delivery), an
+/// unpaid daily fee is a hard block: a driver can't be given a new
+/// delivery at all until they pay up to their current tier or a
+/// dispatcher waives that day for them (see `driver_daily_fee_paid()` in
+/// `0037_tiered_daily_fee.sql`).
 class ConsoleDailyFeesTab extends ConsumerWidget {
   const ConsoleDailyFeesTab({super.key});
 

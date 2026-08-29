@@ -37,8 +37,8 @@ class DriverDailyFeeRepository {
   }
 
   /// Live version of [fetchTodayRecords] - so a driver's "pay now" screen
-  /// updates itself the moment Hubtel's webhook confirms payment, with no
-  /// polling.
+  /// updates itself the moment Paystack's webhook confirms payment, with
+  /// no polling.
   Stream<List<DriverDailyFee>> watchTodayRecords(String driverId) {
     return _client
         .from(_table)
@@ -117,16 +117,16 @@ class DriverDailyFeeRepository {
   }
 
   /// Starts a real-time Mobile Money charge via the
-  /// `hubtel-daily-fee-charge` Edge Function - the driver approves a
+  /// `paystack-daily-fee-charge` Edge Function - the driver approves a
   /// prompt on their phone, and the row updates itself (see
-  /// [watchTodayRecords]) once Hubtel's webhook resolves it.
-  Future<String> chargeViaHubtel({
+  /// [watchTodayRecords]) once Paystack's webhook resolves it.
+  Future<String> chargeViaPaystack({
     required String phone,
     required String network,
   }) async {
     try {
       final response = await _client.functions.invoke(
-        'hubtel-daily-fee-charge',
+        'paystack-daily-fee-charge',
         body: {'phone': phone, 'network': network},
       );
       final data = response.data as Map<String, dynamic>;

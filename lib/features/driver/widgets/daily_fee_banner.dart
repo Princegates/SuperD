@@ -139,7 +139,7 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
     super.dispose();
   }
 
-  Future<void> _payViaHubtel() async {
+  Future<void> _payViaPaystack() async {
     final phone = _phoneController.text.trim();
     if (phone.isEmpty) {
       setState(() => _error = 'Enter a Mobile Money number.');
@@ -153,7 +153,7 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
     try {
       final message = await ref
           .read(driverDailyFeeRepositoryProvider)
-          .chargeViaHubtel(phone: phone, network: _network);
+          .chargeViaPaystack(phone: phone, network: _network);
       if (mounted) setState(() => _message = message);
     } on DailyFeeException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -236,7 +236,7 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
             ),
             const SizedBox(height: 14),
             ElevatedButton(
-              onPressed: _isCharging ? null : _payViaHubtel,
+              onPressed: _isCharging ? null : _payViaPaystack,
               child: _isCharging
                   ? const SizedBox(
                       height: 20,

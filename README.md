@@ -92,13 +92,14 @@ supabase/
     0042_auto_assigned_indicator.sql           adds deliveries.auto_assigned, set when a driver was picked automatically rather than by a dispatcher
     0043_fix_auto_assigned_signature_mismatch.sql   fixes 0042 rewriting the wrong overload of submit_delivery_request() (missing the customer_email parameter added in 0034)
     0044_proximity_based_auto_assignment.sql   automatic driver matching switches from a driver's manually-set zone_id to live GPS proximity to the vendor (or, for a mid-trip hand-off, to the cancelling driver's own position)
+    0045_paystack_daily_fee.sql                switches the driver daily-fee real-time Mobile Money gateway from Hubtel to Paystack - renames the gateway-specific columns on driver_daily_fees to generic names
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
     admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
-    hubtel-daily-fee-charge/       Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Hubtel
-    hubtel-daily-fee-webhook/      Edge Function: Hubtel's callback once a daily-fee charge resolves (public, no Supabase session)
+    paystack-daily-fee-charge/     Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Paystack
+    paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee charge resolves (public, no Supabase session)
     notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, and both customer + vendor when a driver is assigned
     notify-vendor-registered/      Edge Function: texts/emails a vendor their link when they register, and staff too
     notify-driver-application/     Edge Function: texts/emails staff and the applicant when a driver signs themselves up
@@ -1027,7 +1028,7 @@ proximity-based assignment inside `submit_delivery_request`. The Console's
 driver picker also filters them out up front, so a dispatcher sees the
 restriction before hitting the error, not after.
 
-**Drivers never see the word "Hubtel," or any other payment-gateway
+**Drivers never see the word "Paystack," or any other payment-gateway
 name** - the app only ever shows them "commission" and a Mobile Money
 prompt. Internally it's still tracked as the daily fee described here
 (`driver_daily_fees`, `driver_daily_fee_tiers`, Console > Daily Fees) -
@@ -1041,11 +1042,11 @@ crossing into a higher tier means a second payment):
 
 1. **Pay via Mobile Money, right now** - the driver enters their number
    and network (MTN/Vodafone/AirtelTigo) and taps "Pay via Mobile
-   Money"; behind the scenes the app charges them through **Hubtel's
-   Receive Money API** (`supabase/functions/hubtel-daily-fee-charge`,
+   Money"; behind the scenes the app charges them through **Paystack's
+   Charge API** (`supabase/functions/paystack-daily-fee-charge`,
    never named as such anywhere the driver can see): a prompt appears on
-   their phone to approve, and Hubtel's callback
-   (`supabase/functions/hubtel-daily-fee-webhook`) flips the record to
+   their phone to approve, and Paystack's webhook
+   (`supabase/functions/paystack-daily-fee-webhook`) flips the record to
    paid the moment it resolves - the driver's banner disappears live,
    no refresh needed.
 2. **Pay the business directly, then confirm in-app** - the driver sends
@@ -1053,12 +1054,13 @@ crossing into a higher tier means a second payment):
    and submits the transaction reference; a dispatcher/super admin
    checks it against their MoMo statement and approves or rejects it
    from **Console > Daily Fees**. This needs no payment-gateway account
-   at all, so it works from day one and stays as a fallback if Hubtel's
-   ever unreachable.
+   at all, so it works from day one and stays as a fallback if
+   Paystack's ever unreachable.
 
 A dispatcher/super admin can also **waive** a specific driver's fee for a
 given day from Console > Daily Fees - a free first day, a goodwill
-gesture, or an escape hatch if Hubtel is down - with no payment involved.
+gesture, or an escape hatch if Paystack is down - with no payment
+involved.
 
 A **super admin** (not a dispatcher) can also pin a specific driver to one
 tier from the same screen's "Tier overrides" section - "this driver always
@@ -1106,33 +1108,42 @@ app, not only once dispatch happens to try assigning them something). A
 driver with an unspent balance sees a small "X free commission days
 banked" strip on their dashboard even on a day they don't need it yet.
 
-**Setting up real Hubtel collection** (optional - everything above works
+**Setting up real Paystack collection** (optional - everything above works
 through the manual-confirm path with zero setup):
 
-1. Create a Hubtel merchant account and get its **Client ID**, **Client
-   Secret**, and **POS Sales ID** from the Hubtel dashboard.
-2. Set them as Supabase secrets, plus a secret of your own choosing used
-   to protect the webhook (Hubtel doesn't document a verifiable signature
-   scheme precisely enough to check against, so this shared secret in the
-   callback URL is the practical alternative):
+1. Create a Paystack account and get its **Secret Key** from the
+   dashboard's **Settings → API Keys & Webhooks** page - use the test key
+   first, switch to the live key once you're confident it works.
+2. Set it as a Supabase secret:
    ```bash
-   supabase secrets set HUBTEL_CLIENT_ID=... HUBTEL_CLIENT_SECRET=... \
-     HUBTEL_POS_SALES_ID=... HUBTEL_WEBHOOK_SECRET=$(openssl rand -hex 24)
+   supabase secrets set PAYSTACK_SECRET_KEY=sk_...
    ```
 3. Deploy both functions - the webhook needs `verify_jwt = false` since
-   Hubtel calls it directly with no Supabase session (already set in
+   Paystack calls it directly with no Supabase session (already set in
    `supabase/config.toml`):
    ```bash
-   supabase functions deploy hubtel-daily-fee-charge
-   supabase functions deploy hubtel-daily-fee-webhook
+   supabase functions deploy paystack-daily-fee-charge
+   supabase functions deploy paystack-daily-fee-webhook
    ```
-4. **Verify against Hubtel's current docs before relying on this in
-   production.** Both functions are written against Hubtel's publicly
-   documented Receive Money Prompt API shape, but exact field names and
-   the callback payload's structure are worth double-checking in your own
-   Hubtel dashboard/sandbox first - third-party API details do shift over
-   time, and this fails loudly (an error back to the driver) rather than
-   silently, if something doesn't match.
+4. In the Paystack dashboard, under **Settings → API Keys & Webhooks**,
+   set your **Webhook URL** to
+   `https://your-project-ref.supabase.co/functions/v1/paystack-daily-fee-webhook`
+   - Paystack calls this directly (not through a Supabase Database
+   Webhook, so the "Webhooks page isn't there" workaround elsewhere in
+   this README doesn't apply here at all), and the function verifies
+   Paystack's own `x-paystack-signature` header against your secret key
+   rather than trusting the request blindly.
+5. **Verify against Paystack's current docs before relying on this in
+   production.** Both functions are written against Paystack's publicly
+   documented Charge API (mobile money charging for Ghana) and webhook
+   signature scheme, but exact field names and event shapes are worth
+   double-checking in your own Paystack dashboard/test mode first -
+   third-party API details do shift over time, and this fails loudly (an
+   error back to the driver) rather than silently, if something doesn't
+   match. One known gap: if Paystack ever responds asking for an OTP
+   (`data.status === "send_otp"`) - uncommon for Ghana mobile money, but
+   possible - there's no in-app screen to collect one yet, so the driver
+   is told to use the manual reference option instead.
 
 ### Scheduled deliveries
 

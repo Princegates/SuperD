@@ -16,11 +16,11 @@
 # the polished Webhooks UI (just a raw trigger-to-Postgres-function form
 # instead), so it needs the same pg_net fallback as the other two.
 #
-# hubtel-daily-fee-webhook is a different case again: it's called by
-# Hubtel's own servers (the Mobile Money callback for a daily-fee charge),
-# which has no Supabase JWT to attach at all. It protects itself instead
-# with a shared secret in the callback URL - see the function's own
-# comment and HUBTEL_WEBHOOK_SECRET in the README.
+# paystack-daily-fee-webhook is a different case again: it's called by
+# Paystack's own servers (the Mobile Money callback for a daily-fee
+# charge), which has no Supabase JWT to attach at all. It protects itself
+# instead by verifying Paystack's own HMAC-SHA512 signature header - see
+# the function's own comment.
 
 project_id = "atpokstjgdhdcbnwrbrp"
 
@@ -33,7 +33,7 @@ verify_jwt = false
 [functions.notify-vendor-registered]
 verify_jwt = false
 
-[functions.hubtel-daily-fee-webhook]
+[functions.paystack-daily-fee-webhook]
 verify_jwt = false
 
 [functions.notify-delivery-events]

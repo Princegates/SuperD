@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/vendor.dart';
 import '../../models/zone.dart';
 import '../../models/zone_location.dart';
+import '../../shared/utils/resilient_stream.dart';
 
 /// Zones (for grouping drivers/vendors) and vendors (the businesses whose
 /// customers request deliveries through a unique link, with no SuperD
@@ -145,11 +146,13 @@ class VendorRepository {
   /// [fetchVendors] does, but a notification only needs the vendor's name
   /// anyway - `Vendor.fromMap` already tolerates a missing `zones` key.
   Stream<List<Vendor>> watchVendorRegistrations() {
-    return _client
-        .from('vendors')
-        .stream(primaryKey: ['id'])
-        .order('created_at')
-        .map((rows) => rows.map(Vendor.fromMap).toList());
+    return resilientRealtimeStream(
+      () => _client
+          .from('vendors')
+          .stream(primaryKey: ['id'])
+          .order('created_at')
+          .map((rows) => rows.map(Vendor.fromMap).toList()),
+    );
   }
 
   /// Registers a vendor and returns their unique code (their link is

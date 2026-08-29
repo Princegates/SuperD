@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/app_settings.dart';
+import '../../shared/utils/resilient_stream.dart';
 
 class SettingsRepository {
   SettingsRepository(this._client);
@@ -42,18 +43,20 @@ class SettingsRepository {
   /// since realtime being briefly unavailable shouldn't block a decision
   /// that a plain fetch could make reliably instead.
   Stream<AppSettings> watchSettings() {
-    return _client
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .map(
-          (rows) => rows.isEmpty
-              ? const AppSettings(
-                  currency: 'GHS',
-                  theme: 'navy_gold',
-                  allowDriverWebLogin: false,
-                )
-              : AppSettings.fromMap(rows.first),
-        );
+    return resilientRealtimeStream(
+      () => _client
+          .from(_table)
+          .stream(primaryKey: ['id'])
+          .map(
+            (rows) => rows.isEmpty
+                ? const AppSettings(
+                    currency: 'GHS',
+                    theme: 'navy_gold',
+                    allowDriverWebLogin: false,
+                  )
+                : AppSettings.fromMap(rows.first),
+          ),
+    );
   }
 
   /// Changes the app-wide currency. Only takes effect if the caller is a

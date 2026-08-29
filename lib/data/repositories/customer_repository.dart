@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/customer.dart';
 import '../../models/delivery.dart';
+import '../../shared/utils/resilient_stream.dart';
 
 class CustomerRepository {
   CustomerRepository(this._client);
@@ -15,11 +16,13 @@ class CustomerRepository {
   /// back, not an error, same as `audit_log` before an auditor could read
   /// it - see `0055_customer_directory.sql`.
   Stream<List<Customer>> watchAll() {
-    return _client
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .order('updated_at', ascending: false)
-        .map((rows) => rows.map(Customer.fromMap).toList());
+    return resilientRealtimeStream(
+      () => _client
+          .from(_table)
+          .stream(primaryKey: ['id'])
+          .order('updated_at', ascending: false)
+          .map((rows) => rows.map(Customer.fromMap).toList()),
+    );
   }
 
   /// Every delivery this customer (by phone) has ever placed, newest

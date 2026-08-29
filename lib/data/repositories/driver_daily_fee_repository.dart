@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/driver_daily_fee.dart';
 import '../../models/driver_daily_fee_tier.dart';
+import '../../shared/utils/resilient_stream.dart';
 
 /// Thrown when a daily-fee action fails, with a message safe to show
 /// directly to the driver or dispatcher.
@@ -40,17 +41,19 @@ class DriverDailyFeeRepository {
   /// updates itself the moment Paystack's webhook confirms payment, with
   /// no polling.
   Stream<List<DriverDailyFee>> watchTodayRecords(String driverId) {
-    return _client
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .eq('driver_id', driverId)
-        .map((rows) {
-          final today = _today;
-          return rows
-              .where((r) => r['fee_date'] == today)
-              .map(DriverDailyFee.fromMap)
-              .toList();
-        });
+    return resilientRealtimeStream(
+      () => _client
+          .from(_table)
+          .stream(primaryKey: ['id'])
+          .eq('driver_id', driverId)
+          .map((rows) {
+            final today = _today;
+            return rows
+                .where((r) => r['fee_date'] == today)
+                .map(DriverDailyFee.fromMap)
+                .toList();
+          }),
+    );
   }
 
   /// The signed-in driver's own daily-fee history - every day they've
@@ -75,10 +78,12 @@ class DriverDailyFeeRepository {
   /// Live version of [fetchTiers] - so a driver's/dispatcher's screen
   /// updates the moment a super admin adds/edits/removes a tier.
   Stream<List<DriverDailyFeeTier>> watchTiers() {
-    return _client
-        .from(_tiersTable)
-        .stream(primaryKey: ['id'])
-        .map((rows) => rows.map(DriverDailyFeeTier.fromMap).toList());
+    return resilientRealtimeStream(
+      () => _client
+          .from(_tiersTable)
+          .stream(primaryKey: ['id'])
+          .map((rows) => rows.map(DriverDailyFeeTier.fromMap).toList()),
+    );
   }
 
   /// Adds a new tier - only takes effect if the caller is a super admin,
@@ -205,14 +210,17 @@ class DriverDailyFeeRepository {
   /// Live version of [fetchFreeDayBalance] - updates the moment a credit
   /// is earned, granted, or spent.
   Stream<int> watchFreeDayBalance(String driverId) {
-    return _client
-        .from('driver_free_day_credits')
-        .stream(primaryKey: ['driver_id'])
-        .eq('driver_id', driverId)
-        .map(
-          (rows) =>
-              rows.isEmpty ? 0 : (rows.first['balance'] as num?)?.toInt() ?? 0,
-        );
+    return resilientRealtimeStream(
+      () => _client
+          .from('driver_free_day_credits')
+          .stream(primaryKey: ['driver_id'])
+          .eq('driver_id', driverId)
+          .map(
+            (rows) => rows.isEmpty
+                ? 0
+                : (rows.first['balance'] as num?)?.toInt() ?? 0,
+          ),
+    );
   }
 
   /// Every driver's current free-day balance - the raw data behind

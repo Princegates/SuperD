@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/payment.dart';
 import '../../models/payment_method.dart';
 import '../../models/payment_status.dart';
+import '../../shared/utils/resilient_stream.dart';
 
 class PaymentRepository {
   PaymentRepository(this._client);
@@ -14,11 +15,13 @@ class PaymentRepository {
   /// The payment recorded for a delivery, if any. A delivery normally has
   /// at most one payment row (its expected fee), created alongside it.
   Stream<Payment?> watchForDelivery(String deliveryId) {
-    return _client
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .eq('delivery_id', deliveryId)
-        .map((rows) => rows.isEmpty ? null : Payment.fromMap(rows.first));
+    return resilientRealtimeStream(
+      () => _client
+          .from(_table)
+          .stream(primaryKey: ['id'])
+          .eq('delivery_id', deliveryId)
+          .map((rows) => rows.isEmpty ? null : Payment.fromMap(rows.first)),
+    );
   }
 
   /// Every payment ever recorded, for the super-admin Console's Finance
@@ -41,11 +44,13 @@ class PaymentRepository {
   /// deliveries. A dispatcher/super admin calling this would get every
   /// payment in the system instead, so only ever call it as a driver.
   Stream<List<Payment>> watchMyPayments() {
-    return _client
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
-        .map((rows) => rows.map(Payment.fromMap).toList());
+    return resilientRealtimeStream(
+      () => _client
+          .from(_table)
+          .stream(primaryKey: ['id'])
+          .order('created_at', ascending: false)
+          .map((rows) => rows.map(Payment.fromMap).toList()),
+    );
   }
 
   Future<void> recordPayment({

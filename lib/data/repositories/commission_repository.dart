@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/commission_payment.dart';
 import '../../models/commission_status.dart';
+import '../../shared/utils/resilient_stream.dart';
 
 class CommissionRepository {
   CommissionRepository(this._client);
@@ -43,16 +44,18 @@ class CommissionRepository {
   /// dashboard's commission banner updates the moment a delivery is marked
   /// delivered (a new "due" row lands) or a payment settles it.
   Stream<List<CommissionPayment>> watchDueForDriver(String driverId) {
-    return _client
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .eq('driver_id', driverId)
-        .map(
-          (rows) => rows
-              .where((r) => r['status'] == 'due')
-              .map(CommissionPayment.fromMap)
-              .toList(),
-        );
+    return resilientRealtimeStream(
+      () => _client
+          .from(_table)
+          .stream(primaryKey: ['id'])
+          .eq('driver_id', driverId)
+          .map(
+            (rows) => rows
+                .where((r) => r['status'] == 'due')
+                .map(CommissionPayment.fromMap)
+                .toList(),
+          ),
+    );
   }
 
   Future<void> updateStatus({

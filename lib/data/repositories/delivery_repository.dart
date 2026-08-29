@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/delivery.dart';
 import '../../models/delivery_incident.dart';
 import '../../models/delivery_status.dart';
+import '../../shared/utils/resilient_stream.dart';
 
 class DeliveryRepository {
   DeliveryRepository(this._client);
@@ -16,36 +17,42 @@ class DeliveryRepository {
 
   /// All deliveries, newest first. Used by the dispatcher dashboard.
   Stream<List<Delivery>> watchAllDeliveries() {
-    return _client
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
-        .map((rows) => rows.map(Delivery.fromMap).toList());
+    return resilientRealtimeStream(
+      () => _client
+          .from(_table)
+          .stream(primaryKey: ['id'])
+          .order('created_at', ascending: false)
+          .map((rows) => rows.map(Delivery.fromMap).toList()),
+    );
   }
 
   /// Only the deliveries assigned to [driverId]. Used by the driver
   /// dashboard - a completed/cancelled one has its pickup (vendor) details
   /// stripped, see [Delivery.withPickupHiddenIfHistory].
   Stream<List<Delivery>> watchDriverDeliveries(String driverId) {
-    return _client
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .eq('assigned_driver_id', driverId)
-        .order('created_at', ascending: false)
-        .map(
-          (rows) => rows
-              .map(Delivery.fromMap)
-              .map((d) => d.withPickupHiddenIfHistory)
-              .toList(),
-        );
+    return resilientRealtimeStream(
+      () => _client
+          .from(_table)
+          .stream(primaryKey: ['id'])
+          .eq('assigned_driver_id', driverId)
+          .order('created_at', ascending: false)
+          .map(
+            (rows) => rows
+                .map(Delivery.fromMap)
+                .map((d) => d.withPickupHiddenIfHistory)
+                .toList(),
+          ),
+    );
   }
 
   Stream<Delivery?> watchById(String id) {
-    return _client
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .eq('id', id)
-        .map((rows) => rows.isEmpty ? null : Delivery.fromMap(rows.first));
+    return resilientRealtimeStream(
+      () => _client
+          .from(_table)
+          .stream(primaryKey: ['id'])
+          .eq('id', id)
+          .map((rows) => rows.isEmpty ? null : Delivery.fromMap(rows.first)),
+    );
   }
 
   Future<Delivery> fetchById(String id) async {

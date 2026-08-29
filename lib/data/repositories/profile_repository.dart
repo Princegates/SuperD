@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/driver_vehicle_type.dart';
 import '../../models/profile.dart';
 import '../../models/user_role.dart';
+import '../../shared/utils/resilient_stream.dart';
 
 /// Thrown when a staff-management Edge Function call fails, with a message
 /// safe to show directly to the dispatcher/super admin.
@@ -30,11 +31,13 @@ class ProfileRepository {
   }
 
   Stream<Profile?> watchProfile(String userId) {
-    return _client
-        .from('profiles')
-        .stream(primaryKey: ['id'])
-        .eq('id', userId)
-        .map((rows) => rows.isEmpty ? null : Profile.fromMap(rows.first));
+    return resilientRealtimeStream(
+      () => _client
+          .from('profiles')
+          .stream(primaryKey: ['id'])
+          .eq('id', userId)
+          .map((rows) => rows.isEmpty ? null : Profile.fromMap(rows.first)),
+    );
   }
 
   Future<List<Profile>> fetchDrivers() async {
@@ -51,12 +54,14 @@ class ProfileRepository {
   /// client-side via `Profile.hasRecentLocation`, since this just streams
   /// the raw rows.
   Stream<List<Profile>> watchDriverLocations() {
-    return _client
-        .from('profiles')
-        .stream(primaryKey: ['id'])
-        .eq('role', UserRole.driver.wireValue)
-        .order('full_name')
-        .map((rows) => rows.map(Profile.fromMap).toList());
+    return resilientRealtimeStream(
+      () => _client
+          .from('profiles')
+          .stream(primaryKey: ['id'])
+          .eq('role', UserRole.driver.wireValue)
+          .order('full_name')
+          .map((rows) => rows.map(Profile.fromMap).toList()),
+    );
   }
 
   /// Called roughly every ~15s (or on a meaningful move) by a driver's own

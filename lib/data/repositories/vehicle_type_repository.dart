@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/vehicle_type.dart';
+import '../../shared/utils/resilient_stream.dart';
 
 /// Thrown when a vehicle-type action fails, with a message safe to show
 /// directly to a super admin.
@@ -23,10 +24,12 @@ class VehicleTypeRepository {
   /// editor. RLS lets any authenticated role read this (`using (true)`,
   /// same as `driver_daily_fee_tiers`), but only a super admin can write.
   Stream<List<VehicleType>> watchAll() {
-    return _client
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .map((rows) => rows.map(VehicleType.fromMap).toList());
+    return resilientRealtimeStream(
+      () => _client
+          .from(_table)
+          .stream(primaryKey: ['id'])
+          .map((rows) => rows.map(VehicleType.fromMap).toList()),
+    );
   }
 
   /// Same data, for an anonymous customer - the delivery request form has

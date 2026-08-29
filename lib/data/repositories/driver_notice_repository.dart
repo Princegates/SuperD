@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/driver_notice.dart';
+import '../../shared/utils/resilient_stream.dart';
 
 class DriverNoticeRepository {
   DriverNoticeRepository(this._client);
@@ -19,11 +20,13 @@ class DriverNoticeRepository {
   /// by RLS, so dismissing one doesn't drop it out of the stream entirely
   /// - just stops it being rendered.
   Stream<List<DriverNotice>> watchVisibleNotices() {
-    return _client
-        .from(_table)
-        .stream(primaryKey: ['id'])
-        .order('created_at', ascending: false)
-        .map((rows) => rows.map(DriverNotice.fromMap).toList());
+    return resilientRealtimeStream(
+      () => _client
+          .from(_table)
+          .stream(primaryKey: ['id'])
+          .order('created_at', ascending: false)
+          .map((rows) => rows.map(DriverNotice.fromMap).toList()),
+    );
   }
 
   /// Every notice ever created, regardless of audience/status - the raw

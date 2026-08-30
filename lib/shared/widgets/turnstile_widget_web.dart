@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:html' as html;
 import 'dart:js' as js;
 import 'dart:ui_web' as ui_web;
@@ -13,11 +14,40 @@ void _registerViewFactoryOnce() {
   if (_viewFactoryRegistered) return;
   _viewFactoryRegistered = true;
   ui_web.platformViewRegistry.registerViewFactory(_viewType, (int viewId) {
-    return html.DivElement()
-      ..className = 'cf-turnstile'
-      ..setAttribute('data-sitekey', Env.turnstileSiteKey)
-      ..setAttribute('data-callback', 'onSuperDTurnstileVerified');
+    final div = html.DivElement();
+    _renderTurnstileWhenReady(div);
+    return div;
   });
+}
+
+/// Calls Cloudflare's `turnstile.render(element, options)` directly on
+/// [div] once the API script has finished loading, polling briefly if it
+/// hasn't yet (it's loaded `async defer` in `web/index.html`, so it may
+/// still be in flight when a view factory first runs). Explicit rendering
+/// against the actual element reference is required here rather than
+/// Turnstile's own automatic `<div class="cf-turnstile">` DOM scan: that
+/// scan queries `document.querySelectorAll`, which never finds this div -
+/// Flutter Web mounts `HtmlElementView` content inside a shadow root, and
+/// a plain DOM query can't cross that boundary. A direct object reference
+/// has no such problem.
+void _renderTurnstileWhenReady(html.DivElement div) {
+  final turnstile = js.context['turnstile'] as js.JsObject?;
+  if (turnstile == null) {
+    Timer(const Duration(milliseconds: 150), () => _renderTurnstileWhenReady(div));
+    return;
+  }
+  final options = js.JsObject.jsify({
+    'sitekey': Env.turnstileSiteKey,
+    // Forwards to the same global, per-mount-reassigned callback
+    // `_TurnstileWidgetState.initState` sets up, rather than capturing
+    // this specific view factory invocation's widget instance - see the
+    // class doc below for why that indirection matters.
+    'callback': js.allowInterop(
+      (String token) =>
+          js.context.callMethod('onSuperDTurnstileVerified', [token]),
+    ),
+  });
+  turnstile.callMethod('render', [div, options]);
 }
 
 /// Renders Cloudflare Turnstile's widget inline in a Flutter Web page,
@@ -26,16 +56,14 @@ void _registerViewFactoryOnce() {
 /// conditional export in `turnstile_widget.dart`; see
 /// `turnstile_widget_stub.dart` for every other platform.
 ///
-/// Uses Turnstile's own "implicit render" mode: a plain
-/// `<div class="cf-turnstile">` that Cloudflare's own script (loaded once
-/// in `web/index.html`) finds and renders on its own, including elements
-/// added to the DOM after that script has already run - exactly what
-/// happens here, since Flutter mounts this widget well after page load.
-/// There's no explicit `turnstile.render(...)` call to get wrong, just
-/// the div and its data attributes; the token comes back through
-/// `data-callback`, wired to a single global JS function that forwards
-/// it into whichever `TurnstileWidget` is currently mounted (only one is
-/// ever visible at a time - each public form is its own route).
+/// The view factory is only ever registered once (`_registerViewFactoryOnce`
+/// no-ops on later calls), so it can't close over a specific widget
+/// instance's `onToken` - instead, each new div renders with a callback
+/// that forwards to a single global JS function name
+/// (`onSuperDTurnstileVerified`), which `initState` reassigns to the
+/// *current* mount's `onToken` every time this widget is built. Safe
+/// because only one is ever visible at a time - each public form is its
+/// own route.
 class TurnstileWidget extends StatefulWidget {
   const TurnstileWidget({super.key, required this.onToken});
 

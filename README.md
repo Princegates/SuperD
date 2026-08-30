@@ -105,6 +105,7 @@ supabase/
     0055_customer_directory.sql                customers table (name/email/phone/last-known address, one row per phone) kept current via a trigger on every delivery insert, super-admin-only - not opened up to an auditor like everything else
     0056_delivery_completion_pin.sql           delivery_completion_pins table (no anon/authenticated RLS access at all) holding a 4-digit PIN per assignment; complete_delivery_with_pin() is the only way a driver can mark a delivery delivered
     0057_device_push_tokens.sql                device_push_tokens table (one row per signed-in device's FCM token, RLS-scoped to its own owner) - push notification groundwork, see "Push notifications" below
+    0058_public_form_rate_limiting.sql         per-phone/per-IP throttling for submit_delivery_request()/register_vendor(), the two public no-login forms - see "Public form protection" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
@@ -2120,6 +2121,37 @@ moved off zone_id - it depends on a dispatcher keeping every driver's
 zone current by hand. No explicit "(Suggested)" tag is shown anymore
 (the ordering speaks for itself); a dispatcher who wants to see it on a
 map can also check **Live Map**.
+
+### Public form protection
+
+Both `submit_delivery_request()` and `register_vendor()` are callable by
+anyone, with no login, any number of times - there was no limit at all
+before `0058_public_form_rate_limiting.sql`. That migration adds a
+basic per-phone and per-IP throttle to both:
+
+- **Delivery requests**: 5 per phone number / 10 minutes, 20 per IP /
+  10 minutes.
+- **Vendor signups**: 3 per phone number / day, 10 per IP / day - tighter
+  and longer-lived, since signing up as a vendor is rarer and higher-stakes
+  than placing one order.
+
+A blocked caller gets a plain "Too many requests" error - both public
+screens already catch and surface `PostgrestException` messages the same
+way every other form in this app does, so no client-side changes were
+needed. IP-based throttling depends on PostgREST actually seeing the
+caller's real IP (`request.headers` → `x-forwarded-for`) - Supabase Cloud
+forwards this by default; a self-hosted project should confirm its
+Kong/proxy config does too. If it doesn't, `request_ip()` just returns
+null and these two functions fall back to phone-only throttling rather
+than failing every request.
+
+This is a deliberately simple first layer - it stops naive scripted abuse
+with zero new infrastructure, but not a determined attacker rotating both
+phone and IP per request. Closing that gap needs a real CAPTCHA (Cloudflare
+Turnstile) in front of both forms - since Postgres can't make the
+synchronous "verify this token with Cloudflare" call a CAPTCHA needs, that
+has to live in an Edge Function in front of these RPCs, not in a plain
+migration like this one.
 
 ## Admin dashboard
 

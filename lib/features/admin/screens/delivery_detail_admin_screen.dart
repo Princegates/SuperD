@@ -96,6 +96,7 @@ class DeliveryDetailAdminScreen extends ConsumerWidget {
       ),
       body: AsyncValueView<Delivery?>(
         value: deliveryState,
+        onRetry: () => ref.invalidate(deliveryByIdProvider(deliveryId)),
         data: (delivery) {
           if (delivery == null) {
             return const Center(child: Text('Delivery not found'));

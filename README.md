@@ -109,6 +109,7 @@ supabase/
     0059_public_form_captcha_gate.sql          revokes anon's direct execute on submit_delivery_request()/register_vendor() and adds a p_client_ip parameter to both - only the two Edge Functions below (which verify a Cloudflare Turnstile token first) may call them as anon now; see "Public form protection" below
     0060_assign_pending_on_driver_location.sql trigger on profiles: assigns a still-pending delivery to a driver the moment their live location puts them within a vendor's auto-assign radius - see "Picking up a pending delivery just by driving into range" below
     0061_fix_location_auto_assign_permission.sql fixes 0060: enforce_delivery_update() was silently reverting assigned_driver_id since that UPDATE runs under the driver's own JWT, not a dispatcher's - see "Picking up a pending delivery just by driving into range" below
+    0062_in_transit_assignment_limit.sql        stops every automatic assignment path from handing a driver a new delivery once they already have 2 in_transit at once, on top of the general per-driver cap - see "Capping a driver at 2 deliveries in transit" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -1212,6 +1213,26 @@ function: a transaction-local flag
 (`superd.auto_assign_from_location`) the trigger sets right before its
 own UPDATE, which `enforce_delivery_update()` now treats as another
 exception alongside its existing driver-reject/driver-cancel cases.
+
+### Capping a driver at 2 deliveries in transit
+
+The per-driver cap above (`zone_auto_assign_cap`) counts every active
+status together, so a driver could still be under a cap of 5 while
+already juggling several packages actually out for delivery right now -
+1 `assigned` + 2 `in_transit` is only 3. `0062_in_transit_assignment_limit.sql`
+adds a second, narrower rule on top: no *automatic* assignment path will
+hand a driver a new delivery once they already have **2 `in_transit`**
+at once, regardless of how far under the general cap they are.
+
+Applied everywhere a driver is picked automatically - both tiers in
+`submit_delivery_request`, the nearest-driver fallback
+`driver_cancel_delivery()` uses when a driver mid-trip can't finish, and
+`assign_pending_deliveries_near_driver()` above - via one shared check,
+`driver_under_in_transit_limit()`. A dispatcher assigning a driver by
+hand from the Console is unaffected; this only narrows who the
+*automatic* matchers consider. The limit (2) is a flat literal, not a
+Console > Settings field - add an `app_settings` column for it if this
+ever needs to be tunable per deployment.
 
 ### Turning commission off for testing
 

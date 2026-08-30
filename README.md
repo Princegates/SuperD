@@ -115,6 +115,7 @@ supabase/
     0065_delivery_vehicle_type.sql               adds deliveries.vehicle_type_id (informational) and has submit_delivery_request() store it, so a customer's/dispatcher's picked vehicle type is kept on record, not just used transiently for pricing
     0066_commission_percentage.sql               adds app_settings.commission_percentage - a percentage of a delivery's recorded payment amount, added to commission_flat_fee to make up the single commission_payments row log_commission_due() creates
     0067_daily_commission_settlement.sql          adds driver_has_overdue_commission() and wires it into every assignment path as a hard block, same as the daily fee - commission left `due` from a previous day (not today's) now stops a driver from getting a new delivery until it's paid/waived
+    0068_driver_payment_access_override.sql       adds profiles.payment_access_override_until - a dispatcher/super-admin-granted temporary bypass of the daily-fee/commission block for a payment-gateway outage, honored by driver_daily_fee_paid()/claim_free_day_credit()/driver_has_overdue_commission() without changing what's actually owed
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -1423,6 +1424,26 @@ manual reference), or a dispatcher/super admin marking the row
 paid/waived by hand from **Console > Commission**. Off entirely while
 **Console > Settings > Driver commission** is off, same as everything
 else in this section.
+
+### Emergency access when the payment gateway is down
+
+Both hard blocks above - an unpaid daily-fee tier and overdue commission -
+assume a driver can actually pay: Mobile Money in-app, or (needing no
+gateway at all) a manually-submitted reference. If Paystack itself is down
+*and* that's impractical in the moment, a dispatcher/super admin can grant
+a driver temporary access from **Console > Daily Fees > Emergency
+access** - 1 hour, the rest of today, or 24 hours. This is deliberately
+**not** the same as waiving a fee or marking commission waived: nothing
+about what the driver owes changes (`driver_daily_fee_balance()`/
+`driver_commission_due_amount()` are untouched, so a payment afterward
+still charges the full amount) - it only lifts the block meanwhile, on
+the understanding it still gets collected. See
+`payment_access_override_until` in
+`0068_driver_payment_access_override.sql`: while it's in the future,
+`driver_daily_fee_paid()`, `claim_free_day_credit()` (the actual gate
+inside `enforce_delivery_update()`/`enforce_delivery_insert()`), and
+`driver_has_overdue_commission()` all treat the driver as clear. A
+dispatcher can revoke it early from the same screen.
 
 ### Confirming payments: dispatcher and super admin alike
 

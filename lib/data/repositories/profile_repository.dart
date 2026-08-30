@@ -143,6 +143,19 @@ class ProfileRepository {
         .eq('id', userId);
   }
 
+  /// Grants (or, with [until] null, revokes) a temporary bypass of
+  /// [userId]'s daily-fee/commission access block - an emergency escape
+  /// hatch for a payment-gateway outage, not a way to forgive what they
+  /// owe (that's [DriverDailyFeeRepository.waiveToday] or marking a
+  /// commission row waived). See `payment_access_override_until` in
+  /// `0068_driver_payment_access_override.sql`.
+  Future<void> setPaymentAccessOverride(String userId, DateTime? until) async {
+    await _client
+        .from('profiles')
+        .update({'payment_access_override_until': until?.toIso8601String()})
+        .eq('id', userId);
+  }
+
   /// A driver's own "available for new deliveries" toggle, shown on their
   /// dashboard. Purely informational for dispatch/auto-assignment - not an
   /// access control (unlike [setFrozen]), so a driver may set it on

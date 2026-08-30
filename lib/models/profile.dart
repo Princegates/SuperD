@@ -17,6 +17,13 @@ class Profile {
   /// see `daily_fee_tier_override_id` in `0038_daily_fee_tier_overrides.sql`.
   /// Null means the normal automatic tier-by-delivery-count behavior.
   final String? dailyFeeTierOverrideId;
+
+  /// A dispatcher/super-admin-granted temporary bypass of the daily-fee/
+  /// commission access block, until this moment - null means none active.
+  /// Doesn't change what's actually owed, just lifts the block meanwhile -
+  /// see `payment_access_override_until` in
+  /// `0068_driver_payment_access_override.sql`.
+  final DateTime? paymentAccessOverrideUntil;
   final UserRole role;
   final bool isActive;
   final bool isOnline;
@@ -40,6 +47,7 @@ class Profile {
     this.residentialAddress,
     this.zoneId,
     this.dailyFeeTierOverrideId,
+    this.paymentAccessOverrideUntil,
     this.isActive = true,
     this.isOnline = false,
     this.isFrozen = false,
@@ -65,6 +73,9 @@ class Profile {
       residentialAddress: map['residential_address'] as String?,
       zoneId: map['zone_id'] as String?,
       dailyFeeTierOverrideId: map['daily_fee_tier_override_id'] as String?,
+      paymentAccessOverrideUntil: map['payment_access_override_until'] == null
+          ? null
+          : DateTime.tryParse(map['payment_access_override_until'] as String),
       role: UserRole.fromString(map['role'] as String? ?? 'driver'),
       isActive: map['is_active'] as bool? ?? true,
       isOnline: map['is_online'] as bool? ?? false,
@@ -82,6 +93,12 @@ class Profile {
   }
 
   String get displayName => fullName.isNotEmpty ? fullName : email;
+
+  /// Whether a granted [paymentAccessOverrideUntil] is still in effect
+  /// right now.
+  bool get hasActivePaymentAccessOverride =>
+      paymentAccessOverrideUntil != null &&
+      paymentAccessOverrideUntil!.isAfter(DateTime.now());
 
   bool get hasRecentLocation =>
       lastLat != null &&

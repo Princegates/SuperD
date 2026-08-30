@@ -2442,13 +2442,22 @@ back out of. What shows up in the nav is role-based:
     recent-payments feed.
   - **Audit log** - a chronological record of who did what: role changes,
     staff added/removed, vendors registered/edited/(de)activated, drivers
-    assigned, deliveries created, and payments marked paid. Entries are
-    written by a `log_audit_event` database function the instant each
-    action succeeds elsewhere in the app, and only a super admin or
-    auditor can ever read them back (RLS on `audit_log` has no select
-    policy for anyone else, and there's no insert/update/delete policy at
-    all - the log can only grow, through that one function, never be
-    edited after the fact).
+    assigned, deliveries created, payments marked paid, and every
+    account's own sign-up/sign-in/sign-out (`user_signed_up`/
+    `user_signed_in`/`user_signed_out` - logged once, centrally, inside
+    `AuthRepository` itself, so there's exactly one place each of those
+    three actually happens and nothing can add a new call site that
+    forgets to log it). Entries are written by a `log_audit_event`
+    database function the instant each action succeeds elsewhere in the
+    app, and only a super admin or auditor can ever read them back (RLS
+    on `audit_log` has no select policy for anyone else, and there's no
+    insert/update/delete policy at all - the log can only grow, through
+    that one function, never be edited after the fact). A sign-out is
+    logged *before* the session is actually torn down, since the function
+    needs a live `auth.uid()` to attribute the entry; a failed sign-in
+    attempt is deliberately not logged here at all - the caller isn't
+    authenticated yet, and this table has no anon-writable path (by
+    design, to keep it from being a spam/log-flooding target).
   - **Onboarding** - a single triage view of recently added staff and
     vendors, flagging what's incomplete (a driver who hasn't set their
     own password yet, a vendor with no zone or a deactivated link) with a

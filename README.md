@@ -113,6 +113,7 @@ supabase/
     0063_no_undo_after_delivered.sql            enforce_delivery_update() rejects a driver undoing a 'delivered' status back to 'picked_up' - the customer already confirmed receipt with the PIN by then - see "Delivery-completion PIN" below
     0064_show_pin_on_customer_tracking.sql      get_delivery_by_tracking_code() now also returns the delivery-completion PIN, but only while status is picked_up/in_transit - see "Delivery-completion PIN" below
     0065_delivery_vehicle_type.sql               adds deliveries.vehicle_type_id (informational) and has submit_delivery_request() store it, so a customer's/dispatcher's picked vehicle type is kept on record, not just used transiently for pricing
+    0066_commission_percentage.sql               adds app_settings.commission_percentage - a percentage of a delivery's recorded payment amount, added to commission_flat_fee to make up the single commission_payments row log_commission_due() creates
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -1276,32 +1277,43 @@ ever needs to be tunable per deployment.
 
 ### Turning commission off for testing
 
-Both commission mechanisms described below - the per-delivery flat fee
-and the tiered daily fee - share one master switch: **Console > Settings
-> Driver commission**. Off means nothing is charged, logged, or blocks a
-driver from getting new deliveries, but the configured flat fee/tiers are
-left untouched (see `0041_driver_commission_toggle.sql`) - flip it back
-on once the app is ready to go commercial and everything picks back up
-exactly as it was configured. Defaults to on.
+Both commission mechanisms described below - the per-delivery commission
+(flat fee and/or percentage) and the tiered daily fee - share one master
+switch: **Console > Settings > Driver commission**. Off means nothing is
+charged, logged, or blocks a driver from getting new deliveries, but the
+configured flat fee/percentage/tiers are left untouched (see
+`0041_driver_commission_toggle.sql`) - flip it back on once the app is
+ready to go commercial and everything picks back up exactly as it was
+configured. Defaults to on.
 
 ### Driver commission
 
 Separate from the `payments` table above (what a *customer* owes for a
-delivery), a super admin can set a flat **commission** fee the *driver*
-owes the business per completed delivery, from **Console > Settings**.
-It defaults to `0`, which means commission tracking is effectively off —
-no records are created until a fee is set.
+delivery), a super admin can set a **commission** the *driver* owes the
+business per completed delivery, from **Console > Settings**. It has two
+components, added together into a single amount, and either (or both) can
+be left at `0`:
 
-Once a fee is set, `0029_commission_payments.sql` records it
-automatically: a database trigger fires the instant a delivery's status
-changes to `delivered`, inserting a `due` row into `commission_payments`
-for whoever the assigned driver was, in the app's currency at that
-moment. A dispatcher or super admin can still mark a row `paid` (or
-`waived`) by hand from **Console > Commission** at any time (in person,
-weekly, however the business runs it) — but it's no longer collected
-*only* that way: see **Commission and the daily fee are billed together
-in-app** below for how it also rides along with a driver's own in-app
-daily-fee payment.
+- a flat fee (`commission_flat_fee`), the same currency amount every time;
+- a percentage (`commission_percentage`, `0066_commission_percentage.sql`)
+  of whatever's been recorded in `payments` for that delivery — 0 if
+  nothing's been recorded.
+
+Both default to `0`, which means commission tracking is effectively off —
+no records are created until at least one is set above `0`.
+
+The moment either is set, `0029_commission_payments.sql`/
+`0066_commission_percentage.sql` record it automatically: a database
+trigger fires the instant a delivery's status changes to `delivered`,
+inserting a `due` row into `commission_payments` for whoever the assigned
+driver was — `commission_flat_fee` plus `commission_percentage`% of that
+delivery's recorded payment total, in the app's currency at that moment.
+A dispatcher or super admin can still mark a row `paid` (or `waived`) by
+hand from **Console > Commission** at any time (in person, weekly,
+however the business runs it) — but it's no longer collected *only* that
+way: see **Commission and the daily fee are billed together in-app**
+below for how it also rides along with a driver's own in-app daily-fee
+payment.
 
 ### Driver daily fee
 

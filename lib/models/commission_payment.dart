@@ -1,8 +1,10 @@
 import 'commission_status.dart';
 
-/// One completed delivery's commission - a flat fee a driver owes the
-/// business, created automatically when the delivery is marked delivered
-/// (see `log_commission_due()` in `0029_commission_payments.sql`).
+/// One completed delivery's commission - a flat fee, a percentage of the
+/// delivery's payment amount, or both, added together into the single
+/// amount a driver owes the business - created automatically when the
+/// delivery is marked delivered (see `log_commission_due()` in
+/// `0029_commission_payments.sql`, `0066_commission_percentage.sql`).
 class CommissionPayment {
   final String id;
   final String driverId;

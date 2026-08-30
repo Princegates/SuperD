@@ -258,36 +258,34 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
     return AsyncValueView<List<DriverDailyFee>>(
       value: feesState,
       data: (records) {
-        if (tiers.isEmpty) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'The driver daily fee is currently off. Add a tier in '
-                'Console > Settings to start collecting it.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade500),
-              ),
-            ),
-          );
-        }
+        // The daily fee itself (no tiers configured) being off doesn't mean
+        // this whole tab has nothing to show - Emergency access below also
+        // covers a driver blocked purely by overdue commission, which has
+        // nothing to do with tiers. So this only skips the tier-dependent
+        // sections (the "haven't paid today" list, tier overrides), not the
+        // whole screen.
+        final dailyFeeOff = tiers.isEmpty;
 
         final todaysByDriver = <String, List<DriverDailyFee>>{};
         for (final r in records.where((r) => _isToday(r, today))) {
           todaysByDriver.putIfAbsent(r.driverId, () => []).add(r);
         }
-        final unpaidToday = drivers.where((d) {
-          final owed = owedFor(deliveredTodayCounts[d.id] ?? 0);
-          if (owed <= 0) return false;
-          final todaysRecords = todaysByDriver[d.id] ?? const [];
-          if (todaysRecords.any((r) => r.status == DailyFeeStatus.waived)) {
-            return false;
-          }
-          final paid = todaysRecords
-              .where((r) => r.isCleared)
-              .fold(0.0, (sum, r) => sum + r.amount);
-          return paid < owed;
-        }).toList();
+        final unpaidToday = dailyFeeOff
+            ? <Profile>[]
+            : drivers.where((d) {
+                final owed = owedFor(deliveredTodayCounts[d.id] ?? 0);
+                if (owed <= 0) return false;
+                final todaysRecords = todaysByDriver[d.id] ?? const [];
+                if (todaysRecords.any(
+                  (r) => r.status == DailyFeeStatus.waived,
+                )) {
+                  return false;
+                }
+                final paid = todaysRecords
+                    .where((r) => r.isCleared)
+                    .fold(0.0, (sum, r) => sum + r.amount);
+                return paid < owed;
+              }).toList();
 
         final byCurrency = <String, List<DriverDailyFee>>{};
         for (final r in records) {
@@ -307,6 +305,20 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            if (dailyFeeOff) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'The driver daily fee is currently off. Add a tier in '
+                    'Console > Settings to start collecting it. Commission '
+                    'and Emergency access below are unaffected.',
+                    style: TextStyle(color: Colors.grey.shade500),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
             for (final entry in byCurrency.entries)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),

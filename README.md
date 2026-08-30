@@ -2334,11 +2334,20 @@ Both run without any Supabase project configured — they don't need
    `0049_*.sql` through `0053_*.sql` with unrelated content, caught only
    by hand at merge time. Since a PR is checked out at its merge ref by
    default, this also catches a collision with a migration that landed on
-   `main` from a different PR after this branch was created.
-2. `supabase start` (via `supabase/setup-cli`) applies every migration
-   file, in order, against a fresh local Postgres — the same database
-   image local dev already uses — so a migration that doesn't run cleanly
-   fails CI instead of failing silently in someone's SQL Editor.
+   the default branch from a different PR after this branch was created.
+2. Every migration file is applied, in order, with plain `psql` against a
+   `supabase/postgres` service container (the same Supabase-flavored
+   Postgres image local dev uses, so the auth/storage schemas, roles, and
+   extensions every migration assumes already exist) — so a migration
+   that doesn't run cleanly fails CI instead of failing silently in
+   someone's SQL Editor. Deliberately not `supabase start`/`supabase db
+   reset`: the CLI's own migration runner tracks applied versions in
+   `supabase_migrations.schema_migrations` keyed by the version parsed
+   from the filename, and fails outright on this repo's one intentional
+   exception (0002's two files sharing version "0002" - see
+   `scripts/check_migration_numbers.sh`). Plain `psql`, one file at a
+   time, has no such uniqueness constraint - it's the same thing the SQL
+   Editor setup below already does, just automated.
 
 Nothing else is required to keep this working: every new migration file
 just needs the next unused 4-digit number, same as before.

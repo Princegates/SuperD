@@ -12,7 +12,7 @@ on:
     paths:
       - "supabase/migrations/**"
   push:
-    branches: [main]
+    branches: [claude/delivery-management-app-dscw6o]
     paths:
       - "supabase/migrations/**"
 
@@ -26,13 +26,41 @@ jobs:
   apply-migrations:
     runs-on: ubuntu-latest
     needs: check-migration-numbers
+    # The same Supabase-flavored Postgres image `supabase start` uses for
+    # local dev (its own init scripts bootstrap the auth/storage schemas,
+    # roles, and extensions every migration assumes) - started directly
+    # as a service container rather than through `supabase start`/`supabase
+    # db reset`, since the CLI's own migration runner tracks applied
+    # migrations in supabase_migrations.schema_migrations keyed by the
+    # version parsed from each filename, and fails outright on this
+    # repo's one intentional exception (0002_roles_step1_enum.sql and
+    # 0002_roles_step2_policies.sql deliberately share version "0002" -
+    # see scripts/check_migration_numbers.sh - because Postgres won't let
+    # a new enum value be used in the same transaction that created it).
+    # Applying each file with plain psql, in order, has no such
+    # uniqueness constraint - it's the same thing the README's manual SQL
+    # Editor setup already does, just automated.
+    services:
+      postgres:
+        image: ghcr.io/supabase/postgres:17.6.1.165
+        env:
+          POSTGRES_PASSWORD: postgres
+          JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
     steps:
       - uses: actions/checkout@v4
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      # Spins up the same local Postgres image `supabase start` always
-      # uses for local dev, and applies every file in supabase/migrations
-      # against it in order - a non-zero exit here means one of them
-      # doesn't run cleanly, the same way it wouldn't in the SQL Editor.
-      - run: supabase start
+      - name: Apply every migration in order
+        env:
+          PGPASSWORD: postgres
+        run: |
+          set -euo pipefail
+          for f in supabase/migrations/*.sql; do
+            echo "Applying $f"
+            psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$f"
+          done

@@ -110,6 +110,7 @@ supabase/
     0060_assign_pending_on_driver_location.sql trigger on profiles: assigns a still-pending delivery to a driver the moment their live location puts them within a vendor's auto-assign radius - see "Picking up a pending delivery just by driving into range" below
     0061_fix_location_auto_assign_permission.sql fixes 0060: enforce_delivery_update() was silently reverting assigned_driver_id since that UPDATE runs under the driver's own JWT, not a dispatcher's - see "Picking up a pending delivery just by driving into range" below
     0062_in_transit_assignment_limit.sql        stops every automatic assignment path from handing a driver a new delivery once they already have 2 in_transit at once, on top of the general per-driver cap - see "Capping a driver at 2 deliveries in transit" below
+    0063_no_undo_after_delivered.sql            enforce_delivery_update() rejects a driver undoing a 'delivered' status back to 'picked_up' - the customer already confirmed receipt with the PIN by then - see "Delivery-completion PIN" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -1731,6 +1732,14 @@ payment both keying off that status. Now:
   is rejected server-side by `enforce_delivery_update()`. A dispatcher or
   admin correcting a status from the Console is unaffected - the PIN is
   only required for a driver's own client.
+- Once `delivered`, a driver can't undo back to `picked_up` either -
+  the "Undo" option simply doesn't offer that step
+  (`DeliveryStatus.previousForDriver`), and `enforce_delivery_update()`
+  rejects it server-side too if bypassed
+  (`0063_no_undo_after_delivered.sql`). The customer already confirmed
+  receipt with the PIN at that point, so there's nothing left to
+  legitimately undo. A dispatcher/admin correcting a status from the
+  Console is, again, unaffected.
 
 No setup is required beyond deploying `notify-delivery-events` as
 described below - the PIN generation/verification is pure Postgres, and

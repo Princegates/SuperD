@@ -74,11 +74,15 @@ enum DeliveryStatus {
   /// tapped by mistake, one step at a time. `assigned` has no previous step
   /// here on purpose: backing out of an assignment entirely is "reject",
   /// not "undo" - see `driver_reject_delivery` in
-  /// `0023_driver_reject_and_undo.sql`.
+  /// `0023_driver_reject_and_undo.sql`. `delivered` has none either, also
+  /// on purpose - the customer has already handed over the PIN to confirm
+  /// receipt at that point (see `complete_delivery_with_pin` in
+  /// `0056_delivery_completion_pin.sql`), so there's nothing left to
+  /// "undo by mistake"; enforced server-side too, see
+  /// `enforce_delivery_update()`.
   DeliveryStatus? get previousForDriver => switch (this) {
     DeliveryStatus.inTransit => DeliveryStatus.assigned,
     DeliveryStatus.pickedUp => DeliveryStatus.inTransit,
-    DeliveryStatus.delivered => DeliveryStatus.pickedUp,
     _ => null,
   };
 }

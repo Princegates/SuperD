@@ -248,7 +248,7 @@ class _PinCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             pin,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.w800,
               letterSpacing: 6,

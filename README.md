@@ -107,6 +107,7 @@ supabase/
     0057_device_push_tokens.sql                device_push_tokens table (one row per signed-in device's FCM token, RLS-scoped to its own owner) - push notification groundwork, see "Push notifications" below
     0058_public_form_rate_limiting.sql         per-phone/per-IP throttling for submit_delivery_request()/register_vendor(), the two public no-login forms - see "Public form protection" below
     0059_public_form_captcha_gate.sql          revokes anon's direct execute on submit_delivery_request()/register_vendor() and adds a p_client_ip parameter to both - only the two Edge Functions below (which verify a Cloudflare Turnstile token first) may call them as anon now; see "Public form protection" below
+    0060_assign_pending_on_driver_location.sql trigger on profiles: assigns a still-pending delivery to a driver the moment their live location puts them within a vendor's auto-assign radius - see "Picking up a pending delivery just by driving into range" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -1171,6 +1172,32 @@ pre-selected).
 This is just what happens automatically when nobody has to step in — a
 dispatcher can always reassign an auto-assigned delivery afterward, the
 same as any other one.
+
+### Picking up a pending delivery just by driving into range
+
+The two tiers above only ever run once, at the moment a delivery is
+created - so a delivery only ends up sitting at `pending` when *neither*
+tier found anyone: nobody eligible was online within the auto-assign
+radius, and nobody eligible was online anywhere else either (tier 2 has
+no distance limit at all, so this is a real gap, just a narrow one).
+
+`0060_assign_pending_on_driver_location.sql` closes it from the other
+direction: a trigger on `profiles` (`assign_pending_on_driver_location`,
+firing whenever a driver's `last_lat`/`last_lng` changes, or they come
+online) checks whether that driver is now within a pending delivery's
+vendor's auto-assign radius - same eligibility checks and distance
+formula as tier 1 above, just run on the driver's movement instead of
+the delivery's creation. If more than one pending delivery qualifies, it
+picks the nearest one and leaves the rest for the driver's *next*
+location update rather than dumping every match on them at once - in
+practice that's seconds away, since location pushes every ~15s while the
+app is open (see **Live driver location** below).
+
+Assignment happens the normal way (straight to `assigned`, same UPDATE
+any other assignment path uses) - `notify-delivery-events`'s existing
+driver-assigned webhook fires exactly as it would for any other
+assignment, so the driver's SMS/email/push and the customer/vendor's
+notice all just work with no extra wiring.
 
 ### Turning commission off for testing
 

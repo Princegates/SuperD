@@ -218,73 +218,11 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
   /// direct update to 'delivered' from a driver, so there's no path here
   /// that skips this dialog.
   Future<void> _completeWithPin() async {
-    final pinController = TextEditingController();
-    String? errorText;
-    final confirmed = await showDialog<bool>(
+    final pin = await showDialog<String>(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: const Text('Enter delivery PIN'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Ask the customer for the 4-digit PIN they were sent when "
-                "you picked this package up.",
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: pinController,
-                autofocus: true,
-                keyboardType: TextInputType.number,
-                maxLength: 4,
-                decoration: InputDecoration(
-                  labelText: 'PIN',
-                  border: const OutlineInputBorder(),
-                  errorText: errorText,
-                  counterText: '',
-                ),
-                onChanged: (_) {
-                  if (errorText != null) {
-                    setDialogState(() => errorText = null);
-                  }
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                // Explicitly dropping focus before popping works around a
-                // Flutter framework bug where an autofocused TextField's
-                // FocusNode isn't always cleanly detached before this
-                // dialog's element tree is torn down, tripping the
-                // framework's own "_dependents.isEmpty" assertion and
-                // crashing the app - not anything specific to this dialog.
-                FocusScope.of(context).unfocus();
-                Navigator.of(context).pop(false);
-              },
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                if (pinController.text.trim().length != 4) {
-                  setDialogState(() => errorText = 'Enter all 4 digits');
-                  return;
-                }
-                FocusScope.of(context).unfocus();
-                Navigator.of(context).pop(true);
-              },
-              child: const Text('Confirm delivery'),
-            ),
-          ],
-        ),
-      ),
+      builder: (context) => const _PinEntryDialog(),
     );
-    final pin = pinController.text.trim();
-    pinController.dispose();
-    if (confirmed != true || !mounted) return;
+    if (pin == null || !mounted) return;
 
     setState(() => _isUpdatingStatus = true);
     try {
@@ -733,6 +671,90 @@ class _InfoRow extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Prompts for the customer's delivery-completion PIN, returning it (or
+/// null if cancelled) - see 0056_delivery_completion_pin.sql. Its own
+/// StatefulWidget rather than a controller created in the calling method
+/// and disposed after `showDialog` returns: that pattern crashed with "A
+/// TextEditingController was used after being disposed" on the confirm
+/// path - popping the dialog, then reading/disposing the controller back
+/// in the caller raced against the dialog route's own teardown. Owning
+/// the controller here ties its lifecycle directly to this dialog's own
+/// widget, which the framework disposes at the correct point on its own.
+class _PinEntryDialog extends StatefulWidget {
+  const _PinEntryDialog();
+
+  @override
+  State<_PinEntryDialog> createState() => _PinEntryDialogState();
+}
+
+class _PinEntryDialogState extends State<_PinEntryDialog> {
+  final _pinController = TextEditingController();
+  String? _errorText;
+
+  @override
+  void dispose() {
+    _pinController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (_pinController.text.trim().length != 4) {
+      setState(() => _errorText = 'Enter all 4 digits');
+      return;
+    }
+    // Explicitly dropping focus before popping works around a Flutter
+    // framework bug where an autofocused TextField's FocusNode isn't
+    // always cleanly detached before this dialog's element tree is torn
+    // down, tripping the framework's own "_dependents.isEmpty" assertion
+    // and crashing the app - not anything specific to this dialog.
+    FocusScope.of(context).unfocus();
+    Navigator.of(context).pop(_pinController.text.trim());
+  }
+
+  void _cancel() {
+    FocusScope.of(context).unfocus();
+    Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Enter delivery PIN'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Ask the customer for the 4-digit PIN they were sent when "
+            "you picked this package up.",
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _pinController,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 4,
+            decoration: InputDecoration(
+              labelText: 'PIN',
+              border: const OutlineInputBorder(),
+              errorText: _errorText,
+              counterText: '',
+            ),
+            onChanged: (_) {
+              if (_errorText != null) setState(() => _errorText = null);
+            },
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(onPressed: _cancel, child: const Text('Cancel')),
+        FilledButton(onPressed: _submit, child: const Text('Confirm delivery')),
+      ],
     );
   }
 }

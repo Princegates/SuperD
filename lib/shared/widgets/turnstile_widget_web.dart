@@ -40,7 +40,10 @@ void _registerViewFactoryOnce() {
 void _renderTurnstileWhenReady(html.DivElement div) {
   final turnstile = js.context['turnstile'] as js.JsObject?;
   if (turnstile == null) {
-    Timer(const Duration(milliseconds: 150), () => _renderTurnstileWhenReady(div));
+    Timer(
+      const Duration(milliseconds: 150),
+      () => _renderTurnstileWhenReady(div),
+    );
     return;
   }
   final options = js.JsObject.jsify({'sitekey': Env.turnstileSiteKey});

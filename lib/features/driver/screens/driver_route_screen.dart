@@ -43,8 +43,9 @@ class DriverRouteScreen extends ConsumerWidget {
               itemBuilder: (context, index) => _RouteStopTile(
                 index: index,
                 stop: stops[index],
-                onTap: () =>
-                    context.push('/driver/delivery/${stops[index].delivery.id}'),
+                onTap: () => context.push(
+                  '/driver/delivery/${stops[index].delivery.id}',
+                ),
               ),
             ),
     );
@@ -126,8 +127,7 @@ class _RouteStopTile extends StatelessWidget {
               IconButton(
                 tooltip: 'Navigate',
                 icon: const Icon(Icons.directions_outlined),
-                onPressed: () =>
-                    launchNavigation(lat: stop.lat, lng: stop.lng),
+                onPressed: () => launchNavigation(lat: stop.lat, lng: stop.lng),
               ),
             ],
           ),

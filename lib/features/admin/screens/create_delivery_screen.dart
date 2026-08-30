@@ -10,7 +10,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/payment_method.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/audit_log.dart';
+import '../../../shared/utils/geocode_search.dart';
 import '../../../shared/utils/reverse_geocode.dart';
+import '../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../shared/widgets/schedule_picker.dart';
 import '../providers/admin_providers.dart';
 
@@ -39,6 +41,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   double? _dropoffLng;
 
   String? _assignedDriverId;
+  String? _vehicleTypeId;
   DateTime? _scheduledAt;
   PaymentMethod _paymentMethod = PaymentMethod.cash;
   bool _isSubmitting = false;
@@ -155,6 +158,20 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   String _coordsLabel(LatLng point) =>
       '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}';
 
+  void _selectPickupSuggestion(GeocodeResult result) {
+    setState(() {
+      _pickupLat = result.location.latitude;
+      _pickupLng = result.location.longitude;
+    });
+  }
+
+  void _selectDropoffSuggestion(GeocodeResult result) {
+    setState(() {
+      _dropoffLat = result.location.latitude;
+      _dropoffLng = result.location.longitude;
+    });
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -188,6 +205,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
             createdBy: userId,
             assignedDriverId: _assignedDriverId,
             scheduledAt: _scheduledAt,
+            vehicleTypeId: _vehicleTypeId,
           );
 
       await logAuditEvent(
@@ -232,7 +250,10 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
     final drivers = ref.watch(
       rankedDriversProvider((pickupLat: _pickupLat, pickupLng: _pickupLng)),
     );
-    final currency = ref.watch(appSettingsProvider).valueOrNull?.currency;
+    final currency =
+        ref.watch(appSettingsProvider).valueOrNull?.currency ?? 'GHS';
+    final vehicleTypes =
+        ref.watch(vehicleTypesProvider).valueOrNull ?? const [];
 
     return Scaffold(
       appBar: AppBar(title: const Text('New delivery')),
@@ -276,13 +297,14 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Pickup'),
-                TextFormField(
+                AddressAutocompleteField(
                   controller: _pickupController,
                   decoration: const InputDecoration(
                     labelText: 'Pickup address',
                   ),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  onPlaceSelected: _selectPickupSuggestion,
                 ),
                 const SizedBox(height: 8),
                 Align(
@@ -321,13 +343,14 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                 ),
                 const SizedBox(height: 12),
                 const _SectionLabel('Drop-off'),
-                TextFormField(
+                AddressAutocompleteField(
                   controller: _dropoffController,
                   decoration: const InputDecoration(
                     labelText: 'Drop-off address',
                   ),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  onPlaceSelected: _selectDropoffSuggestion,
                 ),
                 const SizedBox(height: 8),
                 Align(
@@ -363,6 +386,27 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                   ),
                 ),
                 const SizedBox(height: 20),
+                const _SectionLabel('Vehicle'),
+                DropdownButtonFormField<String?>(
+                  initialValue: _vehicleTypeId,
+                  decoration: const InputDecoration(
+                    labelText: 'Vehicle needed (optional)',
+                  ),
+                  hint: const Text('Any vehicle'),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Any vehicle'),
+                    ),
+                    for (final type in vehicleTypes)
+                      DropdownMenuItem<String?>(
+                        value: type.id,
+                        child: Text(type.name),
+                      ),
+                  ],
+                  onChanged: (value) => setState(() => _vehicleTypeId = value),
+                ),
+                const SizedBox(height: 20),
                 const _SectionLabel('When'),
                 SchedulePicker(
                   value: _scheduledAt,
@@ -376,9 +420,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                     decimal: true,
                   ),
                   decoration: InputDecoration(
-                    labelText: currency == null
-                        ? 'Delivery fee (optional)'
-                        : 'Delivery fee ($currency, optional)',
+                    labelText: 'Delivery fee ($currency, optional)',
                     prefixIcon: const Icon(Icons.attach_money),
                   ),
                   validator: (v) {
@@ -398,11 +440,28 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                     for (final method in PaymentMethod.values)
                       DropdownMenuItem(
                         value: method,
-                        child: Text(method.label),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(method.icon, size: 16),
+                            const SizedBox(width: 8),
+                            Text(method.label),
+                          ],
+                        ),
                       ),
                   ],
                   onChanged: (value) => setState(() => _paymentMethod = value!),
                 ),
+                if (_paymentMethod == PaymentMethod.mobileMoney) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Recorded as pending until confirmed - the same as any '
+                    'other method. Once the customer sends Mobile Money for '
+                    'this delivery, mark the payment paid from the delivery '
+                    'detail screen.',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                  ),
+                ],
                 const SizedBox(height: 20),
                 const _SectionLabel('Assign driver'),
                 DropdownButtonFormField<String?>(

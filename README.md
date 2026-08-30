@@ -112,6 +112,7 @@ supabase/
     0062_in_transit_assignment_limit.sql        stops every automatic assignment path from handing a driver a new delivery once they already have 2 in_transit at once, on top of the general per-driver cap - see "Capping a driver at 2 deliveries in transit" below
     0063_no_undo_after_delivered.sql            enforce_delivery_update() rejects a driver undoing a 'delivered' status back to 'picked_up' - the customer already confirmed receipt with the PIN by then - see "Delivery-completion PIN" below
     0064_show_pin_on_customer_tracking.sql      get_delivery_by_tracking_code() now also returns the delivery-completion PIN, but only while status is picked_up/in_transit - see "Delivery-completion PIN" below
+    0065_delivery_vehicle_type.sql               adds deliveries.vehicle_type_id (informational) and has submit_delivery_request() store it, so a customer's/dispatcher's picked vehicle type is kept on record, not just used transiently for pricing
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -1015,8 +1016,9 @@ Customer Delivery Price = Base Delivery Fare + Distance Charge + Vehicle Surchar
   detail screen if a particular order needs one.
 
 Deliveries created directly by a dispatcher/super admin (the "New
-delivery" form in the admin console) are unaffected — those already let
-the dispatcher set the delivery fee by hand, and have no vehicle picker.
+delivery" form in the admin console) are priced differently — see
+**The admin "New delivery" form** below — but can record a vehicle type
+too.
 
 ### Vehicle types
 
@@ -1039,6 +1041,42 @@ fee's tiers); an anonymous customer reads it through the
 `get_vehicle_types()` RPC instead — table RLS is never opened to `anon`
 in this app, following the same pattern `get_vendor_by_code()` set in
 `0010_vendors_zones.sql`.
+
+### The admin "New delivery" form
+
+Deliberately priced differently from the public request form above — a
+dispatcher/super admin sets the delivery fee **by hand**, there's no
+base-fare/distance/vehicle-surcharge calculation here at all. What it does
+share with the public form:
+
+- **Address suggestions** — both the pickup and drop-off address fields
+  are an `AddressAutocompleteField` (same free OSM Nominatim search the
+  location picker's own search box and the public request form use, see
+  **Picking a location** below) — type 3+ characters and matching places
+  show up in a dropdown; picking one sets that field's coordinates the
+  same way dropping a pin on the map would (including feeding the
+  driver-ranking-by-proximity list below). Typing a full address by hand
+  with no suggestion picked still works exactly as before, just without
+  coordinates until "Or set \[pickup/drop-off\] location on map" is used
+  instead.
+- **Vehicle (optional)** — the same `vehicle_types` list (Console >
+  Settings) a customer picks from, stored on the delivery
+  (`deliveries.vehicle_type_id`, see `0065_delivery_vehicle_type.sql`) so
+  it's on record which vehicle the job needs. Purely informational here —
+  picking one does **not** add its surcharge to the fee field, since the
+  dispatcher is already setting that fee directly.
+- **Currency** — the delivery fee field's label always shows the app's
+  configured currency (**Console > Settings**, GHS by default), falling
+  back to GHS itself for the brief moment settings are still loading
+  rather than omitting a currency from the label entirely.
+- **Payment method**, Mobile Money included, has always been a real field
+  here (`PaymentMethod.mobileMoney`) — selecting it doesn't trigger an
+  in-app charge (there's no Paystack/Mobile Money gateway wired to a
+  *customer's* delivery fee, only to a *driver's* own commission - see
+  **Driver daily fee** above), it records how the customer intends to
+  pay, the same "record it, don't try to collect it in-app" treatment
+  every other payment method already gets. A dispatcher marks it paid
+  once the money's actually in hand, from the delivery detail screen.
 
 ### Road-distance pricing setup
 

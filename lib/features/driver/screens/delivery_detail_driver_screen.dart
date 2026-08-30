@@ -236,9 +236,8 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
       // rather than swapped for a generic message like other screens do,
       // since the whole point is telling the driver exactly what to fix.
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(e.message)));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
     } catch (e) {
       if (mounted) {

@@ -111,6 +111,7 @@ supabase/
     0061_fix_location_auto_assign_permission.sql fixes 0060: enforce_delivery_update() was silently reverting assigned_driver_id since that UPDATE runs under the driver's own JWT, not a dispatcher's - see "Picking up a pending delivery just by driving into range" below
     0062_in_transit_assignment_limit.sql        stops every automatic assignment path from handing a driver a new delivery once they already have 2 in_transit at once, on top of the general per-driver cap - see "Capping a driver at 2 deliveries in transit" below
     0063_no_undo_after_delivered.sql            enforce_delivery_update() rejects a driver undoing a 'delivered' status back to 'picked_up' - the customer already confirmed receipt with the PIN by then - see "Delivery-completion PIN" below
+    0064_show_pin_on_customer_tracking.sql      get_delivery_by_tracking_code() now also returns the delivery-completion PIN, but only while status is picked_up/in_transit - see "Delivery-completion PIN" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -1719,12 +1720,22 @@ payment both keying off that status. Now:
 - The moment a driver is assigned, a fresh 4-digit PIN is generated (a
   trigger on `deliveries`, `generate_delivery_completion_pin()`) and
   stored in its own `delivery_completion_pins` table - not on `deliveries`
-  itself, and not readable by `anon`/`authenticated` at all (RLS enabled,
-  no policies for those roles), so a driver's own client, which freely
-  selects every column off `deliveries`, never sees the value they're
-  supposed to be collecting from the customer.
+  itself, and not readable by `anon`/`authenticated` at all directly (RLS
+  enabled, no policies for those roles), so a driver's own client, which
+  freely selects every column off `deliveries`, never sees the value
+  they're supposed to be collecting from the customer.
 - Once the driver picks the package up, notification 4 above texts/emails
-  that PIN to the customer.
+  that PIN to the customer, and it also appears on the customer's own
+  public tracking page (`/t/:trackingCode`) from that point on - a
+  customer who deleted the text or can't find the email isn't stuck.
+  `get_delivery_by_tracking_code()` is a `security definer` function, the
+  one narrow, conditional exception to "not readable by anon at all": it
+  only ever returns the PIN while the delivery is actually
+  `picked_up`/`in_transit` (`0064_show_pin_on_customer_tracking.sql`) -
+  null before that (nothing to give the rider yet) and after `delivered`
+  (already used). `get_vendor_deliveries()` doesn't select this column at
+  all, so a vendor's own order list still never shows it, same as a
+  driver's app.
 - Tapping "Mark delivered" in the driver app prompts for the PIN and
   calls the `complete_delivery_with_pin(delivery_id, pin)` RPC, which
   checks it against the stored value before flipping the status - a
@@ -1744,7 +1755,7 @@ payment both keying off that status. Now:
 No setup is required beyond deploying `notify-delivery-events` as
 described below - the PIN generation/verification is pure Postgres, and
 the PIN itself only ever leaves the database inside that function's SMS
-and email.
+and email, or via the customer's own tracking page as described above.
 
 ### SMS only on the first delivery
 

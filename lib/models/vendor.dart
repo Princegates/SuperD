@@ -123,6 +123,15 @@ class VendorDelivery {
   final int? rating;
   final String? ratingComment;
 
+  /// The delivery-completion PIN (see 0056_delivery_completion_pin.sql),
+  /// only ever non-null from `get_delivery_by_tracking_code()` - the
+  /// customer's own public tracking page - and only while the delivery
+  /// is actually `picked_up`/`in_transit`, matching the same reveal
+  /// timing as the SMS/email notification. `get_vendor_deliveries()`
+  /// never selects this column, so it's always null on a vendor's own
+  /// order list, same as the driver's own app never seeing it.
+  final String? completionPin;
+
   const VendorDelivery({
     required this.id,
     required this.trackingCode,
@@ -140,6 +149,7 @@ class VendorDelivery {
     this.scheduledAt,
     this.rating,
     this.ratingComment,
+    this.completionPin,
   });
 
   factory VendorDelivery.fromMap(Map<String, dynamic> map) {
@@ -164,6 +174,7 @@ class VendorDelivery {
           : DateTime.parse(map['scheduled_at'] as String),
       rating: (map['rating'] as num?)?.toInt(),
       ratingComment: map['rating_comment'] as String?,
+      completionPin: map['completion_pin'] as String?,
     );
   }
 

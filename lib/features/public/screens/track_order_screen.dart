@@ -119,6 +119,10 @@ class TrackOrderScreen extends ConsumerWidget {
                               ),
                             ),
                           ],
+                          if (order.completionPin != null) ...[
+                            const SizedBox(height: 16),
+                            _PinCard(pin: order.completionPin!),
+                          ],
                           if (status == DeliveryStatus.delivered) ...[
                             const SizedBox(height: 16),
                             const Divider(),
@@ -207,6 +211,51 @@ class _LiveTrackingSheet extends ConsumerWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The delivery-completion PIN, shown once the rider has picked up the
+/// package - the same one already texted/emailed at that point (see the
+/// README's "Delivery-completion PIN" section), surfaced here too for a
+/// customer who can't find that message. Hand this to the rider when
+/// they arrive; server-side, `get_delivery_by_tracking_code()` only ever
+/// returns it while the delivery is actually `picked_up`/`in_transit`.
+class _PinCard extends StatelessWidget {
+  const _PinCard({required this.pin});
+
+  final String pin;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppTheme.primary.withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          const Text(
+            'Give this PIN to your rider to confirm delivery',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12.5, color: Colors.black54),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            pin,
+            style: const TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 6,
+              color: AppTheme.primary,
+            ),
+          ),
+        ],
       ),
     );
   }

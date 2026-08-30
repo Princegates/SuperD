@@ -103,6 +103,7 @@ supabase/
     0053_add_auditor_role_enum.sql             adds the 'auditor' value to the user_role enum - run on its own, see 0054's note on why
     0054_auditor_role_permissions.sql          wires up the auditor role: full read access everywhere a super admin has it, same day-to-day dispatch writes a dispatcher has, but blocked from Settings/Zones/Team/driver-notices writes
     0055_customer_directory.sql                customers table (name/email/phone/last-known address, one row per phone) kept current via a trigger on every delivery insert, super-admin-only - not opened up to an auditor like everything else
+    0056_delivery_completion_pin.sql           delivery_completion_pins table (no anon/authenticated RLS access at all) holding a 4-digit PIN per assignment; complete_delivery_with_pin() is the only way a driver can mark a delivery delivered
   functions/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
@@ -110,7 +111,7 @@ supabase/
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
     paystack-daily-fee-charge/     Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Paystack
     paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee charge resolves (public, no Supabase session)
-    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, and both customer + vendor when a driver is assigned
+    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, both customer + vendor when a driver is assigned, and the customer's delivery PIN on pickup
     notify-vendor-registered/      Edge Function: texts/emails a vendor their link when they register, and staff too
     notify-driver-application/     Edge Function: emails staff (not SMS - see below) and texts/emails the applicant when a driver signs themselves up
     notify-driver-approved/        Edge Function: texts/emails a driver once their signup is approved
@@ -1558,9 +1559,9 @@ itself, outside the remounted widget tree.
 Adding a 7th theme is a matter of adding one more `ThemePreset` entry to
 `kThemePresets` - nothing else needs to change.
 
-## Delivery notifications (tracking link + new order + driver assigned + cancellation alert)
+## Delivery notifications (tracking link + new order + driver assigned + cancellation alert + delivery PIN)
 
-One Edge Function, `notify-delivery-events`, handles three separate
+One Edge Function, `notify-delivery-events`, handles four separate
 moments in a delivery's life - both by SMS via
 [Twilio](https://www.twilio.com), and by email via
 [Resend](https://resend.com) wherever an address is on file:
@@ -1597,12 +1598,47 @@ moments in a delivery's life - both by SMS via
    is what customers/vendors call, not an internal channel. Leave either
    blank to skip that channel - if both are unset, nothing is sent, but
    the cancellation is still fully recorded either way.
+4. **The driver picks the package up** - the **customer** gets a 4-digit
+   **delivery PIN**, sent on both SMS and email whenever a phone/address
+   is on file (not subject to the first-delivery-only economization
+   below - see why in **Delivery-completion PIN** below). The driver
+   must ask the customer for this PIN and enter it in the app before the
+   delivery can be marked delivered.
 
-None of these are triggered from the app itself; all three are wired up
+None of these are triggered from the app itself; all four are wired up
 as a single **Supabase Database Webhook** on the `deliveries` table, so
 they fire no matter which screen or code path created the delivery or
-changed `assigned_driver_id` - there's nothing to wire up per-screen, and
-nothing extra to remember if this logic changes later.
+changed `assigned_driver_id`/`status` - there's nothing to wire up
+per-screen, and nothing extra to remember if this logic changes later.
+
+### Delivery-completion PIN
+
+Before `0056_delivery_completion_pin.sql`, a driver could tap "Mark
+delivered" the instant a delivery was assigned to them - nothing checked
+that the customer had actually received anything, despite commission and
+payment both keying off that status. Now:
+
+- The moment a driver is assigned, a fresh 4-digit PIN is generated (a
+  trigger on `deliveries`, `generate_delivery_completion_pin()`) and
+  stored in its own `delivery_completion_pins` table - not on `deliveries`
+  itself, and not readable by `anon`/`authenticated` at all (RLS enabled,
+  no policies for those roles), so a driver's own client, which freely
+  selects every column off `deliveries`, never sees the value they're
+  supposed to be collecting from the customer.
+- Once the driver picks the package up, notification 4 above texts/emails
+  that PIN to the customer.
+- Tapping "Mark delivered" in the driver app prompts for the PIN and
+  calls the `complete_delivery_with_pin(delivery_id, pin)` RPC, which
+  checks it against the stored value before flipping the status - a
+  direct status update to `'delivered'` from a driver (bypassing the RPC)
+  is rejected server-side by `enforce_delivery_update()`. A dispatcher or
+  admin correcting a status from the Console is unaffected - the PIN is
+  only required for a driver's own client.
+
+No setup is required beyond deploying `notify-delivery-events` as
+described below - the PIN generation/verification is pure Postgres, and
+the PIN itself only ever leaves the database inside that function's SMS
+and email.
 
 ### SMS only on the first delivery
 

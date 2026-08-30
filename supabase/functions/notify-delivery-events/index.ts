@@ -22,6 +22,14 @@
 //      alert by email/SMS naming the delivery, the driver who cancelled,
 //      and the outcome (reassigned to someone else, or unassigned and
 //      needs manual dispatch).
+//   4. The moment a driver picks the package up, the CUSTOMER gets the
+//      4-digit delivery PIN generated for this assignment (see
+//      0056_delivery_completion_pin.sql) - hand it to the rider on
+//      arrival to confirm receipt. Sent on both channels whenever the
+//      customer has one on file, regardless of repeat/first-delivery
+//      status: unlike the tracking link or the driver's name, this isn't
+//      an economizable nicety, it's the one thing standing between
+//      "delivered" and a driver just tapping the button.
 //
 // SMS is the expensive leg of all this (Twilio bills per message; email
 // via Resend is effectively free at this volume) - so it's sent only to a
@@ -168,9 +176,16 @@ Deno.serve(async (req) => {
       ["assigned", "pending"].includes(newStatus ?? "") &&
       newDriverId !== oldDriverId;
 
-    if (!isInsert && !isNewAssignment && !isDriverCancellation) {
-      // An update that didn't touch assigned_driver_id (status, notes,
-      // ...) - nothing any of the three notifications care about.
+    const isPickedUp = !isInsert &&
+      oldStatus !== "picked_up" &&
+      newStatus === "picked_up";
+
+    if (
+      !isInsert && !isNewAssignment && !isDriverCancellation && !isPickedUp
+    ) {
+      // An update that didn't touch assigned_driver_id or reach
+      // picked_up (payment recorded, notes, ...) - nothing any of the
+      // four notifications care about.
       return jsonResponse({ skipped: true });
     }
 
@@ -429,6 +444,46 @@ Deno.serve(async (req) => {
             <strong>${delivery.tracking_code}</strong>
             (${delivery.customer_name}) after already picking it up.</p>
             <p>Outcome: ${outcomeLine}.</p>
+          `,
+        );
+      }
+    }
+
+    // 4. Package picked up - give the customer the PIN their rider will
+    // need to hand over the package. Fetched fresh here rather than
+    // trusting anything in the webhook payload (the deliveries table
+    // itself never carries the PIN - see 0056_delivery_completion_pin.sql).
+    if (isPickedUp) {
+      const { data: pinRow } = await admin
+        .from("delivery_completion_pins")
+        .select("pin")
+        .eq("delivery_id", deliveryId)
+        .maybeSingle();
+      const pin = pinRow?.pin as string | undefined;
+
+      if (pin && delivery.customer_phone) {
+        results.pinSms = await sendSms(
+          delivery.customer_phone,
+          `Hi ${delivery.customer_name}, your SuperD rider has picked up ` +
+            `order ${delivery.tracking_code}. Give them this PIN when it ` +
+            `arrives to confirm delivery: ${pin}.${supportLine}`,
+        );
+      }
+      if (pin && delivery.customer_email) {
+        results.pinEmail = await sendEmail(
+          delivery.customer_email,
+          `Your delivery PIN - order ${delivery.tracking_code}`,
+          `
+            <p>Hi ${delivery.customer_name},</p>
+            <p>Your rider has picked up order
+            <strong>${delivery.tracking_code}</strong> and is on the way.</p>
+            <p>Give them this PIN when it arrives to confirm delivery:</p>
+            <p style="font-size: 24px; font-weight: 700;">${pin}</p>
+            ${
+            supportPhone
+              ? `<p>If there's a problem with this delivery, call ${supportPhone}.</p>`
+              : ""
+          }
           `,
         );
       }

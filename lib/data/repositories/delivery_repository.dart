@@ -142,6 +142,23 @@ class DeliveryRepository {
   Future<void> cancel(String deliveryId) =>
       updateStatus(deliveryId: deliveryId, status: DeliveryStatus.cancelled);
 
+  /// The only way a driver can mark a delivery 'delivered' - a plain
+  /// [updateStatus] call is rejected server-side for that specific
+  /// transition (see `enforce_delivery_update()` in
+  /// `0056_delivery_completion_pin.sql`). Verifies [pin] against the
+  /// value texted/emailed to the customer when the driver picked the
+  /// package up, throwing (via the RPC's own exception message) if it
+  /// doesn't match.
+  Future<void> completeDeliveryWithPin({
+    required String deliveryId,
+    required String pin,
+  }) async {
+    await _client.rpc(
+      'complete_delivery_with_pin',
+      params: {'p_delivery_id': deliveryId, 'p_pin': pin},
+    );
+  }
+
   /// Permanently erases the delivery record itself - not the same as
   /// [cancel], which keeps the record but marks it 'cancelled'. Only a
   /// super admin's request actually goes through - enforced by RLS (see

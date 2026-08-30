@@ -50,7 +50,16 @@ void _renderTurnstileWhenReady(html.DivElement div) {
   // JS object untouched, so the callback is attached to the plain JS
   // object jsify already produced instead, the same way any other JS
   // property assignment on a JsObject works.
-  options['callback'] = js.allowInterop((String token) {
+  // The optional second parameter isn't Turnstile's documented callback
+  // signature (just `function(token)`), but Cloudflare's widget was
+  // observed calling it with a second argument in production - dart2js
+  // compiles an allowInterop'd closure with an exact-arity dispatch
+  // table (a "$1" entry for one argument), so a real 2-argument call
+  // against a strictly-1-argument closure has no matching entry and
+  // throws a NoSuchMethodError before the token ever reaches Dart code.
+  // Accepting an optional second positional parameter makes dart2js
+  // compile both a $1 and $2 entry, so either call arity works.
+  options['callback'] = js.allowInterop((String token, [dynamic _]) {
     _currentOnToken?.call(token);
   });
   turnstile.callMethod('render', [div, options]);

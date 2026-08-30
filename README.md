@@ -116,6 +116,8 @@ supabase/
     0066_commission_percentage.sql               adds app_settings.commission_percentage - a percentage of a delivery's recorded payment amount, added to commission_flat_fee to make up the single commission_payments row log_commission_due() creates
     0067_daily_commission_settlement.sql          adds driver_has_overdue_commission() and wires it into every assignment path as a hard block, same as the daily fee - commission left `due` from a previous day (not today's) now stops a driver from getting a new delivery until it's paid/waived
     0068_driver_payment_access_override.sql       adds profiles.payment_access_override_until - a dispatcher/super-admin-granted temporary bypass of the daily-fee/commission block for a payment-gateway outage, honored by driver_daily_fee_paid()/claim_free_day_credit()/driver_has_overdue_commission() without changing what's actually owed
+    0069_driver_signup_throttle.sql                per-phone-number throttle (3/day) on driver self-signup, since it can't use the Turnstile CAPTCHA the two anonymous web forms use - a check_driver_signup_throttle() pre-check for a clean error message, backed by a before-insert trigger on auth.users as the real backstop
+    0070_driver_license_and_insurance.sql          adds driving_license_number/expiry and vehicle_insurance_number/expiry to profiles, and has handle_new_user() pick them up (plus date_of_birth, now collected for drivers too, not just dispatchers) - all four required going forward on both the driver signup form and admin-create-driver, though not a database constraint (existing drivers predate this)
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -622,6 +624,21 @@ Function, for accounts a dispatcher creates from Drivers) - never by
 `user_metadata` a signing-up client controls. See
 `supabase/migrations/0014_driver_self_signup.sql`.
 
+Unlike the two anonymous public forms (vendor signup, a customer's
+delivery request), driver signup can't use a Cloudflare Turnstile CAPTCHA
+- Turnstile is a browser-only widget, and this screen only exists on the
+native app, which never renders it. Instead, `0069_driver_signup_throttle.sql`
+throttles by the phone number the form already requires - 3 signup
+attempts per phone number per day, the same limit and reasoning as
+`register_vendor()`'s own per-phone throttle. The driver signup screen
+calls `check_driver_signup_throttle()` right before `auth.signUp()` for a
+clean, immediate error message; a `before insert` trigger on `auth.users`
+itself is the real, unbypassable backstop (skipped for an admin-created
+account), in case anything ever calls Supabase's own signup endpoint
+without going through the app first. Like every other throttle in this
+app, it stops a burst of junk signups from one number, not a determined
+attacker rotating phone numbers per attempt.
+
 ### Driver application emails
 
 Three more notifications, on top of the account-created one in **Staff
@@ -791,13 +808,24 @@ notify-driver-application` / `notify-driver-approved`).
 ## Staff management
 
 Dispatchers and super admins can add, edit, and remove drivers straight from
-the **Drivers** screen — Full name, email, telephone number, residential
-address, Ghana card number, and vehicle number, grouped by vehicle type.
-It's its own section, separate from **Team**, precisely so driver-specific
-settings (approve/deactivate, freeze, and anything added later - e.g. a
-daily-fee tier pin from Console > Daily Fees) have a dedicated home instead
-of being buried in a general staff list; both dispatchers and super admins
-can reach it, since managing the driver roster is routine dispatch work.
+the **Drivers** screen, grouped by vehicle type. Full name, email,
+telephone number, date of birth, vehicle number, vehicle type, driving
+licence number/expiry, and vehicle insurance policy number/expiry are all
+required (checked both in the form and server-side, in
+`admin-create-driver` - see `0070_driver_license_and_insurance.sql`);
+residential address and Ghana card number stay optional. A licence/
+insurance expiry must be a future date at the point it's entered - the
+form's own date picker won't offer an already-past one - though it isn't
+re-checked automatically afterward if it later lapses. This is its own
+section, separate from **Team**, precisely so driver-specific settings
+(approve/deactivate, freeze, and anything added later - e.g. a daily-fee
+tier pin from Console > Daily Fees) have a dedicated home instead of being
+buried in a general staff list; both dispatchers and super admins can
+reach it, since managing the driver roster is routine dispatch work.
+
+A driver signing themselves up (see **Driver self-signup** below) fills in
+exactly the same required fields on their own signup form - there's no
+gap between the two paths.
 
 Super admins can also add, edit, and remove **dispatchers** from the
 **Team** screen the same way — Full name, date of birth, email, telephone
@@ -902,10 +930,12 @@ unaffected.
 
 - `profiles` — one row per user: `role` (`driver`, `dispatcher`, or
   `super_admin`), plus `full_name`, `phone`, `residential_address`,
-  `date_of_birth` (dispatchers only), `ghana_card_number`, and
-  `vehicle_number` (the last two are drivers only), and
-  `must_change_password` (forces the mandatory password screen described
-  above for accounts added by a dispatcher/super admin).
+  `date_of_birth` (both roles now), `ghana_card_number`, `vehicle_number`,
+  `driving_license_number`/`driving_license_expiry`, and
+  `vehicle_insurance_number`/`vehicle_insurance_expiry` (the last five are
+  drivers only), and `must_change_password` (forces the mandatory
+  password screen described above for accounts added by a dispatcher/
+  super admin).
 - `deliveries` — one row per parcel job: pickup/drop-off address +
   coordinates, customer info, status, assigned driver, timestamps.
 - `delivery_status_history` — an automatic audit trail of every status

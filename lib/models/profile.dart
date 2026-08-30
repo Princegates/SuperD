@@ -13,6 +13,15 @@ class Profile {
   final String? residentialAddress;
   final String? zoneId;
 
+  /// Driver-only credentials - see `0070_driver_license_and_insurance.sql`.
+  /// Distinct from [ghanaCardNumber] (national ID). Required at signup/
+  /// creation time going forward, but nullable here since an existing
+  /// driver from before this migration has none on file yet.
+  final String? drivingLicenseNumber;
+  final DateTime? drivingLicenseExpiry;
+  final String? vehicleInsuranceNumber;
+  final DateTime? vehicleInsuranceExpiry;
+
   /// Super-admin-only pin to one specific `driver_daily_fee_tiers` row -
   /// see `daily_fee_tier_override_id` in `0038_daily_fee_tier_overrides.sql`.
   /// Null means the normal automatic tier-by-delivery-count behavior.
@@ -46,6 +55,10 @@ class Profile {
     this.dateOfBirth,
     this.residentialAddress,
     this.zoneId,
+    this.drivingLicenseNumber,
+    this.drivingLicenseExpiry,
+    this.vehicleInsuranceNumber,
+    this.vehicleInsuranceExpiry,
     this.dailyFeeTierOverrideId,
     this.paymentAccessOverrideUntil,
     this.isActive = true,
@@ -72,6 +85,14 @@ class Profile {
           : DateTime.tryParse(map['date_of_birth'] as String),
       residentialAddress: map['residential_address'] as String?,
       zoneId: map['zone_id'] as String?,
+      drivingLicenseNumber: map['driving_license_number'] as String?,
+      drivingLicenseExpiry: map['driving_license_expiry'] == null
+          ? null
+          : DateTime.tryParse(map['driving_license_expiry'] as String),
+      vehicleInsuranceNumber: map['vehicle_insurance_number'] as String?,
+      vehicleInsuranceExpiry: map['vehicle_insurance_expiry'] == null
+          ? null
+          : DateTime.tryParse(map['vehicle_insurance_expiry'] as String),
       dailyFeeTierOverrideId: map['daily_fee_tier_override_id'] as String?,
       paymentAccessOverrideUntil: map['payment_access_override_until'] == null
           ? null

@@ -12,6 +12,8 @@ class AuthRepository {
 
   User? get currentUser => _client.auth.currentUser;
 
+  String? _dateOnly(DateTime? date) => date?.toIso8601String().substring(0, 10);
+
   /// Logged here, once, rather than at each of the login screen/driver
   /// signup screen's call sites - this is the one place every sign-in
   /// actually happens, so it can't be missed by a future call site the way
@@ -32,6 +34,21 @@ class AuthRepository {
     );
   }
 
+  /// Best-effort pre-check the driver signup screen calls right before
+  /// [signUp] - see `check_driver_signup_throttle()` in
+  /// `0069_driver_signup_throttle.sql`. Throws a `PostgrestException` with
+  /// a friendly, ready-to-show message once this phone number has made
+  /// too many signup attempts recently. The real, unbypassable
+  /// enforcement is a database trigger on account creation itself; this
+  /// is only here so the common case shows a clear reason instead of
+  /// Supabase's own generic "Database error saving new user" wrapping.
+  Future<void> checkDriverSignupThrottle(String phone) async {
+    await _client.rpc(
+      'check_driver_signup_throttle',
+      params: {'p_phone': phone},
+    );
+  }
+
   /// Self-service driver signup - the native app only (the web dashboard
   /// keeps this route out of reach entirely, see the router). Every account
   /// created this way lands with role `driver`: `handle_new_user()`, the
@@ -45,6 +62,11 @@ class AuthRepository {
     String? phone,
     String? vehicleNumber,
     DriverVehicleType? vehicleType,
+    DateTime? dateOfBirth,
+    String? drivingLicenseNumber,
+    DateTime? drivingLicenseExpiry,
+    String? vehicleInsuranceNumber,
+    DateTime? vehicleInsuranceExpiry,
   }) async {
     final response = await _client.auth.signUp(
       email: email,
@@ -54,6 +76,11 @@ class AuthRepository {
         'phone': phone,
         'vehicle_number': vehicleNumber,
         'vehicle_type': vehicleType?.wireValue,
+        'date_of_birth': _dateOnly(dateOfBirth),
+        'driving_license_number': drivingLicenseNumber,
+        'driving_license_expiry': _dateOnly(drivingLicenseExpiry),
+        'vehicle_insurance_number': vehicleInsuranceNumber,
+        'vehicle_insurance_expiry': _dateOnly(vehicleInsuranceExpiry),
       },
     );
     // Only if signup actually established a session - with email

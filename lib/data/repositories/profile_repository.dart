@@ -180,6 +180,10 @@ class ProfileRepository {
     DateTime? dateOfBirth,
     String? residentialAddress,
     String? zoneId,
+    String? drivingLicenseNumber,
+    DateTime? drivingLicenseExpiry,
+    String? vehicleInsuranceNumber,
+    DateTime? vehicleInsuranceExpiry,
   }) async {
     await _client
         .from('profiles')
@@ -192,6 +196,10 @@ class ProfileRepository {
           'date_of_birth': _dateOnly(dateOfBirth),
           'residential_address': residentialAddress,
           'zone_id': zoneId,
+          'driving_license_number': drivingLicenseNumber,
+          'driving_license_expiry': _dateOnly(drivingLicenseExpiry),
+          'vehicle_insurance_number': vehicleInsuranceNumber,
+          'vehicle_insurance_expiry': _dateOnly(vehicleInsuranceExpiry),
         })
         .eq('id', userId);
   }
@@ -206,6 +214,11 @@ class ProfileRepository {
     String? vehicleNumber,
     DriverVehicleType? vehicleType,
     String? residentialAddress,
+    DateTime? dateOfBirth,
+    String? drivingLicenseNumber,
+    DateTime? drivingLicenseExpiry,
+    String? vehicleInsuranceNumber,
+    DateTime? vehicleInsuranceExpiry,
   }) => _createStaffAccount(
     role: UserRole.driver,
     email: email,
@@ -215,6 +228,11 @@ class ProfileRepository {
     vehicleNumber: vehicleNumber,
     vehicleType: vehicleType,
     residentialAddress: residentialAddress,
+    dateOfBirth: dateOfBirth,
+    drivingLicenseNumber: drivingLicenseNumber,
+    drivingLicenseExpiry: drivingLicenseExpiry,
+    vehicleInsuranceNumber: vehicleInsuranceNumber,
+    vehicleInsuranceExpiry: vehicleInsuranceExpiry,
   );
 
   /// Creates a dispatcher's login and profile via the same Edge Function.
@@ -249,6 +267,10 @@ class ProfileRepository {
     DriverVehicleType? vehicleType,
     DateTime? dateOfBirth,
     String? residentialAddress,
+    String? drivingLicenseNumber,
+    DateTime? drivingLicenseExpiry,
+    String? vehicleInsuranceNumber,
+    DateTime? vehicleInsuranceExpiry,
   }) async {
     try {
       final response = await _client.functions.invoke(
@@ -262,6 +284,10 @@ class ProfileRepository {
           'vehicleType': vehicleType?.wireValue,
           'dateOfBirth': _dateOnly(dateOfBirth),
           'residentialAddress': residentialAddress,
+          'drivingLicenseNumber': drivingLicenseNumber,
+          'drivingLicenseExpiry': _dateOnly(drivingLicenseExpiry),
+          'vehicleInsuranceNumber': vehicleInsuranceNumber,
+          'vehicleInsuranceExpiry': _dateOnly(vehicleInsuranceExpiry),
           'role': role.wireValue,
         },
       );

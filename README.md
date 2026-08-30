@@ -105,8 +105,13 @@ supabase/
     0055_customer_directory.sql                customers table (name/email/phone/last-known address, one row per phone) kept current via a trigger on every delivery insert, super-admin-only - not opened up to an auditor like everything else
     0056_delivery_completion_pin.sql           delivery_completion_pins table (no anon/authenticated RLS access at all) holding a 4-digit PIN per assignment; complete_delivery_with_pin() is the only way a driver can mark a delivery delivered
     0057_device_push_tokens.sql                device_push_tokens table (one row per signed-in device's FCM token, RLS-scoped to its own owner) - push notification groundwork, see "Push notifications" below
+    0058_public_form_rate_limiting.sql         per-phone/per-IP throttling for submit_delivery_request()/register_vendor(), the two public no-login forms - see "Public form protection" below
+    0059_public_form_captcha_gate.sql          revokes anon's direct execute on submit_delivery_request()/register_vendor() and adds a p_client_ip parameter to both - only the two Edge Functions below (which verify a Cloudflare Turnstile token first) may call them as anon now; see "Public form protection" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
+    _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
+    public-submit-delivery-request/  Edge Function: verifies a Turnstile token, then calls submit_delivery_request() with the caller's real IP - the only way anon can reach it since 0059
+    public-register-vendor/        Edge Function: verifies a Turnstile token, then calls register_vendor() with the caller's real IP - the only way anon can reach it since 0059
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
     admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
@@ -2120,6 +2125,81 @@ moved off zone_id - it depends on a dispatcher keeping every driver's
 zone current by hand. No explicit "(Suggested)" tag is shown anymore
 (the ordering speaks for itself); a dispatcher who wants to see it on a
 map can also check **Live Map**.
+
+### Public form protection
+
+Both `submit_delivery_request()` and `register_vendor()` are callable by
+anyone, with no login, any number of times - there was no limit at all
+before `0058_public_form_rate_limiting.sql`. That migration adds a
+basic per-phone and per-IP throttle to both:
+
+- **Delivery requests**: 5 per phone number / 10 minutes, 20 per IP /
+  10 minutes.
+- **Vendor signups**: 3 per phone number / day, 10 per IP / day - tighter
+  and longer-lived, since signing up as a vendor is rarer and higher-stakes
+  than placing one order.
+
+A blocked caller gets a plain "Too many requests" error - both public
+screens already catch and surface `PostgrestException` messages the same
+way every other form in this app does, so no client-side changes were
+needed. IP-based throttling depends on PostgREST actually seeing the
+caller's real IP (`request.headers` → `x-forwarded-for`) - Supabase Cloud
+forwards this by default; a self-hosted project should confirm its
+Kong/proxy config does too. If it doesn't, `request_ip()` just returns
+null and these two functions fall back to phone-only throttling rather
+than failing every request.
+
+That throttle alone stops naive scripted abuse with zero new
+infrastructure, but not a determined attacker rotating both phone and IP
+per request. `0059_public_form_captcha_gate.sql` closes that gap with a
+real CAPTCHA, [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile/):
+
+- Since Postgres can't make the synchronous "verify this token with
+  Cloudflare" call a CAPTCHA needs, verification has to happen in front of
+  the RPCs rather than inside them. The migration `revoke`s `anon`'s
+  direct `execute` on `submit_delivery_request()`/`register_vendor()` and
+  adds a `p_client_ip` parameter to both (`authenticated` keeps direct
+  access - the dispatcher/admin "Add Vendor" screen still calls
+  `register_vendor()` straight, no CAPTCHA involved for a signed-in staff
+  member). Two new Edge Functions, `public-submit-delivery-request` and
+  `public-register-vendor`, are now the only way `anon` reaches either
+  RPC: each verifies the visitor's Turnstile token
+  (`functions/_shared/turnstile.ts`) via Cloudflare's siteverify endpoint,
+  then calls the RPC with the service-role key, passing the caller's real
+  IP (`x-forwarded-for`) as `p_client_ip` so per-IP throttling still works
+  correctly through the extra hop.
+- On the client, `TurnstileWidget` (`lib/shared/widgets/turnstile_widget*.dart`)
+  renders Cloudflare's widget inline on both public forms and both forms
+  now call the Edge Functions instead of the RPCs directly
+  (`VendorRepository.registerVendorPublic()`/`submitDeliveryRequest()`).
+  It's a genuinely no-op integration if you never set it up: with
+  `TURNSTILE_SITE_KEY` unset the widget renders nothing and submission is
+  never blocked waiting for a token, and with `TURNSTILE_SECRET_KEY`
+  unset server-side, `verifyTurnstileToken()` always returns true - same
+  pattern as this codebase's other optional integrations (Twilio, Resend,
+  Firebase, Sentry).
+
+**To turn it on:**
+
+1. Create a Turnstile widget at the
+   [Cloudflare dashboard](https://dash.cloudflare.com/?to=/:account/turnstile) for
+   your app's domain, and grab its **Site Key** and **Secret Key**.
+2. Pass the Site Key as a dart-define when building
+   (`--dart-define=TURNSTILE_SITE_KEY=...`, or add it to your `env.json` -
+   see `env.json.example`).
+3. Set the Secret Key as an Edge Function secret - never put it in client
+   code or dart-define, it's server-only:
+   ```
+   supabase secrets set TURNSTILE_SECRET_KEY=your-secret-key
+   ```
+4. Deploy the two new functions:
+   ```
+   supabase functions deploy public-submit-delivery-request
+   supabase functions deploy public-register-vendor
+   ```
+
+Until step 3 is done, both forms work exactly as before (rate-limited but
+CAPTCHA-free) - nothing breaks by leaving it unconfigured.
 
 ## Admin dashboard
 

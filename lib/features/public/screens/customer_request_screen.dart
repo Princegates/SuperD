@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/config/env.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/vehicle_type.dart';
@@ -16,6 +17,7 @@ import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/schedule_picker.dart';
+import '../../../shared/widgets/turnstile_widget.dart';
 import '../providers/public_providers.dart';
 
 /// The page a customer lands on after opening a vendor's link. No login -
@@ -85,6 +87,17 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   DeliveryQuote? _quote;
   PriceEstimate? _estimate;
   DateTime? _scheduledAt;
+
+  /// Set once the visitor passes the Cloudflare Turnstile challenge - see
+  /// `TurnstileWidget` and the README's "Public form protection" section.
+  /// Stays null forever on a project that hasn't set TURNSTILE_SITE_KEY
+  /// (the widget renders nothing in that case) - [_canSubmit] accounts
+  /// for that, only requiring a token once one's actually expected.
+  String? _turnstileToken;
+
+  bool get _canSubmit =>
+      !_isSubmitting &&
+      (Env.turnstileSiteKey.isEmpty || _turnstileToken != null);
 
   /// Null until either the customer picks one, or [publicVehicleTypesProvider]
   /// loads and the default (motorcycle, out of the box) is applied - see the
@@ -220,6 +233,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
             scheduledAt: _scheduledAt,
             customerEmail: _emailController.text.trim(),
             vehicleTypeId: _vehicleTypeId,
+            turnstileToken: _turnstileToken,
           );
       if (mounted) setState(() => _quote = quote);
     } catch (e) {
@@ -442,9 +456,15 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                 textAlign: TextAlign.center,
               ),
             ],
-            const SizedBox(height: 20),
+            const SizedBox(height: 16),
+            Center(
+              child: TurnstileWidget(
+                onToken: (token) => setState(() => _turnstileToken = token),
+              ),
+            ),
+            const SizedBox(height: 4),
             ElevatedButton(
-              onPressed: _isSubmitting ? null : _submit,
+              onPressed: _canSubmit ? _submit : null,
               child: _isSubmitting
                   ? const SizedBox(
                       height: 22,

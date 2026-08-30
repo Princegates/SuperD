@@ -194,6 +194,41 @@ class VendorRepository {
     return VendorRegistration.fromMap(rows.first as Map<String, dynamic>);
   }
 
+  /// Registers a vendor from the PUBLIC self-service signup form - unlike
+  /// [registerVendor] (still used as-is by the dispatcher/super-admin "Add
+  /// vendor" screen, an authenticated caller with no anti-bot need), this
+  /// goes through the `public-register-vendor` Edge Function instead of
+  /// calling `register_vendor` directly - anon's own execute grant on
+  /// that function was revoked in `0059_public_form_captcha_gate.sql`,
+  /// once this project has a Cloudflare Turnstile secret configured that
+  /// function refuses to run without a verified [turnstileToken]. See the
+  /// README's "Public form protection" section - a project that hasn't
+  /// set that up yet ignores [turnstileToken] entirely and behaves
+  /// exactly as before.
+  Future<VendorRegistration> registerVendorPublic({
+    required String vendorName,
+    required double locationLat,
+    required double locationLng,
+    required String phone,
+    String? zoneId,
+    String? email,
+    String? turnstileToken,
+  }) async {
+    final response = await _client.functions.invoke(
+      'public-register-vendor',
+      body: {
+        'vendorName': vendorName,
+        'zoneId': zoneId,
+        'locationLat': locationLat,
+        'locationLng': locationLng,
+        'phone': phone,
+        'email': email,
+        'turnstileToken': turnstileToken,
+      },
+    );
+    return VendorRegistration.fromMap(response.data as Map<String, dynamic>);
+  }
+
   /// Looks up a vendor by their public code - null if it doesn't exist.
   Future<VendorPublicInfo?> fetchVendorByCode(String code) async {
     final rows = await _client.rpc(
@@ -212,6 +247,15 @@ class VendorRepository {
   /// when given (see [fetchRoadDistanceKm]), prices by real road distance
   /// instead of straight-line - the server still enforces a straight-line
   /// floor either way, so this can never be used to under-report distance.
+  ///
+  /// Goes through the `public-submit-delivery-request` Edge Function
+  /// rather than calling `submit_delivery_request` directly - anon's own
+  /// execute grant on that function was revoked in
+  /// `0059_public_form_captcha_gate.sql`, once this project has a
+  /// Cloudflare Turnstile secret configured that function refuses to run
+  /// without a verified [turnstileToken]. See the README's "Public form
+  /// protection" section - a project that hasn't set that up yet ignores
+  /// [turnstileToken] entirely and behaves exactly as before.
   Future<DeliveryQuote> submitDeliveryRequest({
     required String code,
     required String customerName,
@@ -224,24 +268,26 @@ class VendorRepository {
     DateTime? scheduledAt,
     String? customerEmail,
     String? vehicleTypeId,
+    String? turnstileToken,
   }) async {
-    final rows = await _client.rpc(
-      'submit_delivery_request',
-      params: {
-        'p_code': code,
-        'customer_name': customerName,
-        'customer_phone': customerPhone,
-        'dropoff_address': dropoffAddress,
-        'dropoff_lat': dropoffLat,
-        'dropoff_lng': dropoffLng,
-        'package_description': packageDescription,
-        'road_distance_km': roadDistanceKm,
-        'scheduled_at': scheduledAt?.toIso8601String(),
-        'customer_email': customerEmail,
-        'p_vehicle_type_id': vehicleTypeId,
+    final response = await _client.functions.invoke(
+      'public-submit-delivery-request',
+      body: {
+        'code': code,
+        'customerName': customerName,
+        'customerPhone': customerPhone,
+        'dropoffAddress': dropoffAddress,
+        'dropoffLat': dropoffLat,
+        'dropoffLng': dropoffLng,
+        'packageDescription': packageDescription,
+        'roadDistanceKm': roadDistanceKm,
+        'scheduledAt': scheduledAt?.toIso8601String(),
+        'customerEmail': customerEmail,
+        'vehicleTypeId': vehicleTypeId,
+        'turnstileToken': turnstileToken,
       },
-    ) as List;
-    return DeliveryQuote.fromMap(rows.first as Map<String, dynamic>);
+    );
+    return DeliveryQuote.fromMap(response.data as Map<String, dynamic>);
   }
 
   /// A low-high price range for [code]'s vendor, optionally narrowed by a

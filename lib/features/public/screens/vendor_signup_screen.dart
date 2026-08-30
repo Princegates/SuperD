@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../../core/config/env.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/vendor.dart';
@@ -12,6 +13,7 @@ import '../../../shared/utils/geocode_search.dart';
 import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/utils/vendor_link.dart';
 import '../../../shared/widgets/address_autocomplete_field.dart';
+import '../../../shared/widgets/turnstile_widget.dart';
 import '../../admin/providers/admin_providers.dart';
 
 /// Public, no-login page where a business registers itself as a vendor and
@@ -38,6 +40,17 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
   bool _isSubmitting = false;
   String? _errorMessage;
   VendorRegistration? _registration;
+
+  /// Set once the visitor passes the Cloudflare Turnstile challenge - see
+  /// `TurnstileWidget` and the README's "Public form protection" section.
+  /// Stays null forever on a project that hasn't set TURNSTILE_SITE_KEY
+  /// (the widget renders nothing in that case) - [_canSubmit] accounts
+  /// for that, only requiring a token once one's actually expected.
+  String? _turnstileToken;
+
+  bool get _canSubmit =>
+      !_isSubmitting &&
+      (Env.turnstileSiteKey.isEmpty || _turnstileToken != null);
 
   @override
   void dispose() {
@@ -104,13 +117,14 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
     try {
       final registration = await ref
           .read(vendorRepositoryProvider)
-          .registerVendor(
+          .registerVendorPublic(
             vendorName: _nameController.text.trim(),
             locationLat: _lat!,
             locationLng: _lng!,
             phone: _phoneController.text.trim(),
             email: _emailController.text.trim(),
             zoneId: _zoneId,
+            turnstileToken: _turnstileToken,
           );
       if (mounted) setState(() => _registration = registration);
     } catch (e) {
@@ -236,9 +250,16 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
                               textAlign: TextAlign.center,
                             ),
                           ],
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 16),
+                          Center(
+                            child: TurnstileWidget(
+                              onToken: (token) =>
+                                  setState(() => _turnstileToken = token),
+                            ),
+                          ),
+                          const SizedBox(height: 4),
                           ElevatedButton(
-                            onPressed: _isSubmitting ? null : _submit,
+                            onPressed: _canSubmit ? _submit : null,
                             child: _isSubmitting
                                 ? const SizedBox(
                                     height: 22,

@@ -17,9 +17,16 @@ import '../../models/app_settings.dart';
 import '../../models/driver_daily_fee_tier.dart';
 import '../../models/profile.dart';
 import '../../models/vehicle_type.dart';
+import '../services/push_notification_service.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
+});
+
+final pushNotificationServiceProvider = Provider<PushNotificationService>((
+  ref,
+) {
+  return PushNotificationService(ref.watch(supabaseClientProvider));
 });
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {

@@ -41,7 +41,7 @@ straight-line calculation instead. See **Road-distance pricing setup**.
 
 ```
 lib/
-  core/            app-wide config, theme, router, riverpod providers
+  core/            app-wide config, theme, router, riverpod providers, services (push notifications, ...)
   models/          plain Dart models (Delivery, Profile, DeliveryStatus, ...)
   data/repositories/  all Supabase queries live here, nowhere else
   features/
@@ -104,14 +104,16 @@ supabase/
     0054_auditor_role_permissions.sql          wires up the auditor role: full read access everywhere a super admin has it, same day-to-day dispatch writes a dispatcher has, but blocked from Settings/Zones/Team/driver-notices writes
     0055_customer_directory.sql                customers table (name/email/phone/last-known address, one row per phone) kept current via a trigger on every delivery insert, super-admin-only - not opened up to an auditor like everything else
     0056_delivery_completion_pin.sql           delivery_completion_pins table (no anon/authenticated RLS access at all) holding a 4-digit PIN per assignment; complete_delivery_with_pin() is the only way a driver can mark a delivery delivered
+    0057_device_push_tokens.sql                device_push_tokens table (one row per signed-in device's FCM token, RLS-scoped to its own owner) - push notification groundwork, see "Push notifications" below
   functions/
+    _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
     admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
     paystack-daily-fee-charge/     Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Paystack
     paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee charge resolves (public, no Supabase session)
-    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, both customer + vendor when a driver is assigned, and the customer's delivery PIN on pickup
+    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, both customer + vendor when a driver is assigned (plus a push to the driver), and the customer's delivery PIN on pickup
     notify-vendor-registered/      Edge Function: texts/emails a vendor their link when they register, and staff too
     notify-driver-application/     Edge Function: emails staff (not SMS - see below) and texts/emails the applicant when a driver signs themselves up
     notify-driver-approved/        Edge Function: texts/emails a driver once their signup is approved
@@ -2341,10 +2343,71 @@ Both run without any Supabase project configured — they don't need
 Nothing else is required to keep this working: every new migration file
 just needs the next unused 4-digit number, same as before.
 
+## Push notifications
+
+Today, a driver finds out about a new delivery from SMS/email
+(`notify-delivery-events`) or by having the app open when Realtime pushes
+the update - both slower and less reliable than an actual push
+notification. The groundwork for that is in, but it needs a real Firebase
+project before it does anything - until then every piece of it is a
+deliberate no-op, the same way this codebase already treats Twilio/Google
+Maps/Google Directions being unconfigured.
+
+**What's already wired up:**
+
+- `device_push_tokens` (`0057_device_push_tokens.sql`) - one row per
+  signed-in device's FCM registration token, RLS-scoped to its own owner.
+- `PushNotificationService` (`lib/core/services/push_notification_service.dart`)
+  - registers/refreshes this device's token whenever a profile signs in
+  (wired into `SuperDApp` via `currentProfileProvider`), removes it on
+  sign-out, and routes a notification tap to the right delivery via
+  `onMessageOpenedApp`/`getInitialMessage`. Mobile only (Android/iOS) -
+  web push needs its own VAPID setup this doesn't attempt.
+- `supabase/functions/_shared/fcm.ts` - sends via FCM's HTTP v1 API using
+  a Firebase service account (signs its own OAuth2 JWT with Web Crypto,
+  no extra dependency). `notify-delivery-events` uses it for one trigger
+  so far: the driver gets a push the moment a delivery is assigned to
+  them, alongside the existing SMS/email to the customer/vendor.
+- The Android Gradle plugin needed to read `google-services.json` is
+  already declared (`apply false` at the project level,
+  `android/app/build.gradle.kts`) but only actually applied once that
+  file exists, so `flutter build`/`flutter run` keep working with no
+  Firebase project set up at all.
+
+**What you still need to do:**
+
+1. Create a project at [Firebase console](https://console.firebase.google.com).
+2. Add an Android app with package name `com.superd.superd` (or whatever
+   you changed `applicationId` to), download `google-services.json`, and
+   place it at `android/app/google-services.json` (gitignored - it's
+   instance-specific, not something to share across forks).
+3. Add an iOS app with your bundle ID, download `GoogleService-Info.plist`,
+   and add it to `ios/Runner/` via Xcode (drag it into the `Runner` target
+   so it's actually bundled, not just present on disk) - also gitignored.
+   Enable the "Push Notifications" and "Background Modes > Remote
+   notifications" capabilities in Xcode, and upload an APNs auth key
+   (Certificates, Identifiers & Profiles → Keys) to the Firebase
+   project's Cloud Messaging settings - iOS push doesn't work without it,
+   and there's no code-level substitute for this step.
+4. Create a service account with the **Firebase Cloud Messaging API**
+   role (Firebase console → Project settings → Service accounts →
+   Generate new private key), then:
+   ```bash
+   supabase secrets set FIREBASE_SERVICE_ACCOUNT_JSON='<paste the whole downloaded JSON file, minified to one line>'
+   supabase functions deploy notify-delivery-events
+   ```
+5. Run `flutter pub get` (picks up `firebase_core`/`firebase_messaging`
+   from `pubspec.yaml`), then rebuild the app.
+
+From there, every new delivery assignment pushes to the driver
+automatically - no further code changes needed. Extending push to other
+moments (a driver notice, a staff alert) is a matter of calling
+`sendPush`/`sendPushToProfile` from `_shared/fcm.ts` at that point, the
+same way `notify-delivery-events` already does.
+
 ## Roadmap ideas (not implemented yet)
 
 - Customer-facing tracking page (public, keyed by `tracking_code`).
-- Push notifications on status change.
 - Live driver location while en route.
 - Multi-stop routes / route optimization.
 - Online payment gateway (charge customers in-app, not just record it).

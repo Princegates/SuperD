@@ -1,4 +1,4 @@
-// Three notifications around a delivery's lifecycle, all triggered by the
+// Four notifications around a delivery's lifecycle, all triggered by the
 // same Database Webhook (Database -> Webhooks in the dashboard) on the
 // "deliveries" table for INSERT and UPDATE - see the README for the exact
 // setup steps:
@@ -14,7 +14,10 @@
 //      phone number - SMS on their first delivery only, email always
 //      wherever an address is on file. Every message includes the
 //      business's support number so either side has someone to call
-//      about a problem.
+//      about a problem. The DRIVER themselves also gets a push
+//      notification naming the order and pickup address (see
+//      _shared/fcm.ts and 0057_device_push_tokens.sql) - a no-op until
+//      FIREBASE_SERVICE_ACCOUNT_JSON is set, see the README.
 //   3. Whenever a driver cancels a delivery already under way
 //      (picked_up/in_transit -> assigned/pending with a different
 //      driver - see driver_cancel_delivery() in
@@ -43,6 +46,7 @@
 // functions. Deploy with `supabase functions deploy notify-delivery-events`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+import { sendPushToProfile } from "../_shared/fcm.ts";
 
 async function sendSms(to: string, body: string): Promise<boolean> {
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
@@ -196,7 +200,7 @@ Deno.serve(async (req) => {
     const { data: delivery, error: deliveryError } = await admin
       .from("deliveries")
       .select(
-        "tracking_code, customer_name, customer_phone, customer_email, dropoff_address, assigned_driver_id, vendor_id",
+        "tracking_code, customer_name, customer_phone, customer_email, pickup_address, dropoff_address, assigned_driver_id, vendor_id",
       )
       .eq("id", deliveryId)
       .single();
@@ -350,6 +354,19 @@ Deno.serve(async (req) => {
 
       const driverLine =
         `${driver.full_name}, ${driver.phone ?? "phone not on file"}`;
+
+      // Push to the driver themselves - this is the one leg of the
+      // whole function that isn't for the customer or vendor. A no-op
+      // until FIREBASE_SERVICE_ACCOUNT_JSON is set (see
+      // supabase/functions/_shared/fcm.ts), so it's safe to leave wired
+      // up ahead of actually setting push up.
+      results.assignedDriverPush = (await sendPushToProfile(
+        admin,
+        delivery.assigned_driver_id,
+        "New delivery assigned",
+        `Order ${delivery.tracking_code} - pickup at ${delivery.pickup_address}.`,
+        { type: "delivery_assigned", delivery_id: deliveryId },
+      )) > 0;
 
       if (delivery.customer_phone && smsCustomer) {
         results.assignedCustomerSms = await sendSms(

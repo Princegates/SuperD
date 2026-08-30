@@ -4,6 +4,13 @@ env.json
 android/local.properties
 ios/Flutter/ApiKeys.xcconfig
 
+# Firebase project config - instance-specific, generated from your own
+# Firebase project (see the README's "Push notifications" section), not
+# something to share across forks/environments.
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+
 # Release signing - never commit a real keystore or its passwords
 android/key.properties
 *.jks

@@ -80,6 +80,13 @@ dependencies:
   # Inter) - fetched once and cached on-device, no API key needed.
   google_fonts: ^6.2.1
 
+  # Push notifications (Android/iOS) - see PushNotificationService and
+  # the README's "Push notifications" section. Compiles and runs fine
+  # with no Firebase project configured yet; every call degrades to a
+  # no-op until google-services.json/GoogleService-Info.plist are added.
+  firebase_core: ^3.15.0
+  firebase_messaging: ^15.2.6
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

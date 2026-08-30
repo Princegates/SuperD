@@ -24,6 +24,25 @@ class SuperDApp extends ConsumerWidget {
         ref.watch(appSettingsProvider).valueOrNull?.theme ?? 'navy_gold';
     AppTheme.apply(themeKey);
 
+    // Push notification groundwork - registers this device against
+    // whoever's signed in, and drops the registration on sign-out. See
+    // PushNotificationService's doc comment: this is a no-op until an
+    // actual Firebase project is wired up.
+    ref.listen(currentProfileProvider, (previous, next) {
+      final profile = next.valueOrNull;
+      final pushService = ref.read(pushNotificationServiceProvider);
+      if (profile != null) {
+        pushService
+            .initialize(
+              onDeliveryNotificationTapped: (deliveryId) =>
+                  ref.read(routerProvider).go('/driver/delivery/$deliveryId'),
+            )
+            .then((_) => pushService.registerDevice(profile.id));
+      } else if (previous?.valueOrNull != null) {
+        pushService.unregisterDevice();
+      }
+    });
+
     // AppTheme's colors are plain static fields (read directly all over the
     // app, not via Theme.of(context)), so changing them alone wouldn't
     // repaint anything already built. Keying the whole app on the theme

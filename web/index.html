@@ -44,12 +44,14 @@
 
   <!--
     Cloudflare Turnstile - see the README's "Public form protection"
-    section. Harmless to load even if TURNSTILE_SITE_KEY isn't set: it
-    just never finds a `.cf-turnstile` div to render (TurnstileWidget
-    renders nothing without a site key), so this is always safe to leave
-    in place.
+    section. render=explicit: TurnstileWidget calls turnstile.render(...)
+    itself with a direct element reference rather than relying on this
+    script's automatic DOM scan (which can't find a div Flutter Web
+    mounts inside a shadow root - see turnstile_widget_web.dart). Harmless
+    to load even if TURNSTILE_SITE_KEY isn't set: TurnstileWidget renders
+    nothing without one, so this script just sits idle.
   -->
-  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 </head>
 <body>
   <!--

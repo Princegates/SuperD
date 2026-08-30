@@ -60,6 +60,7 @@ List<RouteStop> optimizeDriverRoute(
             address: delivery.dropoffAddress,
           );
         }
+        break;
       case DeliveryStatus.pickedUp:
         if (delivery.hasDropoffCoordinates) {
           reachable.add(
@@ -72,6 +73,7 @@ List<RouteStop> optimizeDriverRoute(
             ),
           );
         }
+        break;
       case DeliveryStatus.pending:
       case DeliveryStatus.delivered:
       case DeliveryStatus.cancelled:

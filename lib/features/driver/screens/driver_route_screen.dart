@@ -78,7 +78,7 @@ class _RouteStopTile extends StatelessWidget {
                 backgroundColor: AppTheme.primary.withValues(alpha: 0.1),
                 child: Text(
                   '${index + 1}',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.w700,
                     color: AppTheme.primary,
                   ),

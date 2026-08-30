@@ -236,7 +236,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         actions: [
           IconButton(
             tooltip: 'My route',
-            icon: const Icon(Icons.alt_route_outlined),
+            icon: const Icon(Icons.map_outlined),
             onPressed: () => context.push('/driver/route'),
           ),
           IconButton(

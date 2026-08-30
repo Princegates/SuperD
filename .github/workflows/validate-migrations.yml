@@ -55,11 +55,20 @@ jobs:
           --health-retries 20
     steps:
       - uses: actions/checkout@v4
+      # ubuntu-latest's preinstalled psql version isn't guaranteed to
+      # match Postgres 17 - installing the matching client explicitly
+      # avoids depending on whatever happens to already be on the image.
+      - name: Install postgresql-client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
       - name: Apply every migration in order
         env:
           PGPASSWORD: postgres
         run: |
           set -euo pipefail
+          psql --version
+          pg_isready -h localhost -U postgres
           for f in supabase/migrations/*.sql; do
             echo "Applying $f"
             psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$f"

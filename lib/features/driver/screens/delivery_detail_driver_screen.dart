@@ -255,7 +255,16 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
+              onPressed: () {
+                // Explicitly dropping focus before popping works around a
+                // Flutter framework bug where an autofocused TextField's
+                // FocusNode isn't always cleanly detached before this
+                // dialog's element tree is torn down, tripping the
+                // framework's own "_dependents.isEmpty" assertion and
+                // crashing the app - not anything specific to this dialog.
+                FocusScope.of(context).unfocus();
+                Navigator.of(context).pop(false);
+              },
               child: const Text('Cancel'),
             ),
             FilledButton(
@@ -264,6 +273,7 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                   setDialogState(() => errorText = 'Enter all 4 digits');
                   return;
                 }
+                FocusScope.of(context).unfocus();
                 Navigator.of(context).pop(true);
               },
               child: const Text('Confirm delivery'),

@@ -72,12 +72,22 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              // Unfocus before popping - works around a Flutter framework
+              // bug where an autofocused TextField's FocusNode isn't
+              // always cleanly detached before this dialog's element tree
+              // is torn down, tripping the framework's own
+              // "_dependents.isEmpty" assertion and crashing the app.
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop();
+            },
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () =>
-                Navigator.of(context).pop(int.tryParse(controller.text.trim())),
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop(int.tryParse(controller.text.trim()));
+            },
             child: const Text('Grant'),
           ),
         ],

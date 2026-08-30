@@ -1162,11 +1162,22 @@ class _VehicleTypesCard extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () {
+              // Unfocus before popping - works around a Flutter framework
+              // bug where an autofocused TextField's FocusNode isn't
+              // always cleanly detached before this dialog's element tree
+              // is torn down, tripping the framework's own
+              // "_dependents.isEmpty" assertion and crashing the app.
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop(false);
+            },
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop(true);
+            },
             child: const Text('Save'),
           ),
         ],
@@ -1501,11 +1512,22 @@ class _DailyFeeTiersCard extends ConsumerWidget {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
+            onPressed: () {
+              // Unfocus before popping - works around a Flutter framework
+              // bug where an autofocused TextField's FocusNode isn't
+              // always cleanly detached before this dialog's element tree
+              // is torn down, tripping the framework's own
+              // "_dependents.isEmpty" assertion and crashing the app.
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop(false);
+            },
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop(true);
+            },
             child: const Text('Save'),
           ),
         ],

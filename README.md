@@ -2405,6 +2405,51 @@ moments (a driver notice, a staff alert) is a matter of calling
 `sendPush`/`sendPushToProfile` from `_shared/fcm.ts` at that point, the
 same way `notify-delivery-events` already does.
 
+## Crash reporting
+
+Before this, the only way to learn something had broken in production
+was a user's screenshot - there was no visibility into an uncaught
+exception, a widget build error, or (see `resilientRealtimeStream()`
+below) a Realtime connection that keeps failing to reconnect. This wires
+up [Sentry](https://sentry.io) for that - a generous free tier covers a
+project at this app's scale.
+
+**What's already wired up:**
+
+- `main.dart` wraps the whole app in `SentryFlutter.init(...)`, which
+  catches every uncaught Flutter framework error, platform error, and
+  async/zone error on its own - nothing else needs to call it.
+  Performance tracing is deliberately left off
+  (`tracesSampleRate = 0`) - this is only about catching crashes, not
+  profiling, so it stays free-tier-friendly without any extra
+  configuration.
+- `SuperDApp` tags every report with the signed-in profile's id (and
+  role) via `Sentry.configureScope` - no name/email/phone, just enough
+  to trace a report back to "which account", cleared again on sign-out.
+- `resilientRealtimeStream()` (`lib/shared/utils/resilient_stream.dart`)
+  recovers from a dropped Realtime connection by silently
+  resubscribing - the UI never shows this, on purpose, but a connection
+  that's failing over and over is worth knowing about even though
+  nothing on screen ever surfaces it, so every recovered error is now
+  also sent to Sentry as a non-fatal event.
+
+**What you still need to do:**
+
+1. Create a free project at [sentry.io](https://sentry.io) (choose the
+   Flutter platform) and copy its DSN.
+2. Add it to `env.json`:
+   ```json
+   { "SENTRY_DSN": "https://your-key@o0.ingest.sentry.io/0" }
+   ```
+   (Self-hosted/CI builds: pass `--dart-define=SENTRY_DSN=...` instead,
+   same as `SUPABASE_URL`/`SUPABASE_ANON_KEY`.)
+3. Run `flutter pub get` (picks up `sentry_flutter` from `pubspec.yaml`),
+   then rebuild the app.
+
+With `SENTRY_DSN` left empty (the default), `SentryFlutter.init` still
+runs but the SDK simply doesn't send anything anywhere - so there's
+nothing to break for a fork that hasn't set this up yet.
+
 ## Roadmap ideas (not implemented yet)
 
 - Customer-facing tracking page (public, keyed by `tracking_code`).

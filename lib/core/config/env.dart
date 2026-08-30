@@ -22,6 +22,12 @@ class Env {
   /// there the app has no real web address of its own to fall back to.
   static const String appBaseUrl = String.fromEnvironment('APP_BASE_URL');
 
+  /// Optional: a Sentry project DSN for crash/error reporting - see the
+  /// README's "Crash reporting" section. Left empty, `SentryFlutter.init`
+  /// still runs (so the rest of the app doesn't need to branch on this)
+  /// but the SDK itself just doesn't send anything anywhere.
+  static const String sentryDsn = String.fromEnvironment('SENTRY_DSN');
+
   static bool get isConfigured =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 }

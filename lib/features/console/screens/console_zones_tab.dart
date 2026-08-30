@@ -34,15 +34,29 @@ class ConsoleZonesTab extends ConsumerWidget {
           controller: controller,
           autofocus: true,
           decoration: const InputDecoration(labelText: 'Zone name'),
-          onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
+          onSubmitted: (v) {
+            FocusScope.of(context).unfocus();
+            Navigator.of(context).pop(v.trim());
+          },
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              // Unfocus before popping - works around a Flutter framework
+              // bug where an autofocused TextField's FocusNode isn't
+              // always cleanly detached before this dialog's element tree
+              // is torn down, tripping the framework's own
+              // "_dependents.isEmpty" assertion and crashing the app.
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop();
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop(controller.text.trim());
+            },
             child: const Text('Add'),
           ),
         ],
@@ -171,15 +185,29 @@ class _ZoneCardState extends ConsumerState<_ZoneCard> {
           controller: controller,
           autofocus: true,
           decoration: const InputDecoration(labelText: 'Zone name'),
-          onSubmitted: (v) => Navigator.of(context).pop(v.trim()),
+          onSubmitted: (v) {
+            FocusScope.of(context).unfocus();
+            Navigator.of(context).pop(v.trim());
+          },
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              // Unfocus before popping - works around a Flutter framework
+              // bug where an autofocused TextField's FocusNode isn't
+              // always cleanly detached before this dialog's element tree
+              // is torn down, tripping the framework's own
+              // "_dependents.isEmpty" assertion and crashing the app.
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop();
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop(controller.text.trim());
+            },
             child: const Text('Save'),
           ),
         ],
@@ -278,11 +306,22 @@ class _ZoneCardState extends ConsumerState<_ZoneCard> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              // Unfocus before popping - works around a Flutter framework
+              // bug where an autofocused TextField's FocusNode isn't
+              // always cleanly detached before this dialog's element tree
+              // is torn down, tripping the framework's own
+              // "_dependents.isEmpty" assertion and crashing the app.
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop();
+            },
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(controller.text.trim()),
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop(controller.text.trim());
+            },
             child: const Text('Save'),
           ),
         ],
@@ -349,11 +388,22 @@ class _ZoneCardState extends ConsumerState<_ZoneCard> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () {
+              // Unfocus before popping - works around a Flutter framework
+              // bug where an autofocused TextField's FocusNode isn't
+              // always cleanly detached before this dialog's element tree
+              // is torn down, tripping the framework's own
+              // "_dependents.isEmpty" assertion and crashing the app.
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop();
+            },
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(context).pop(controller.text),
+            onPressed: () {
+              FocusScope.of(context).unfocus();
+              Navigator.of(context).pop(controller.text);
+            },
             child: const Text('Add all'),
           ),
         ],

@@ -2321,6 +2321,26 @@ flutter test
 Both run without any Supabase project configured — they don't need
 `env.json`.
 
+### CI: migration validation
+
+`.github/workflows/validate-migrations.yml` runs on any PR touching
+`supabase/migrations/**`:
+
+1. `scripts/check_migration_numbers.sh` fails the build if two different
+   migration files share the same leading number — this is exactly how
+   this repo once ended up with two branches independently creating
+   `0049_*.sql` through `0053_*.sql` with unrelated content, caught only
+   by hand at merge time. Since a PR is checked out at its merge ref by
+   default, this also catches a collision with a migration that landed on
+   `main` from a different PR after this branch was created.
+2. `supabase start` (via `supabase/setup-cli`) applies every migration
+   file, in order, against a fresh local Postgres — the same database
+   image local dev already uses — so a migration that doesn't run cleanly
+   fails CI instead of failing silently in someone's SQL Editor.
+
+Nothing else is required to keep this working: every new migration file
+just needs the next unused 4-digit number, same as before.
+
 ## Roadmap ideas (not implemented yet)
 
 - Customer-facing tracking page (public, keyed by `tracking_code`).

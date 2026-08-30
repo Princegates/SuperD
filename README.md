@@ -114,6 +114,7 @@ supabase/
     0064_show_pin_on_customer_tracking.sql      get_delivery_by_tracking_code() now also returns the delivery-completion PIN, but only while status is picked_up/in_transit - see "Delivery-completion PIN" below
     0065_delivery_vehicle_type.sql               adds deliveries.vehicle_type_id (informational) and has submit_delivery_request() store it, so a customer's/dispatcher's picked vehicle type is kept on record, not just used transiently for pricing
     0066_commission_percentage.sql               adds app_settings.commission_percentage - a percentage of a delivery's recorded payment amount, added to commission_flat_fee to make up the single commission_payments row log_commission_due() creates
+    0067_daily_commission_settlement.sql          adds driver_has_overdue_commission() and wires it into every assignment path as a hard block, same as the daily fee - commission left `due` from a previous day (not today's) now stops a driver from getting a new delivery until it's paid/waived
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -1397,11 +1398,31 @@ Paystack's webhook flips the `driver_daily_fees` row to `paid` and marks
 every `due` `commission_payments` row for that driver `paid` in the same
 call; a dispatcher approving a manually-submitted reference from
 **Console > Daily Fees** does the same via `set_daily_fee_status()`. This
-does **not** change what blocks a driver from getting a new delivery —
-that's still only an unpaid daily-fee tier (see above); unpaid
-per-delivery commission on its own still isn't a hard block, it just no
-longer needs its own separate in-app payment step once a driver has a
-daily-fee balance to clear anyway.
+is also how a driver clears the hard block described next — the same
+one payment settles everything, regardless of how many days it's been
+sitting `due`.
+
+### Commission must be settled daily, or it blocks the driver
+
+Unlike the flexible bundling above, commission left `due` from a
+*previous* calendar day is a hard block, the same way an unpaid
+daily-fee tier already is - not a warning, a real `raise exception` (see
+`driver_has_overdue_commission()` in
+`0067_daily_commission_settlement.sql`). Today's commission is still fair
+game — a driver has until the day ends to settle it like normal — but the
+moment it rolls over into a new day still `due`, that driver cannot be
+assigned another delivery, through any path: a dispatcher assigning them
+by hand (blocked with a clear error, and excluded from the Console's
+driver picker up front, same as `unpaid_driver_ids_today()` already did
+for the daily fee), either tier of automatic proximity-based assignment in
+`submit_delivery_request()`, a mid-trip hand-off in
+`driver_cancel_delivery()`, and the drive-into-range trigger in
+`assign_pending_deliveries_near_driver()`. It clears the same two ways
+described above: the driver's own in-app payment (Mobile Money or a
+manual reference), or a dispatcher/super admin marking the row
+paid/waived by hand from **Console > Commission**. Off entirely while
+**Console > Settings > Driver commission** is off, same as everything
+else in this section.
 
 ### Confirming payments: dispatcher and super admin alike
 

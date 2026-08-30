@@ -108,6 +108,7 @@ supabase/
     0058_public_form_rate_limiting.sql         per-phone/per-IP throttling for submit_delivery_request()/register_vendor(), the two public no-login forms - see "Public form protection" below
     0059_public_form_captcha_gate.sql          revokes anon's direct execute on submit_delivery_request()/register_vendor() and adds a p_client_ip parameter to both - only the two Edge Functions below (which verify a Cloudflare Turnstile token first) may call them as anon now; see "Public form protection" below
     0060_assign_pending_on_driver_location.sql trigger on profiles: assigns a still-pending delivery to a driver the moment their live location puts them within a vendor's auto-assign radius - see "Picking up a pending delivery just by driving into range" below
+    0061_fix_location_auto_assign_permission.sql fixes 0060: enforce_delivery_update() was silently reverting assigned_driver_id since that UPDATE runs under the driver's own JWT, not a dispatcher's - see "Picking up a pending delivery just by driving into range" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -1198,6 +1199,19 @@ any other assignment path uses) - `notify-delivery-events`'s existing
 driver-assigned webhook fires exactly as it would for any other
 assignment, so the driver's SMS/email/push and the customer/vendor's
 notice all just work with no extra wiring.
+
+That UPDATE runs inside the same transaction as the driver's own
+profile-location write, under the driver's own JWT - `enforce_delivery_update()`
+(the guard that stops a non-dispatcher from reassigning a delivery by
+hand) saw exactly that shape of call and silently reset
+`assigned_driver_id` back to null every time, only letting `status` itself
+through. `0061_fix_location_auto_assign_permission.sql` fixes it the same
+way `0056_delivery_completion_pin.sql` already lets
+`complete_delivery_with_pin()` past a different restriction in that same
+function: a transaction-local flag
+(`superd.auto_assign_from_location`) the trigger sets right before its
+own UPDATE, which `enforce_delivery_update()` now treats as another
+exception alongside its existing driver-reject/driver-cancel cases.
 
 ### Turning commission off for testing
 

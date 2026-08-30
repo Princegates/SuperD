@@ -214,7 +214,16 @@ final freeDayBalanceProvider = StreamProvider<int>((ref) {
 /// year) and the running "today's revenue" figure on their dashboard. See
 /// [PaymentRepository.watchMyPayments] for why this needs no driver-id
 /// filter (RLS does the scoping).
+///
+/// Explicitly watches [authStateProvider] (same as [myDeliveriesProvider]
+/// above) purely to force Riverpod to tear down and recreate this stream
+/// whenever the signed-in user changes - otherwise, on a device that signs
+/// out of one driver and into another without a full app restart, the old
+/// driver's realtime subscription (and whatever rows it already fetched
+/// under their own RLS-scoped session) would keep feeding the new driver's
+/// dashboard a stale revenue figure that was never theirs.
 final myPaymentsProvider = StreamProvider<List<Payment>>((ref) {
+  ref.watch(authStateProvider);
   return ref.watch(paymentRepositoryProvider).watchMyPayments();
 });
 

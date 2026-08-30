@@ -35,6 +35,17 @@ if (hasReleaseKeystore) {
     keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
 
+// Push notifications (Firebase Cloud Messaging): the Google Services
+// plugin generates Android resources from google-services.json at build
+// time - only applied once that file actually exists, so a build without
+// it (the default, until a real Firebase project is wired up - see the
+// README's "Push notifications" section) still succeeds instead of
+// failing on a missing file.
+val hasGoogleServicesJson = file("google-services.json").exists()
+if (hasGoogleServicesJson) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 android {
     namespace = "com.superd.superd"
     compileSdk = flutter.compileSdkVersion

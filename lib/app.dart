@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 
 import 'core/config/env.dart';
 import 'core/providers/core_providers.dart';
@@ -23,6 +24,35 @@ class SuperDApp extends ConsumerWidget {
     final themeKey =
         ref.watch(appSettingsProvider).valueOrNull?.theme ?? 'navy_gold';
     AppTheme.apply(themeKey);
+
+    // Push notification groundwork - registers this device against
+    // whoever's signed in, and drops the registration on sign-out. See
+    // PushNotificationService's doc comment: this is a no-op until an
+    // actual Firebase project is wired up.
+    ref.listen(currentProfileProvider, (previous, next) {
+      final profile = next.valueOrNull;
+      final pushService = ref.read(pushNotificationServiceProvider);
+      if (profile != null) {
+        pushService
+            .initialize(
+              onDeliveryNotificationTapped: (deliveryId) =>
+                  ref.read(routerProvider).go('/driver/delivery/$deliveryId'),
+            )
+            .then((_) => pushService.registerDevice(profile.id));
+      } else if (previous?.valueOrNull != null) {
+        pushService.unregisterDevice();
+      }
+
+      // Tags a crash report with who hit it - just the profile id,
+      // nothing that reads as personal data (no name/email/phone), so a
+      // report can at least be traced to "which account" without this
+      // becoming its own privacy concern. See the README's "Crash
+      // reporting" section.
+      Sentry.configureScope((scope) {
+        scope.setUser(profile == null ? null : SentryUser(id: profile.id));
+        scope.setTag('role', profile?.role.wireValue ?? 'signed_out');
+      });
+    });
 
     // AppTheme's colors are plain static fields (read directly all over the
     // app, not via Theme.of(context)), so changing them alone wouldn't

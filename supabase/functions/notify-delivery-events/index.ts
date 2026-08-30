@@ -1,4 +1,4 @@
-// Three notifications around a delivery's lifecycle, all triggered by the
+// Four notifications around a delivery's lifecycle, all triggered by the
 // same Database Webhook (Database -> Webhooks in the dashboard) on the
 // "deliveries" table for INSERT and UPDATE - see the README for the exact
 // setup steps:
@@ -14,7 +14,10 @@
 //      phone number - SMS on their first delivery only, email always
 //      wherever an address is on file. Every message includes the
 //      business's support number so either side has someone to call
-//      about a problem.
+//      about a problem. The DRIVER themselves also gets a push
+//      notification naming the order and pickup address (see
+//      _shared/fcm.ts and 0057_device_push_tokens.sql) - a no-op until
+//      FIREBASE_SERVICE_ACCOUNT_JSON is set, see the README.
 //   3. Whenever a driver cancels a delivery already under way
 //      (picked_up/in_transit -> assigned/pending with a different
 //      driver - see driver_cancel_delivery() in
@@ -22,6 +25,14 @@
 //      alert by email/SMS naming the delivery, the driver who cancelled,
 //      and the outcome (reassigned to someone else, or unassigned and
 //      needs manual dispatch).
+//   4. The moment a driver picks the package up, the CUSTOMER gets the
+//      4-digit delivery PIN generated for this assignment (see
+//      0056_delivery_completion_pin.sql) - hand it to the rider on
+//      arrival to confirm receipt. Sent on both channels whenever the
+//      customer has one on file, regardless of repeat/first-delivery
+//      status: unlike the tracking link or the driver's name, this isn't
+//      an economizable nicety, it's the one thing standing between
+//      "delivered" and a driver just tapping the button.
 //
 // SMS is the expensive leg of all this (Twilio bills per message; email
 // via Resend is effectively free at this volume) - so it's sent only to a
@@ -35,6 +46,7 @@
 // functions. Deploy with `supabase functions deploy notify-delivery-events`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+import { sendPushToProfile } from "../_shared/fcm.ts";
 
 async function sendSms(to: string, body: string): Promise<boolean> {
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
@@ -168,9 +180,16 @@ Deno.serve(async (req) => {
       ["assigned", "pending"].includes(newStatus ?? "") &&
       newDriverId !== oldDriverId;
 
-    if (!isInsert && !isNewAssignment && !isDriverCancellation) {
-      // An update that didn't touch assigned_driver_id (status, notes,
-      // ...) - nothing any of the three notifications care about.
+    const isPickedUp = !isInsert &&
+      oldStatus !== "picked_up" &&
+      newStatus === "picked_up";
+
+    if (
+      !isInsert && !isNewAssignment && !isDriverCancellation && !isPickedUp
+    ) {
+      // An update that didn't touch assigned_driver_id or reach
+      // picked_up (payment recorded, notes, ...) - nothing any of the
+      // four notifications care about.
       return jsonResponse({ skipped: true });
     }
 
@@ -181,7 +200,7 @@ Deno.serve(async (req) => {
     const { data: delivery, error: deliveryError } = await admin
       .from("deliveries")
       .select(
-        "tracking_code, customer_name, customer_phone, customer_email, dropoff_address, assigned_driver_id, vendor_id",
+        "tracking_code, customer_name, customer_phone, customer_email, pickup_address, dropoff_address, assigned_driver_id, vendor_id",
       )
       .eq("id", deliveryId)
       .single();
@@ -336,6 +355,19 @@ Deno.serve(async (req) => {
       const driverLine =
         `${driver.full_name}, ${driver.phone ?? "phone not on file"}`;
 
+      // Push to the driver themselves - this is the one leg of the
+      // whole function that isn't for the customer or vendor. A no-op
+      // until FIREBASE_SERVICE_ACCOUNT_JSON is set (see
+      // supabase/functions/_shared/fcm.ts), so it's safe to leave wired
+      // up ahead of actually setting push up.
+      results.assignedDriverPush = (await sendPushToProfile(
+        admin,
+        delivery.assigned_driver_id,
+        "New delivery assigned",
+        `Order ${delivery.tracking_code} - pickup at ${delivery.pickup_address}.`,
+        { type: "delivery_assigned", delivery_id: deliveryId },
+      )) > 0;
+
       if (delivery.customer_phone && smsCustomer) {
         results.assignedCustomerSms = await sendSms(
           delivery.customer_phone,
@@ -429,6 +461,46 @@ Deno.serve(async (req) => {
             <strong>${delivery.tracking_code}</strong>
             (${delivery.customer_name}) after already picking it up.</p>
             <p>Outcome: ${outcomeLine}.</p>
+          `,
+        );
+      }
+    }
+
+    // 4. Package picked up - give the customer the PIN their rider will
+    // need to hand over the package. Fetched fresh here rather than
+    // trusting anything in the webhook payload (the deliveries table
+    // itself never carries the PIN - see 0056_delivery_completion_pin.sql).
+    if (isPickedUp) {
+      const { data: pinRow } = await admin
+        .from("delivery_completion_pins")
+        .select("pin")
+        .eq("delivery_id", deliveryId)
+        .maybeSingle();
+      const pin = pinRow?.pin as string | undefined;
+
+      if (pin && delivery.customer_phone) {
+        results.pinSms = await sendSms(
+          delivery.customer_phone,
+          `Hi ${delivery.customer_name}, your SuperD rider has picked up ` +
+            `order ${delivery.tracking_code}. Give them this PIN when it ` +
+            `arrives to confirm delivery: ${pin}.${supportLine}`,
+        );
+      }
+      if (pin && delivery.customer_email) {
+        results.pinEmail = await sendEmail(
+          delivery.customer_email,
+          `Your delivery PIN - order ${delivery.tracking_code}`,
+          `
+            <p>Hi ${delivery.customer_name},</p>
+            <p>Your rider has picked up order
+            <strong>${delivery.tracking_code}</strong> and is on the way.</p>
+            <p>Give them this PIN when it arrives to confirm delivery:</p>
+            <p style="font-size: 24px; font-weight: 700;">${pin}</p>
+            ${
+            supportPhone
+              ? `<p>If there's a problem with this delivery, call ${supportPhone}.</p>`
+              : ""
+          }
           `,
         );
       }

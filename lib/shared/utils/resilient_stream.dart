@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:sentry_flutter/sentry_flutter.dart';
+
 /// Wraps a Supabase Realtime stream so a transient WebSocket drop (e.g.
 /// `RealtimeSubscribeException` after the app/tab sits idle for a while)
 /// doesn't leave a `StreamProvider` stuck showing an error screen forever.
@@ -27,9 +29,13 @@ Stream<T> resilientRealtimeStream<T>(
       yield* create();
       // A realtime `.stream()` isn't expected to complete on its own -
       // if it somehow does, retrying is still better than going dead.
-    } catch (_) {
-      // Swallowed deliberately - see the doc comment above. The next
-      // loop iteration re-subscribes.
+    } catch (e, stackTrace) {
+      // Recovered from deliberately - see the doc comment above, the UI
+      // never sees this. Still reported to Sentry as a non-fatal event:
+      // a connection that's failing over and over (vs. one genuine drop)
+      // is worth knowing about even though nothing on screen ever shows
+      // it - see the README's "Crash reporting" section.
+      unawaited(Sentry.captureException(e, stackTrace: stackTrace));
     }
     await Future.delayed(retryDelay);
   }

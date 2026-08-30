@@ -41,7 +41,7 @@ straight-line calculation instead. See **Road-distance pricing setup**.
 
 ```
 lib/
-  core/            app-wide config, theme, router, riverpod providers
+  core/            app-wide config, theme, router, riverpod providers, services (push notifications, ...)
   models/          plain Dart models (Delivery, Profile, DeliveryStatus, ...)
   data/repositories/  all Supabase queries live here, nowhere else
   features/
@@ -103,14 +103,17 @@ supabase/
     0053_add_auditor_role_enum.sql             adds the 'auditor' value to the user_role enum - run on its own, see 0054's note on why
     0054_auditor_role_permissions.sql          wires up the auditor role: full read access everywhere a super admin has it, same day-to-day dispatch writes a dispatcher has, but blocked from Settings/Zones/Team/driver-notices writes
     0055_customer_directory.sql                customers table (name/email/phone/last-known address, one row per phone) kept current via a trigger on every delivery insert, super-admin-only - not opened up to an auditor like everything else
+    0056_delivery_completion_pin.sql           delivery_completion_pins table (no anon/authenticated RLS access at all) holding a 4-digit PIN per assignment; complete_delivery_with_pin() is the only way a driver can mark a delivery delivered
+    0057_device_push_tokens.sql                device_push_tokens table (one row per signed-in device's FCM token, RLS-scoped to its own owner) - push notification groundwork, see "Push notifications" below
   functions/
+    _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
     admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
     paystack-daily-fee-charge/     Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Paystack
     paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee charge resolves (public, no Supabase session)
-    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, and both customer + vendor when a driver is assigned
+    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, both customer + vendor when a driver is assigned (plus a push to the driver), and the customer's delivery PIN on pickup
     notify-vendor-registered/      Edge Function: texts/emails a vendor their link when they register, and staff too
     notify-driver-application/     Edge Function: emails staff (not SMS - see below) and texts/emails the applicant when a driver signs themselves up
     notify-driver-approved/        Edge Function: texts/emails a driver once their signup is approved
@@ -1558,9 +1561,9 @@ itself, outside the remounted widget tree.
 Adding a 7th theme is a matter of adding one more `ThemePreset` entry to
 `kThemePresets` - nothing else needs to change.
 
-## Delivery notifications (tracking link + new order + driver assigned + cancellation alert)
+## Delivery notifications (tracking link + new order + driver assigned + cancellation alert + delivery PIN)
 
-One Edge Function, `notify-delivery-events`, handles three separate
+One Edge Function, `notify-delivery-events`, handles four separate
 moments in a delivery's life - both by SMS via
 [Twilio](https://www.twilio.com), and by email via
 [Resend](https://resend.com) wherever an address is on file:
@@ -1597,12 +1600,47 @@ moments in a delivery's life - both by SMS via
    is what customers/vendors call, not an internal channel. Leave either
    blank to skip that channel - if both are unset, nothing is sent, but
    the cancellation is still fully recorded either way.
+4. **The driver picks the package up** - the **customer** gets a 4-digit
+   **delivery PIN**, sent on both SMS and email whenever a phone/address
+   is on file (not subject to the first-delivery-only economization
+   below - see why in **Delivery-completion PIN** below). The driver
+   must ask the customer for this PIN and enter it in the app before the
+   delivery can be marked delivered.
 
-None of these are triggered from the app itself; all three are wired up
+None of these are triggered from the app itself; all four are wired up
 as a single **Supabase Database Webhook** on the `deliveries` table, so
 they fire no matter which screen or code path created the delivery or
-changed `assigned_driver_id` - there's nothing to wire up per-screen, and
-nothing extra to remember if this logic changes later.
+changed `assigned_driver_id`/`status` - there's nothing to wire up
+per-screen, and nothing extra to remember if this logic changes later.
+
+### Delivery-completion PIN
+
+Before `0056_delivery_completion_pin.sql`, a driver could tap "Mark
+delivered" the instant a delivery was assigned to them - nothing checked
+that the customer had actually received anything, despite commission and
+payment both keying off that status. Now:
+
+- The moment a driver is assigned, a fresh 4-digit PIN is generated (a
+  trigger on `deliveries`, `generate_delivery_completion_pin()`) and
+  stored in its own `delivery_completion_pins` table - not on `deliveries`
+  itself, and not readable by `anon`/`authenticated` at all (RLS enabled,
+  no policies for those roles), so a driver's own client, which freely
+  selects every column off `deliveries`, never sees the value they're
+  supposed to be collecting from the customer.
+- Once the driver picks the package up, notification 4 above texts/emails
+  that PIN to the customer.
+- Tapping "Mark delivered" in the driver app prompts for the PIN and
+  calls the `complete_delivery_with_pin(delivery_id, pin)` RPC, which
+  checks it against the stored value before flipping the status - a
+  direct status update to `'delivered'` from a driver (bypassing the RPC)
+  is rejected server-side by `enforce_delivery_update()`. A dispatcher or
+  admin correcting a status from the Console is unaffected - the PIN is
+  only required for a driver's own client.
+
+No setup is required beyond deploying `notify-delivery-events` as
+described below - the PIN generation/verification is pure Postgres, and
+the PIN itself only ever leaves the database inside that function's SMS
+and email.
 
 ### SMS only on the first delivery
 
@@ -2285,10 +2323,149 @@ flutter test
 Both run without any Supabase project configured — they don't need
 `env.json`.
 
+### CI: migration validation
+
+`.github/workflows/validate-migrations.yml` runs on any PR touching
+`supabase/migrations/**`:
+
+1. `scripts/check_migration_numbers.sh` fails the build if two different
+   migration files share the same leading number — this is exactly how
+   this repo once ended up with two branches independently creating
+   `0049_*.sql` through `0053_*.sql` with unrelated content, caught only
+   by hand at merge time. Since a PR is checked out at its merge ref by
+   default, this also catches a collision with a migration that landed on
+   the default branch from a different PR after this branch was created.
+2. `supabase start` brings up a full local stack (Postgres + Auth +
+   Storage + ...) with `supabase/migrations` temporarily moved out of the
+   way, then every migration file is applied, in order, with plain
+   `psql` against it — so a migration that doesn't run cleanly fails CI
+   instead of failing silently in someone's SQL Editor. The full stack is
+   needed, not just a bare Postgres container: `0001_init.sql` inserts
+   straight into `storage.buckets` and has policies on `storage.objects`,
+   and those tables only exist once the Storage API service has run ITS
+   OWN migrations, the same way `auth.users` only exists once GoTrue has.
+   The migrations are hidden from `supabase start` itself (rather than
+   letting it auto-apply them) because its own migration runner tracks
+   applied versions in `supabase_migrations.schema_migrations` keyed by
+   the version parsed from the filename, and fails outright on this
+   repo's one intentional exception (0002's two files sharing version
+   "0002" - see `scripts/check_migration_numbers.sh`). Plain `psql`, one
+   file at a time, has no such uniqueness constraint - it's the same
+   thing the SQL Editor setup below already does, just automated.
+
+Nothing else is required to keep this working: every new migration file
+just needs the next unused 4-digit number, same as before.
+
+## Push notifications
+
+Today, a driver finds out about a new delivery from SMS/email
+(`notify-delivery-events`) or by having the app open when Realtime pushes
+the update - both slower and less reliable than an actual push
+notification. The groundwork for that is in, but it needs a real Firebase
+project before it does anything - until then every piece of it is a
+deliberate no-op, the same way this codebase already treats Twilio/Google
+Maps/Google Directions being unconfigured.
+
+**What's already wired up:**
+
+- `device_push_tokens` (`0057_device_push_tokens.sql`) - one row per
+  signed-in device's FCM registration token, RLS-scoped to its own owner.
+- `PushNotificationService` (`lib/core/services/push_notification_service.dart`)
+  - registers/refreshes this device's token whenever a profile signs in
+  (wired into `SuperDApp` via `currentProfileProvider`), removes it on
+  sign-out, and routes a notification tap to the right delivery via
+  `onMessageOpenedApp`/`getInitialMessage`. Mobile only (Android/iOS) -
+  web push needs its own VAPID setup this doesn't attempt.
+- `supabase/functions/_shared/fcm.ts` - sends via FCM's HTTP v1 API using
+  a Firebase service account (signs its own OAuth2 JWT with Web Crypto,
+  no extra dependency). `notify-delivery-events` uses it for one trigger
+  so far: the driver gets a push the moment a delivery is assigned to
+  them, alongside the existing SMS/email to the customer/vendor.
+- The Android Gradle plugin needed to read `google-services.json` is
+  already declared (`apply false` at the project level,
+  `android/app/build.gradle.kts`) but only actually applied once that
+  file exists, so `flutter build`/`flutter run` keep working with no
+  Firebase project set up at all.
+
+**What you still need to do:**
+
+1. Create a project at [Firebase console](https://console.firebase.google.com).
+2. Add an Android app with package name `com.superd.superd` (or whatever
+   you changed `applicationId` to), download `google-services.json`, and
+   place it at `android/app/google-services.json` (gitignored - it's
+   instance-specific, not something to share across forks).
+3. Add an iOS app with your bundle ID, download `GoogleService-Info.plist`,
+   and add it to `ios/Runner/` via Xcode (drag it into the `Runner` target
+   so it's actually bundled, not just present on disk) - also gitignored.
+   Enable the "Push Notifications" and "Background Modes > Remote
+   notifications" capabilities in Xcode, and upload an APNs auth key
+   (Certificates, Identifiers & Profiles → Keys) to the Firebase
+   project's Cloud Messaging settings - iOS push doesn't work without it,
+   and there's no code-level substitute for this step.
+4. Create a service account with the **Firebase Cloud Messaging API**
+   role (Firebase console → Project settings → Service accounts →
+   Generate new private key), then:
+   ```bash
+   supabase secrets set FIREBASE_SERVICE_ACCOUNT_JSON='<paste the whole downloaded JSON file, minified to one line>'
+   supabase functions deploy notify-delivery-events
+   ```
+5. Run `flutter pub get` (picks up `firebase_core`/`firebase_messaging`
+   from `pubspec.yaml`), then rebuild the app.
+
+From there, every new delivery assignment pushes to the driver
+automatically - no further code changes needed. Extending push to other
+moments (a driver notice, a staff alert) is a matter of calling
+`sendPush`/`sendPushToProfile` from `_shared/fcm.ts` at that point, the
+same way `notify-delivery-events` already does.
+
+## Crash reporting
+
+Before this, the only way to learn something had broken in production
+was a user's screenshot - there was no visibility into an uncaught
+exception, a widget build error, or (see `resilientRealtimeStream()`
+below) a Realtime connection that keeps failing to reconnect. This wires
+up [Sentry](https://sentry.io) for that - a generous free tier covers a
+project at this app's scale.
+
+**What's already wired up:**
+
+- `main.dart` wraps the whole app in `SentryFlutter.init(...)`, which
+  catches every uncaught Flutter framework error, platform error, and
+  async/zone error on its own - nothing else needs to call it.
+  Performance tracing is deliberately left off
+  (`tracesSampleRate = 0`) - this is only about catching crashes, not
+  profiling, so it stays free-tier-friendly without any extra
+  configuration.
+- `SuperDApp` tags every report with the signed-in profile's id (and
+  role) via `Sentry.configureScope` - no name/email/phone, just enough
+  to trace a report back to "which account", cleared again on sign-out.
+- `resilientRealtimeStream()` (`lib/shared/utils/resilient_stream.dart`)
+  recovers from a dropped Realtime connection by silently
+  resubscribing - the UI never shows this, on purpose, but a connection
+  that's failing over and over is worth knowing about even though
+  nothing on screen ever surfaces it, so every recovered error is now
+  also sent to Sentry as a non-fatal event.
+
+**What you still need to do:**
+
+1. Create a free project at [sentry.io](https://sentry.io) (choose the
+   Flutter platform) and copy its DSN.
+2. Add it to `env.json`:
+   ```json
+   { "SENTRY_DSN": "https://your-key@o0.ingest.sentry.io/0" }
+   ```
+   (Self-hosted/CI builds: pass `--dart-define=SENTRY_DSN=...` instead,
+   same as `SUPABASE_URL`/`SUPABASE_ANON_KEY`.)
+3. Run `flutter pub get` (picks up `sentry_flutter` from `pubspec.yaml`),
+   then rebuild the app.
+
+With `SENTRY_DSN` left empty (the default), `SentryFlutter.init` still
+runs but the SDK simply doesn't send anything anywhere - so there's
+nothing to break for a fork that hasn't set this up yet.
+
 ## Roadmap ideas (not implemented yet)
 
 - Customer-facing tracking page (public, keyed by `tracking_code`).
-- Push notifications on status change.
 - Live driver location while en route.
 - Multi-stop routes / route optimization.
 - Online payment gateway (charge customers in-app, not just record it).

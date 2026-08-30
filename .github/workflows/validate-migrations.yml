@@ -1,0 +1,78 @@
+name: Validate Supabase migrations
+
+# Catches the two ways a migration has actually broken this repo before:
+# a filename collision between two branches that each picked the same
+# "next" number (see scripts/check_migration_numbers.sh), and a migration
+# that simply doesn't apply cleanly on top of every one before it. Runs
+# on the PR's merge ref by default, so a collision with something already
+# merged on the base branch surfaces here, not after merging.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+  push:
+    branches: [claude/delivery-management-app-dscw6o]
+    paths:
+      - "supabase/migrations/**"
+
+jobs:
+  check-migration-numbers:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: ./scripts/check_migration_numbers.sh
+
+  apply-migrations:
+    runs-on: ubuntu-latest
+    needs: check-migration-numbers
+    # Applies every migration file, in order, with plain psql against a
+    # full local Supabase stack (Postgres + Auth + Storage + ...,
+    # started with the CLI's own `supabase start`) - a bare Postgres
+    # container isn't enough on its own: 0001_init.sql inserts straight
+    # into storage.buckets and has policies on storage.objects, and
+    # those tables only exist once the Storage API service has run ITS
+    # OWN migrations, the same way auth.users only exists once GoTrue
+    # has.
+    #
+    # supabase/migrations is hidden before `supabase start` runs, since
+    # it would otherwise auto-apply every file itself using its own
+    # migration-tracking table (supabase_migrations.schema_migrations,
+    # keyed by the version parsed from each filename) - which fails
+    # outright on this repo's one intentional exception
+    # (0002_roles_step1_enum.sql and 0002_roles_step2_policies.sql
+    # deliberately share version "0002", see
+    # scripts/check_migration_numbers.sh, because Postgres won't let a
+    # new enum value be used in the same transaction that created it).
+    # Once the stack is up with a clean/empty migration history, the
+    # real migrations are put back and replayed by hand with plain psql,
+    # which has no such uniqueness constraint - the same thing the
+    # README's manual SQL Editor setup already does, just automated.
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      # ubuntu-latest's preinstalled psql version isn't guaranteed to be
+      # compatible with the CLI's local Postgres - installing the client
+      # explicitly avoids depending on whatever happens to already be on
+      # the runner image.
+      - name: Install postgresql-client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends postgresql-client
+      - name: Start the local Supabase stack with no migrations applied yet
+        run: |
+          set -euo pipefail
+          mkdir /tmp/migrations-stash
+          mv supabase/migrations/*.sql /tmp/migrations-stash/
+          supabase start
+      - name: Apply every migration in order
+        run: |
+          set -euo pipefail
+          mv /tmp/migrations-stash/*.sql supabase/migrations/
+          db_url=$(supabase status -o env | grep '^DB_URL=' | cut -d= -f2- | tr -d '"')
+          for f in supabase/migrations/*.sql; do
+            echo "Applying $f"
+            psql "$db_url" -v ON_ERROR_STOP=1 -f "$f"
+          done

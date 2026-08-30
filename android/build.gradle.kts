@@ -1,3 +1,12 @@
+plugins {
+    // Only actually applied in app/build.gradle.kts, and only once
+    // google-services.json exists there - see the guard in that file
+    // and the README's "Push notifications" section. `apply false` here
+    // just makes the plugin's classpath available without running it,
+    // so a build with no Firebase project set up yet isn't affected.
+    id("com.google.gms.google-services") version "4.4.2" apply false
+}
+
 allprojects {
     repositories {
         google()

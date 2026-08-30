@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -195,13 +196,108 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
   bool _isRejecting = false;
 
   Future<void> _advanceStatus(DeliveryStatus next) async {
+    if (next == DeliveryStatus.delivered) {
+      await _completeWithPin();
+      return;
+    }
     setState(() => _isUpdatingStatus = true);
     try {
       await ref
           .read(deliveryRepositoryProvider)
           .updateStatus(deliveryId: widget.delivery.id, status: next);
-      if (mounted && next == DeliveryStatus.delivered) {
-        showDeliveredCelebration(context);
+    } finally {
+      if (mounted) setState(() => _isUpdatingStatus = false);
+    }
+  }
+
+  /// Marking a delivery 'delivered' is asked for the customer's PIN first
+  /// (texted/emailed to them when this driver picked the package up - see
+  /// 0056_delivery_completion_pin.sql) rather than going through the plain
+  /// status update every other transition uses - the server rejects a
+  /// direct update to 'delivered' from a driver, so there's no path here
+  /// that skips this dialog.
+  Future<void> _completeWithPin() async {
+    final pinController = TextEditingController();
+    String? errorText;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Enter delivery PIN'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Ask the customer for the 4-digit PIN they were sent when "
+                "you picked this package up.",
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: pinController,
+                autofocus: true,
+                keyboardType: TextInputType.number,
+                maxLength: 4,
+                decoration: InputDecoration(
+                  labelText: 'PIN',
+                  border: const OutlineInputBorder(),
+                  errorText: errorText,
+                  counterText: '',
+                ),
+                onChanged: (_) {
+                  if (errorText != null) {
+                    setDialogState(() => errorText = null);
+                  }
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                if (pinController.text.trim().length != 4) {
+                  setDialogState(() => errorText = 'Enter all 4 digits');
+                  return;
+                }
+                Navigator.of(context).pop(true);
+              },
+              child: const Text('Confirm delivery'),
+            ),
+          ],
+        ),
+      ),
+    );
+    final pin = pinController.text.trim();
+    pinController.dispose();
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isUpdatingStatus = true);
+    try {
+      await ref
+          .read(deliveryRepositoryProvider)
+          .completeDeliveryWithPin(deliveryId: widget.delivery.id, pin: pin);
+      if (mounted) showDeliveredCelebration(context);
+    } on PostgrestException catch (e) {
+      // The RPC's own raise exception messages are already
+      // driver-friendly (wrong PIN, no PIN on file, ...) - shown as-is
+      // rather than swapped for a generic message like other screens do,
+      // since the whole point is telling the driver exactly what to fix.
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not confirm delivery. Please try again.'),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isUpdatingStatus = false);

@@ -41,6 +41,15 @@
     Google Cloud Console rather than trying to hide it.
   -->
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCPaZRTWzAK1L3oQn7zAOYWkVc_qMyMSHs"></script>
+
+  <!--
+    Cloudflare Turnstile - see the README's "Public form protection"
+    section. Harmless to load even if TURNSTILE_SITE_KEY isn't set: it
+    just never finds a `.cf-turnstile` div to render (TurnstileWidget
+    renders nothing without a site key), so this is always safe to leave
+    in place.
+  -->
+  <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
 </head>
 <body>
   <!--

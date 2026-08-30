@@ -28,6 +28,16 @@ class Env {
   /// but the SDK itself just doesn't send anything anywhere.
   static const String sentryDsn = String.fromEnvironment('SENTRY_DSN');
 
+  /// Optional: a Cloudflare Turnstile site key (the public half of the
+  /// pair - safe to embed in client code, unlike the secret key, which
+  /// only ever lives server-side as an Edge Function secret) - see the
+  /// README's "Public form protection" section. Left empty,
+  /// [TurnstileWidget] renders nothing and the public forms submit
+  /// without a token, same as before this existed.
+  static const String turnstileSiteKey = String.fromEnvironment(
+    'TURNSTILE_SITE_KEY',
+  );
+
   static bool get isConfigured =>
       supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty;
 }

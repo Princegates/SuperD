@@ -10,6 +10,13 @@ import '../../core/config/env.dart';
 const _viewType = 'superd-turnstile-widget';
 bool _viewFactoryRegistered = false;
 
+/// The currently-mounted `TurnstileWidget`'s token callback. Only one is
+/// ever visible at a time (each public form is its own route), and this
+/// is reassigned on every mount - see the class doc below for why a
+/// single mutable Dart variable is used here instead of a JS-side named
+/// global lookup.
+ValueChanged<String>? _currentOnToken;
+
 void _registerViewFactoryOnce() {
   if (_viewFactoryRegistered) return;
   _viewFactoryRegistered = true;
@@ -43,15 +50,9 @@ void _renderTurnstileWhenReady(html.DivElement div) {
   // JS object untouched, so the callback is attached to the plain JS
   // object jsify already produced instead, the same way any other JS
   // property assignment on a JsObject works.
-  //
-  // Forwards to the same global, per-mount-reassigned callback
-  // `_TurnstileWidgetState.initState` sets up, rather than capturing
-  // this specific view factory invocation's widget instance - see the
-  // class doc below for why that indirection matters.
-  options['callback'] = js.allowInterop(
-    (String token) =>
-        js.context.callMethod('onSuperDTurnstileVerified', [token]),
-  );
+  options['callback'] = js.allowInterop((String token) {
+    _currentOnToken?.call(token);
+  });
   turnstile.callMethod('render', [div, options]);
 }
 
@@ -62,13 +63,11 @@ void _renderTurnstileWhenReady(html.DivElement div) {
 /// `turnstile_widget_stub.dart` for every other platform.
 ///
 /// The view factory is only ever registered once (`_registerViewFactoryOnce`
-/// no-ops on later calls), so it can't close over a specific widget
-/// instance's `onToken` - instead, each new div renders with a callback
-/// that forwards to a single global JS function name
-/// (`onSuperDTurnstileVerified`), which `initState` reassigns to the
-/// *current* mount's `onToken` every time this widget is built. Safe
-/// because only one is ever visible at a time - each public form is its
-/// own route.
+/// no-ops on later calls), so the `render()` callback it sets up can't
+/// close over a specific widget instance's `onToken` - instead, it always
+/// forwards through the single mutable `_currentOnToken`, which
+/// `initState` points at the *current* mount every time this widget is
+/// built.
 class TurnstileWidget extends StatefulWidget {
   const TurnstileWidget({super.key, required this.onToken});
 
@@ -83,9 +82,7 @@ class _TurnstileWidgetState extends State<TurnstileWidget> {
   void initState() {
     super.initState();
     _registerViewFactoryOnce();
-    js.context['onSuperDTurnstileVerified'] = js.allowInterop(
-      (String token) => widget.onToken(token),
-    );
+    _currentOnToken = widget.onToken;
   }
 
   @override

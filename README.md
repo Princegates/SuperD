@@ -2186,7 +2186,12 @@ real CAPTCHA, [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile
    your app's domain, and grab its **Site Key** and **Secret Key**.
 2. Pass the Site Key as a dart-define when building
    (`--dart-define=TURNSTILE_SITE_KEY=...`, or add it to your `env.json` -
-   see `env.json.example`).
+   see `env.json.example`). **If you deploy via Netlify** using this
+   repo's `netlify.toml`, add a `TURNSTILE_SITE_KEY` environment
+   variable in Site configuration > Environment variables instead - the
+   build command already forwards it as a dart-define, same as
+   `SUPABASE_URL`/`SUPABASE_ANON_KEY`. It's a site key, not a secret, so
+   it's fine to see it in the built JS.
 3. Set the Secret Key as an Edge Function secret - never put it in client
    code or dart-define, it's server-only:
    ```

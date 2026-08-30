@@ -14,6 +14,7 @@ import '../../features/auth/screens/reset_password_screen.dart';
 import '../../features/auth/screens/splash_screen.dart';
 import '../../features/driver/screens/delivery_detail_driver_screen.dart';
 import '../../features/driver/screens/driver_dashboard_screen.dart';
+import '../../features/driver/screens/driver_route_screen.dart';
 import '../../features/driver/screens/driver_signup_screen.dart';
 import '../../features/driver/screens/earnings_screen.dart';
 import '../../features/driver/screens/my_rides_screen.dart';
@@ -374,6 +375,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'rides',
             pageBuilder: (context, state) =>
                 fadeSlidePage(key: state.pageKey, child: const MyRidesScreen()),
+          ),
+          GoRoute(
+            path: 'route',
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: const DriverRouteScreen(),
+            ),
           ),
         ],
       ),

@@ -1535,6 +1535,34 @@ Three more per-driver fields, all added in
   only a super admin's change is let through
   (`enforce_profile_role_change()`).
 
+## Driver route planning
+
+A driver carrying several active deliveries at once (see the
+simultaneous-deliveries-per-driver cap in
+`0048_manual_assignment_cap.sql`) gets a "My route" screen (the
+map-route icon next to My Rides on their dashboard) - one sensible
+visiting order across every pickup and drop-off they currently have
+outstanding, instead of an unordered per-delivery list.
+
+This is a client-side planning aid, not a schema or workflow change:
+`optimizeDriverRoute()` (`lib/features/driver/utils/route_optimizer.dart`)
+runs a greedy nearest-neighbor ordering over the same `deliveries` rows
+the dashboard already streams (`myDeliveriesProvider`), seeded from the
+driver's own last-known position (`profiles.last_lat/last_lng`, kept live
+by the same location stream that feeds the Live Map). Not a true
+travelling-salesman solve - just "go to whichever reachable stop is
+closest right now" - which is the standard, cheap heuristic for this and
+plenty for the handful of stops one driver ever actually carries.
+
+A delivery not yet picked up (`assigned`/`in_transit`) contributes both a
+pickup and a drop-off stop, but its drop-off only becomes reachable once
+its own pickup has been visited in the route - a driver can't drop off a
+package they haven't collected. A delivery already `picked_up`
+contributes only its drop-off. Tapping a stop opens that delivery's own
+detail screen, where accept/pickup/deliver (PIN included) works exactly
+as it always has - this screen only reorders what to visit next, nothing
+about how a single delivery is worked changes.
+
 ## App theme
 
 A super admin can switch the whole app's brand color from **Console >
@@ -2465,9 +2493,6 @@ nothing to break for a fork that hasn't set this up yet.
 
 ## Roadmap ideas (not implemented yet)
 
-- Customer-facing tracking page (public, keyed by `tracking_code`).
-- Live driver location while en route.
-- Multi-stop routes / route optimization.
 - Online payment gateway (charge customers in-app, not just record it).
 - **Multi-tenant SaaS**: today SuperD is single-business — one Supabase
   project runs one courier company. Selling it to other companies as a

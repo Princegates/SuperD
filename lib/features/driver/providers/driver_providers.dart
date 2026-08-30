@@ -9,6 +9,8 @@ import '../../../models/driver_daily_fee.dart';
 import '../../../models/driver_notice.dart';
 import '../../../models/payment.dart';
 import '../../../models/payment_status.dart';
+import '../../../models/route_stop.dart';
+import '../utils/route_optimizer.dart';
 
 /// Only the deliveries assigned to the signed-in driver. Derives the
 /// driver's id from [authStateProvider] (reactive), not just a one-time
@@ -25,6 +27,23 @@ final myDeliveriesProvider = StreamProvider<List<Delivery>>((ref) {
       ref.watch(supabaseClientProvider).auth.currentUser?.id;
   if (userId == null) return Stream.value(const []);
   return ref.watch(deliveryRepositoryProvider).watchDriverDeliveries(userId);
+});
+
+/// One sensible visiting order across every pickup/drop-off the signed-in
+/// driver currently has outstanding - see `optimizeDriverRoute()` for how
+/// the order is worked out. Seeded from the driver's own last-known
+/// position (`profiles.last_lat/last_lng`, kept live by the same location
+/// stream that feeds the Live Map - see DriverDashboardScreen), so the
+/// route re-orders itself as they actually move, not just when a
+/// delivery's status changes.
+final driverRouteProvider = Provider<List<RouteStop>>((ref) {
+  final deliveries = ref.watch(myDeliveriesProvider).valueOrNull ?? const [];
+  final profile = ref.watch(currentProfileProvider).valueOrNull;
+  return optimizeDriverRoute(
+    deliveries,
+    startLat: profile?.lastLat,
+    startLng: profile?.lastLng,
+  );
 });
 
 /// How many deliveries the signed-in driver has completed *today* - the

@@ -13,10 +13,13 @@
 // true, same as get-road-distance).
 // Deploy with `supabase functions deploy public-submit-delivery-request`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { jsonResponse } from "../_shared/cors.ts";
+import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
 import { verifyTurnstileToken } from "../_shared/turnstile.ts";
 
 Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
   try {
     const body = await req.json();
     const clientIp = req.headers.get("x-forwarded-for")?.split(",")[0]

@@ -40,19 +40,16 @@ jobs:
     # Applying each file with plain psql, in order, has no such
     # uniqueness constraint - it's the same thing the README's manual SQL
     # Editor setup already does, just automated.
-    services:
-      postgres:
-        image: ghcr.io/supabase/postgres:17.6.1.165
-        env:
-          POSTGRES_PASSWORD: postgres
-          JWT_SECRET: super-secret-jwt-token-with-at-least-32-characters-long
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 20
+    #
+    # Started with a plain `docker run` in its own step rather than
+    # GitHub's `services:` block: the image's own init scripts print an
+    # enormous amount of output while bootstrapping the auth/storage
+    # schemas, roles, and extensions, and a `services:` container's
+    # startup log is captured into its own separate "Initialize
+    # containers" step - large enough in practice to push whatever ran
+    # afterward out of reach when debugging a failure here. Starting it
+    # by hand keeps that noise out of the way and, on a timeout, dumps
+    # `docker logs` directly into this step's own output instead.
     steps:
       - uses: actions/checkout@v4
       # ubuntu-latest's preinstalled psql version isn't guaranteed to
@@ -62,14 +59,35 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends postgresql-client
+      - name: Start Postgres
+        run: |
+          set -euo pipefail
+          docker run -d --name migration-check-pg \
+            -e POSTGRES_PASSWORD=postgres \
+            -e JWT_SECRET=super-secret-jwt-token-with-at-least-32-characters-long \
+            -p 5432:5432 \
+            ghcr.io/supabase/postgres:17.6.1.165 >/dev/null
+
+          for i in $(seq 1 60); do
+            if PGPASSWORD=postgres pg_isready -h 127.0.0.1 -p 5432 -U postgres >/dev/null 2>&1; then
+              echo "Postgres is up after about $((i * 2))s."
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Postgres never became reachable on 127.0.0.1:5432 - container logs:"
+          docker logs migration-check-pg
+          exit 1
       - name: Apply every migration in order
         env:
           PGPASSWORD: postgres
         run: |
           set -euo pipefail
-          psql --version
-          pg_isready -h localhost -U postgres
           for f in supabase/migrations/*.sql; do
             echo "Applying $f"
-            psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$f"
+            psql -h 127.0.0.1 -p 5432 -U postgres -d postgres -v ON_ERROR_STOP=1 -f "$f"
           done
+      - name: Stop Postgres
+        if: always()
+        run: docker rm -f migration-check-pg || true

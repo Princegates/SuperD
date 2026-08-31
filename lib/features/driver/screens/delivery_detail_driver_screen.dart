@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -12,8 +13,11 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
+import '../../../models/payment.dart';
+import '../../../models/payment_status.dart';
 import '../../../shared/providers/delivery_detail_providers.dart';
 import '../providers/driver_providers.dart';
+import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/navigation_launcher.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivered_celebration.dart';
@@ -229,7 +233,10 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
       await ref
           .read(deliveryRepositoryProvider)
           .completeDeliveryWithPin(deliveryId: widget.delivery.id, pin: pin);
-      if (mounted) showDeliveredCelebration(context);
+      if (mounted) {
+        showDeliveredCelebration(context);
+        unawaited(_maybeConfirmPayment());
+      }
     } on PostgrestException catch (e) {
       // The RPC's own raise exception messages are already
       // driver-friendly (wrong PIN, no PIN on file, ...) - shown as-is
@@ -250,6 +257,42 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
     } finally {
       if (mounted) setState(() => _isUpdatingStatus = false);
     }
+  }
+
+  /// Right after a delivery is marked delivered, prompts the driver to
+  /// confirm the customer actually paid - folded into the completion
+  /// flow itself (alongside the PIN check) rather than left as the
+  /// separate "Mark as paid" button on [PaymentCard], which a driver
+  /// could tap any time or just never get to. Skippable, not a hard
+  /// block: a delivery already paid (or with nothing recorded at all,
+  /// e.g. an order placed with no payment tracking) has nothing to ask
+  /// about here.
+  Future<void> _maybeConfirmPayment() async {
+    final payment = ref
+        .read(paymentForDeliveryProvider(widget.delivery.id))
+        .valueOrNull;
+    if (payment == null || payment.status == PaymentStatus.paid || !mounted) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => _PaymentConfirmDialog(payment: payment),
+    );
+    if (confirmed != true || !mounted) return;
+
+    await ref
+        .read(paymentRepositoryProvider)
+        .updateStatus(paymentId: payment.id, status: PaymentStatus.paid);
+    await logAuditEvent(
+      ref.read(supabaseClientProvider),
+      action: 'payment_marked_paid',
+      entityType: 'payment',
+      entityId: payment.id,
+      summary:
+          'Marked payment of ${payment.currency} '
+          '${payment.amount.toStringAsFixed(2)} as paid',
+    );
   }
 
   Future<void> _confirmReject() async {
@@ -768,6 +811,47 @@ class _PinEntryDialogState extends State<_PinEntryDialog> {
       actions: [
         TextButton(onPressed: _cancel, child: const Text('Cancel')),
         FilledButton(onPressed: _submit, child: const Text('Confirm delivery')),
+      ],
+    );
+  }
+}
+
+/// Shown right after a delivery is marked delivered, if its payment is
+/// still `pending` - see [_DriverDetailBodyState._maybeConfirmPayment].
+/// Just a yes/no on whether the customer paid; the actual amount/method
+/// were already fixed when the delivery was created, nothing to enter
+/// here.
+class _PaymentConfirmDialog extends StatelessWidget {
+  const _PaymentConfirmDialog({required this.payment});
+
+  final Payment payment;
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Payment collected?'),
+      content: Row(
+        children: [
+          Icon(payment.method.icon, color: AppTheme.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              'Did the customer pay ${payment.currency} '
+              '${payment.amount.toStringAsFixed(2)} '
+              '(${payment.method.label})?',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Not yet'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          child: const Text('Yes, mark paid'),
+        ),
       ],
     );
   }

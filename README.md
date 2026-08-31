@@ -112,6 +112,7 @@ supabase/
     0062_in_transit_assignment_limit.sql        stops every automatic assignment path from handing a driver a new delivery once they already have 2 in_transit at once, on top of the general per-driver cap - see "Capping a driver at 2 deliveries in transit" below
     0063_no_undo_after_delivered.sql            enforce_delivery_update() rejects a driver undoing a 'delivered' status back to 'picked_up' - the customer already confirmed receipt with the PIN by then - see "Delivery-completion PIN" below
     0064_show_pin_on_customer_tracking.sql      get_delivery_by_tracking_code() now also returns the delivery-completion PIN, but only while status is picked_up/in_transit - see "Delivery-completion PIN" below
+    0065_commission_payments_realtime.sql       adds commission_payments to the supabase_realtime publication - it was missing, so a driver's dashboard only cleared a settled commission after a full log-out/log-in instead of the moment payment went through
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set

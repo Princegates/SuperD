@@ -1,5 +1,7 @@
-// Emails every active dispatcher/super admin, and texts + emails the
-// applicant themselves, the moment a driver signs themselves up
+// Emails (and pushes to their device, same as notify-delivery-events
+// already does for a driver) every active dispatcher/super admin, and
+// texts + emails the applicant themselves, the moment a driver signs
+// themselves up
 // (self-signup lands as `is_active = false`, pending approval - see
 // migration 0014_driver_self_signup.sql). Staff get email only, not SMS -
 // they're already signed into the app/inbox day to day, and this fires
@@ -14,6 +16,7 @@
 // Deploy with `supabase functions deploy notify-driver-application`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+import { sendPushToProfile } from "../_shared/fcm.ts";
 
 async function sendSms(to: string, body: string): Promise<boolean> {
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
@@ -113,7 +116,7 @@ Deno.serve(async (req) => {
 
     const { data: staff, error: staffError } = await admin
       .from("profiles")
-      .select("email")
+      .select("id, email")
       .in("role", ["dispatcher", "super_admin"])
       .eq("is_active", true);
     if (staffError) {
@@ -141,6 +144,20 @@ Deno.serve(async (req) => {
       );
     }
 
+    const staffIds = (staff ?? []).map((s) => s.id as string);
+    const staffPushResults = await Promise.all(
+      staffIds.map((id) =>
+        sendPushToProfile(
+          admin,
+          id,
+          "New driver application",
+          `${applicant.full_name} applied to drive with SuperD.`,
+          { type: "driver_application", profile_id: profileId },
+        )
+      ),
+    );
+    const sentToStaffPush = staffPushResults.some((count) => count > 0);
+
     let sentToApplicant: boolean | undefined;
     if (applicant.email) {
       sentToApplicant = await sendEmail(
@@ -165,6 +182,7 @@ Deno.serve(async (req) => {
 
     return jsonResponse({
       sentToStaff,
+      sentToStaffPush,
       sentToApplicant,
       sentToApplicantSms,
     });

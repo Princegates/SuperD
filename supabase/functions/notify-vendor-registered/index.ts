@@ -1,7 +1,9 @@
 // Texts and emails a vendor their unique link the moment they register
 // (SMS wherever a phone is on file, email wherever an address is), and
-// separately notifies every active dispatcher/super admin the same way so
-// staff know a new vendor is on the platform. Wired up as a Supabase
+// separately notifies every active dispatcher/super admin the same way
+// (plus a push to their device, same as notify-delivery-events already
+// does for a driver) so staff know a new vendor is on the platform. Wired
+// up as a Supabase
 // Database Webhook (Database -> Webhooks in the dashboard) on the
 // "vendors" table for INSERT only - see the README for the exact setup
 // steps. Runs with the service-role key, same reasoning as the other
@@ -9,6 +11,7 @@
 // Deploy with `supabase functions deploy notify-vendor-registered`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+import { sendPushToProfile } from "../_shared/fcm.ts";
 
 async function sendSms(to: string, body: string): Promise<boolean> {
   const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
@@ -146,7 +149,7 @@ Deno.serve(async (req) => {
 
     const { data: staff, error: staffError } = await admin
       .from("profiles")
-      .select("email, phone")
+      .select("id, email, phone")
       .in("role", ["dispatcher", "super_admin"])
       .eq("is_active", true);
     if (staffError) {
@@ -188,11 +191,26 @@ Deno.serve(async (req) => {
       sentToStaffSms = staffSmsResults.some(Boolean);
     }
 
+    const staffIds = (staff ?? []).map((s) => s.id as string);
+    const staffPushResults = await Promise.all(
+      staffIds.map((id) =>
+        sendPushToProfile(
+          admin,
+          id,
+          "New vendor registered",
+          `${vendor.vendor_name} just registered on SuperD.`,
+          { type: "vendor_registered", vendor_id: vendorId },
+        )
+      ),
+    );
+    const sentToStaffPush = staffPushResults.some((count) => count > 0);
+
     return jsonResponse({
       sentToVendor,
       sentToVendorSms,
       sentToStaff,
       sentToStaffSms,
+      sentToStaffPush,
     });
   } catch (e) {
     return jsonResponse(

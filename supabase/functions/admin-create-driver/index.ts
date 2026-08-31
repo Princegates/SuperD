@@ -141,20 +141,20 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Same backstop for a driver: date of birth, vehicle, driving licence,
-    // and vehicle insurance are all required going forward (see
+    // Same backstop for a driver: date of birth, vehicle, and driving
+    // licence are required going forward (see
     // 0070_driver_license_and_insurance.sql) - the app's own "Add driver"
-    // form already requires these too.
+    // form already requires these too. Vehicle insurance stays optional -
+    // not every driver has a policy on file yet.
     if (
       role === "driver" &&
       (!phone || !dateOfBirth || !vehicleNumber || !vehicleType ||
-        !drivingLicenseNumber || !drivingLicenseExpiry ||
-        !vehicleInsuranceNumber || !vehicleInsuranceExpiry)
+        !drivingLicenseNumber || !drivingLicenseExpiry)
     ) {
       return jsonResponse(
         {
           error:
-            "Phone, date of birth, vehicle details, driving licence, and vehicle insurance are all required for a driver",
+            "Phone, date of birth, vehicle details, and driving licence are all required for a driver",
         },
         400,
       );

@@ -470,8 +470,6 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Vehicle insurance policy number',
                     ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 14),
                   TextFormField(
@@ -487,8 +485,6 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                       helperText: 'Must still be valid (not expired)',
                       suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
                     ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   if (widget.isEditing) ...[
                     const SizedBox(height: 14),

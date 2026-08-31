@@ -809,23 +809,26 @@ notify-driver-application` / `notify-driver-approved`).
 
 Dispatchers and super admins can add, edit, and remove drivers straight from
 the **Drivers** screen, grouped by vehicle type. Full name, email,
-telephone number, date of birth, vehicle number, vehicle type, driving
-licence number/expiry, and vehicle insurance policy number/expiry are all
-required (checked both in the form and server-side, in
-`admin-create-driver` - see `0070_driver_license_and_insurance.sql`);
-residential address and Ghana card number stay optional. A licence/
-insurance expiry must be a future date at the point it's entered - the
-form's own date picker won't offer an already-past one - though it isn't
-re-checked automatically afterward if it later lapses. This is its own
-section, separate from **Team**, precisely so driver-specific settings
+telephone number, date of birth, vehicle number, vehicle type, and driving
+licence number/expiry are all required (checked both in the form and
+server-side, in `admin-create-driver` - see
+`0070_driver_license_and_insurance.sql`); residential address and Ghana
+card number stay optional. Vehicle insurance policy number/expiry is
+collected the same way but is **not** required - the form doesn't mark it
+"(optional)" or otherwise call that out, it simply isn't validated against
+being empty, so it's easy to still fill in without looking skippable. A
+licence/insurance expiry must be a future date at the point it's entered -
+the form's own date picker won't offer an already-past one - though it
+isn't re-checked automatically afterward if it later lapses. This is its
+own section, separate from **Team**, precisely so driver-specific settings
 (approve/deactivate, freeze, and anything added later - e.g. a daily-fee
 tier pin from Console > Daily Fees) have a dedicated home instead of being
 buried in a general staff list; both dispatchers and super admins can
 reach it, since managing the driver roster is routine dispatch work.
 
 A driver signing themselves up (see **Driver self-signup** below) fills in
-exactly the same required fields on their own signup form - there's no
-gap between the two paths.
+the same fields on their own signup form, with the same insurance
+exception - there's no gap between the two paths.
 
 Super admins can also add, edit, and remove **dispatchers** from the
 **Team** screen the same way — Full name, date of birth, email, telephone

@@ -14,9 +14,12 @@ class Profile {
   final String? zoneId;
 
   /// Driver-only credentials - see `0070_driver_license_and_insurance.sql`.
-  /// Distinct from [ghanaCardNumber] (national ID). Required at signup/
-  /// creation time going forward, but nullable here since an existing
-  /// driver from before this migration has none on file yet.
+  /// Distinct from [ghanaCardNumber] (national ID). The driving licence
+  /// fields are required at signup/creation time going forward (nullable
+  /// here only because an existing driver from before this migration has
+  /// none on file yet); the insurance fields are collected the same way
+  /// but stay optional - not every driver has a policy on file, and the
+  /// form deliberately doesn't call that out as optional either.
   final String? drivingLicenseNumber;
   final DateTime? drivingLicenseExpiry;
   final String? vehicleInsuranceNumber;

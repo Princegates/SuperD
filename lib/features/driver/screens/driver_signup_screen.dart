@@ -292,9 +292,6 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Vehicle insurance policy number',
                             ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Required'
-                                : null,
                           ),
                           const SizedBox(height: 14),
                           TextFormField(
@@ -312,9 +309,6 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                                 size: 18,
                               ),
                             ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Required'
-                                : null,
                           ),
                           const SizedBox(height: 14),
                           TextFormField(

@@ -11,6 +11,7 @@ import '../../../models/payment_method.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/geocode_search.dart';
+import '../../../shared/utils/ghana_phone.dart';
 import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../shared/widgets/schedule_picker.dart';
@@ -188,7 +189,9 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
           .read(deliveryRepositoryProvider)
           .createDelivery(
             customerName: _customerNameController.text.trim(),
-            customerPhone: _customerPhoneController.text.trim(),
+            customerPhone: GhanaPhone.normalize(
+              _customerPhoneController.text.trim(),
+            )!,
             customerEmail: _customerEmailController.text.trim(),
             pickupAddress: _pickupController.text.trim(),
             pickupLat: _pickupLat,
@@ -279,8 +282,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Customer phone',
                   ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  validator: GhanaPhone.validator(),
                 ),
                 const SizedBox(height: 12),
                 TextFormField(

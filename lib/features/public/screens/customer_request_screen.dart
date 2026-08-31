@@ -13,6 +13,7 @@ import '../../../models/vehicle_type.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/geocode_search.dart';
+import '../../../shared/utils/ghana_phone.dart';
 import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../shared/widgets/async_value_view.dart';
@@ -222,7 +223,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
           .submitDeliveryRequest(
             code: widget.code,
             customerName: _nameController.text.trim(),
-            customerPhone: _phoneController.text.trim(),
+            customerPhone: GhanaPhone.normalize(_phoneController.text.trim())!,
             dropoffAddress: _addressController.text.trim(),
             dropoffLat: _lat,
             dropoffLng: _lng,
@@ -299,8 +300,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
               controller: _phoneController,
               keyboardType: TextInputType.phone,
               decoration: const InputDecoration(labelText: 'Phone number'),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Required' : null,
+              validator: GhanaPhone.validator(),
             ),
             const SizedBox(height: 14),
             TextFormField(

@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/driver_vehicle_type.dart';
+import '../../../shared/utils/ghana_phone.dart';
 
 /// Self-service signup for drivers only - reachable from the login screen's
 /// Driver tab, native app only (the router keeps this route out of reach
@@ -106,7 +107,7 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
       _isSubmitting = true;
       _errorMessage = null;
     });
-    final phone = _emptyToNull(_phoneController.text)!;
+    final phone = GhanaPhone.normalize(_phoneController.text.trim())!;
     try {
       // See check_driver_signup_throttle() in
       // 0069_driver_signup_throttle.sql - a basic per-phone-number rate
@@ -205,9 +206,7 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Telephone number',
                             ),
-                            validator: (v) => (v == null || v.trim().isEmpty)
-                                ? 'Required'
-                                : null,
+                            validator: GhanaPhone.validator(),
                           ),
                           const SizedBox(height: 14),
                           TextFormField(

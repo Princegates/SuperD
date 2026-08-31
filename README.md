@@ -2028,10 +2028,15 @@ supabase functions deploy notify-delivery-events
 
 ### Notes
 
-- **Customer and vendor phone numbers should be in international
-  format** (`+233XXXXXXXXX`, not `0XXXXXXXXX`) - Twilio rejects anything
-  else, and neither the public request form nor the dispatcher's
-  create-delivery form currently enforce that format.
+- **Every phone number field in the app** (driver/dispatcher signup and
+  admin forms, the public vendor/customer forms, the dispatcher's
+  create-delivery form, and the console's support/alert phone settings)
+  is validated and normalized to Ghana's international format
+  (`+233XXXXXXXXX`) via `GhanaPhone` in
+  `lib/shared/utils/ghana_phone.dart` - Twilio rejects anything else. A
+  person can type a local number (`024XXXXXXX`) or paste one with
+  `+233`/`233` already on it; it's converted before it's ever sent to the
+  backend.
 - The function only trusts the delivery's *id* and event type from the
   webhook payload - everything else (the driver's real name/phone, the
   customer's/vendor's real contact details) is re-fetched fresh from the

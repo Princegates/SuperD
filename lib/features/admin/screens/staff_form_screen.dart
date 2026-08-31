@@ -11,6 +11,7 @@ import '../../../models/driver_vehicle_type.dart';
 import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/utils/audit_log.dart';
+import '../../../shared/utils/ghana_phone.dart';
 import '../providers/admin_providers.dart';
 
 /// Add-or-edit form for a driver's or dispatcher's roster details. In add
@@ -160,7 +161,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
         await repo.updateDriverDetails(
           userId: widget.existing!.id,
           fullName: _nameController.text.trim(),
-          phone: _emptyToNull(_phoneController.text),
+          phone: GhanaPhone.normalize(_phoneController.text.trim()),
           ghanaCardNumber: _isDriver
               ? _emptyToNull(_ghanaCardController.text)
               : null,
@@ -198,7 +199,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
             ? await repo.createDriver(
                 email: _emailController.text.trim(),
                 fullName: _nameController.text.trim(),
-                phone: _emptyToNull(_phoneController.text),
+                phone: GhanaPhone.normalize(_phoneController.text.trim()),
                 ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
                 vehicleNumber: _emptyToNull(_vehicleController.text),
                 vehicleType: _vehicleType,
@@ -218,7 +219,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
             : await repo.createDispatcher(
                 email: _emailController.text.trim(),
                 fullName: _nameController.text.trim(),
-                phone: _phoneController.text.trim(),
+                phone: GhanaPhone.normalize(_phoneController.text.trim())!,
                 dateOfBirth: _dateOfBirth!,
                 residentialAddress: _residentialAddressController.text.trim(),
               );
@@ -374,8 +375,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Telephone number',
                   ),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  validator: GhanaPhone.validator(),
                 ),
                 const SizedBox(height: 14),
                 TextFormField(

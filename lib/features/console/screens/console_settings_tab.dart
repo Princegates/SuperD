@@ -8,6 +8,7 @@ import '../../../models/driver_daily_fee_tier.dart';
 import '../../../models/user_role.dart';
 import '../../../models/vehicle_type.dart';
 import '../../../shared/utils/audit_log.dart';
+import '../../../shared/utils/ghana_phone.dart';
 import '../../../shared/widgets/async_value_view.dart';
 
 /// App-wide settings: the currency payments are recorded and displayed in
@@ -260,16 +261,23 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   }
 
   Future<void> _saveSupportPhone(String? phone) async {
+    if (phone != null && GhanaPhone.normalize(phone) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid Ghana phone number')),
+      );
+      return;
+    }
     setState(() => _isSavingSupportPhone = true);
     try {
-      await ref.read(settingsRepositoryProvider).updateSupportPhone(phone);
+      final normalized = phone == null ? null : GhanaPhone.normalize(phone);
+      await ref.read(settingsRepositoryProvider).updateSupportPhone(normalized);
       await logAuditEvent(
         ref.read(supabaseClientProvider),
         action: 'support_phone_changed',
         entityType: 'app_settings',
-        summary: phone == null
+        summary: normalized == null
             ? 'Removed the support phone number'
-            : 'Changed the support phone number to $phone',
+            : 'Changed the support phone number to $normalized',
       );
     } finally {
       if (mounted) setState(() => _isSavingSupportPhone = false);
@@ -277,10 +285,19 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   }
 
   Future<void> _saveAdminAlerts(String? email, String? phone) async {
+    if (phone != null && GhanaPhone.normalize(phone) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid Ghana phone number')),
+      );
+      return;
+    }
+    final normalizedPhone = phone == null ? null : GhanaPhone.normalize(phone);
     setState(() => _isSavingAdminAlerts = true);
     try {
       await ref.read(settingsRepositoryProvider).updateAdminAlertEmail(email);
-      await ref.read(settingsRepositoryProvider).updateAdminAlertPhone(phone);
+      await ref
+          .read(settingsRepositoryProvider)
+          .updateAdminAlertPhone(normalizedPhone);
       await logAuditEvent(
         ref.read(supabaseClientProvider),
         action: 'admin_alerts_changed',

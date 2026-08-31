@@ -599,8 +599,16 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                               lat: navigateTarget.latitude,
                               lng: navigateTarget.longitude,
                             ),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                            ),
                             icon: const Icon(Icons.directions_outlined),
-                            label: const Text('Navigate'),
+                            label: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Navigate'),
+                            ),
                           ),
                         ),
                         const SizedBox(width: 12),

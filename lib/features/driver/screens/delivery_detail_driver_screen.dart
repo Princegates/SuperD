@@ -511,13 +511,16 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                       Row(
                         children: [
                           Expanded(
-                            child: OutlinedButton.icon(
+                            child: ElevatedButton.icon(
                               onPressed: _isRejecting || _isUpdatingStatus
                                   ? null
                                   : _confirmReject,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.danger,
-                                side: const BorderSide(color: AppTheme.danger),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: AppTheme.danger,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
                               ),
                               icon: _isRejecting
                                   ? const SizedBox(
@@ -525,10 +528,14 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                                       width: 18,
                                       child: CircularProgressIndicator(
                                         strokeWidth: 2,
+                                        color: Colors.white,
                                       ),
                                     )
                                   : const Icon(Icons.close),
-                              label: const Text('Reject'),
+                              label: const FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text('Reject'),
+                              ),
                             ),
                           ),
                           const SizedBox(width: 12),

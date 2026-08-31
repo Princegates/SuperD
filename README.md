@@ -131,8 +131,9 @@ supabase/
     paystack-daily-fee-charge/     Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Paystack
     paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee charge resolves (public, no Supabase session)
     notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, both customer + vendor when a driver is assigned (plus a push to the driver), and the customer's delivery PIN on pickup
-    notify-vendor-registered/      Edge Function: texts/emails a vendor their link when they register, and staff too
-    notify-driver-application/     Edge Function: emails staff (not SMS - see below) and texts/emails the applicant when a driver signs themselves up
+    notify-vendor-registered/      Edge Function: texts/emails a vendor their link when they register, and staff too (plus a push to staff)
+    notify-driver-application/     Edge Function: emails staff (not SMS - see below) and texts/emails the applicant when a driver signs themselves up (plus a push to staff)
+    notify-driver-notice/          Edge Function: pushes a Console > Notices post to its target driver, or every active driver if it's a broadcast
     notify-driver-approved/        Edge Function: texts/emails a driver once their signup is approved
     get-road-distance/             Edge Function: real driving distance via Google Directions, for pricing
 ```
@@ -2713,9 +2714,15 @@ Maps/Google Directions being unconfigured.
   web push needs its own VAPID setup this doesn't attempt.
 - `supabase/functions/_shared/fcm.ts` - sends via FCM's HTTP v1 API using
   a Firebase service account (signs its own OAuth2 JWT with Web Crypto,
-  no extra dependency). `notify-delivery-events` uses it for one trigger
-  so far: the driver gets a push the moment a delivery is assigned to
-  them, alongside the existing SMS/email to the customer/vendor.
+  no extra dependency). Four triggers use it so far, each alongside the
+  existing SMS/email for that same event: `notify-delivery-events` pushes
+  the driver the moment a delivery is assigned to them;
+  `notify-vendor-registered` and `notify-driver-application` push every
+  active dispatcher/super admin when a vendor registers or a driver
+  applies; `notify-driver-notice` pushes a Console > Notices post to its
+  target driver (or every active driver, if it's a broadcast) the moment
+  a dispatcher/super admin posts it - today that only shows on the
+  driver's dashboard if the app happens to be open.
 - The Android Gradle plugin needed to read `google-services.json` is
   already declared (`apply false` at the project level,
   `android/app/build.gradle.kts`) but only actually applied once that
@@ -2743,15 +2750,29 @@ Maps/Google Directions being unconfigured.
    ```bash
    supabase secrets set FIREBASE_SERVICE_ACCOUNT_JSON='<paste the whole downloaded JSON file, minified to one line>'
    supabase functions deploy notify-delivery-events
+   supabase functions deploy notify-vendor-registered
+   supabase functions deploy notify-driver-application
+   supabase functions deploy notify-driver-notice
    ```
 5. Run `flutter pub get` (picks up `firebase_core`/`firebase_messaging`
    from `pubspec.yaml`), then rebuild the app.
+6. `notify-driver-notice` is new - unlike the other three, nothing already
+   calls it, so it needs its own Database Webhook (Database > Webhooks in
+   the dashboard, same steps as "Texting/emailing a vendor their link"
+   above): table `driver_notices`, event `Insert` only, Edge Function
+   `notify-driver-notice`. If your project doesn't have the Webhooks UI,
+   use that same section's `pg_net` fallback instead, with `vendors`
+   swapped for `driver_notices` everywhere it appears (table name,
+   function/trigger name, and the `notify-vendor-registered` URL segment
+   for `notify-driver-notice`).
 
-From there, every new delivery assignment pushes to the driver
-automatically - no further code changes needed. Extending push to other
-moments (a driver notice, a staff alert) is a matter of calling
+From there, every new delivery assignment pushes to the driver, a new
+vendor/driver application pushes every active dispatcher/super admin, and
+a posted driver notice pushes its target (or every active driver, if it's
+a broadcast) - all automatically, no further code changes needed.
+Extending push to another moment is a matter of calling
 `sendPush`/`sendPushToProfile` from `_shared/fcm.ts` at that point, the
-same way `notify-delivery-events` already does.
+same way these four already do.
 
 ## Crash reporting
 

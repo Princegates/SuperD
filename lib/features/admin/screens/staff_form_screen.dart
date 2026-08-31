@@ -11,6 +11,7 @@ import '../../../models/driver_vehicle_type.dart';
 import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/utils/audit_log.dart';
+import '../../../shared/utils/ghana_phone.dart';
 import '../providers/admin_providers.dart';
 
 /// Add-or-edit form for a driver's or dispatcher's roster details. In add
@@ -63,7 +64,21 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
   late final _dobController = TextEditingController(
     text: _formatDate(widget.existing?.dateOfBirth),
   );
+  late final _licenseNumberController = TextEditingController(
+    text: widget.existing?.drivingLicenseNumber,
+  );
+  late final _licenseExpiryController = TextEditingController(
+    text: _formatDate(widget.existing?.drivingLicenseExpiry),
+  );
+  late final _insuranceNumberController = TextEditingController(
+    text: widget.existing?.vehicleInsuranceNumber,
+  );
+  late final _insuranceExpiryController = TextEditingController(
+    text: _formatDate(widget.existing?.vehicleInsuranceExpiry),
+  );
   late DateTime? _dateOfBirth = widget.existing?.dateOfBirth;
+  late DateTime? _licenseExpiry = widget.existing?.drivingLicenseExpiry;
+  late DateTime? _insuranceExpiry = widget.existing?.vehicleInsuranceExpiry;
   late String? _zoneId = widget.existing?.zoneId;
   late DriverVehicleType? _vehicleType = widget.existing?.vehicleType;
 
@@ -94,6 +109,28 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
     }
   }
 
+  Future<void> _pickExpiry(
+    DateTime? current,
+    TextEditingController controller,
+    ValueChanged<DateTime> onPicked,
+  ) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: (current != null && current.isAfter(now))
+          ? current
+          : now.add(const Duration(days: 365)),
+      firstDate: now,
+      lastDate: DateTime(now.year + 20),
+    );
+    if (picked != null) {
+      setState(() {
+        onPicked(picked);
+        controller.text = _formatDate(picked);
+      });
+    }
+  }
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -103,6 +140,10 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
     _vehicleController.dispose();
     _residentialAddressController.dispose();
     _dobController.dispose();
+    _licenseNumberController.dispose();
+    _licenseExpiryController.dispose();
+    _insuranceNumberController.dispose();
+    _insuranceExpiryController.dispose();
     super.dispose();
   }
 
@@ -120,7 +161,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
         await repo.updateDriverDetails(
           userId: widget.existing!.id,
           fullName: _nameController.text.trim(),
-          phone: _emptyToNull(_phoneController.text),
+          phone: GhanaPhone.normalize(_phoneController.text.trim()),
           ghanaCardNumber: _isDriver
               ? _emptyToNull(_ghanaCardController.text)
               : null,
@@ -128,9 +169,17 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
               ? _emptyToNull(_vehicleController.text)
               : null,
           vehicleType: _isDriver ? _vehicleType : null,
-          dateOfBirth: _isDriver ? null : _dateOfBirth,
+          dateOfBirth: _dateOfBirth,
           residentialAddress: _emptyToNull(_residentialAddressController.text),
           zoneId: _isDriver ? _zoneId : null,
+          drivingLicenseNumber: _isDriver
+              ? _emptyToNull(_licenseNumberController.text)
+              : null,
+          drivingLicenseExpiry: _isDriver ? _licenseExpiry : null,
+          vehicleInsuranceNumber: _isDriver
+              ? _emptyToNull(_insuranceNumberController.text)
+              : null,
+          vehicleInsuranceExpiry: _isDriver ? _insuranceExpiry : null,
         );
 
         final newEmail = _emailController.text.trim();
@@ -150,18 +199,27 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
             ? await repo.createDriver(
                 email: _emailController.text.trim(),
                 fullName: _nameController.text.trim(),
-                phone: _emptyToNull(_phoneController.text),
+                phone: GhanaPhone.normalize(_phoneController.text.trim()),
                 ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
                 vehicleNumber: _emptyToNull(_vehicleController.text),
                 vehicleType: _vehicleType,
                 residentialAddress: _emptyToNull(
                   _residentialAddressController.text,
                 ),
+                dateOfBirth: _dateOfBirth,
+                drivingLicenseNumber: _emptyToNull(
+                  _licenseNumberController.text,
+                ),
+                drivingLicenseExpiry: _licenseExpiry,
+                vehicleInsuranceNumber: _emptyToNull(
+                  _insuranceNumberController.text,
+                ),
+                vehicleInsuranceExpiry: _insuranceExpiry,
               )
             : await repo.createDispatcher(
                 email: _emailController.text.trim(),
                 fullName: _nameController.text.trim(),
-                phone: _phoneController.text.trim(),
+                phone: GhanaPhone.normalize(_phoneController.text.trim())!,
                 dateOfBirth: _dateOfBirth!,
                 residentialAddress: _residentialAddressController.text.trim(),
               );
@@ -317,23 +375,20 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                   decoration: const InputDecoration(
                     labelText: 'Telephone number',
                   ),
+                  validator: GhanaPhone.validator(),
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _dobController,
+                  readOnly: true,
+                  onTap: _pickDateOfBirth,
+                  decoration: const InputDecoration(
+                    labelText: 'Date of birth',
+                    suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+                  ),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
-                if (!_isDriver) ...[
-                  const SizedBox(height: 14),
-                  TextFormField(
-                    controller: _dobController,
-                    readOnly: true,
-                    onTap: _pickDateOfBirth,
-                    decoration: const InputDecoration(
-                      labelText: 'Date of birth',
-                      suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
-                    ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                ],
                 const SizedBox(height: 14),
                 TextFormField(
                   controller: _residentialAddressController,
@@ -360,6 +415,8 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                     decoration: const InputDecoration(
                       labelText: 'Vehicle number',
                     ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 14),
                   DropdownButtonFormField<DriverVehicleType?>(
@@ -370,7 +427,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                     items: [
                       const DropdownMenuItem<DriverVehicleType?>(
                         value: null,
-                        child: Text('Not set'),
+                        child: Text('Select one'),
                       ),
                       for (final type in DriverVehicleType.values)
                         DropdownMenuItem<DriverVehicleType?>(
@@ -379,6 +436,55 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                         ),
                     ],
                     onChanged: (value) => setState(() => _vehicleType = value),
+                    validator: (v) => v == null ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _licenseNumberController,
+                    decoration: const InputDecoration(
+                      labelText: 'Driving licence number',
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _licenseExpiryController,
+                    readOnly: true,
+                    onTap: () => _pickExpiry(
+                      _licenseExpiry,
+                      _licenseExpiryController,
+                      (date) => _licenseExpiry = date,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Driving licence expiry',
+                      helperText: 'Must still be valid (not expired)',
+                      suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+                    ),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _insuranceNumberController,
+                    decoration: const InputDecoration(
+                      labelText: 'Vehicle insurance policy number',
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: _insuranceExpiryController,
+                    readOnly: true,
+                    onTap: () => _pickExpiry(
+                      _insuranceExpiry,
+                      _insuranceExpiryController,
+                      (date) => _insuranceExpiry = date,
+                    ),
+                    decoration: const InputDecoration(
+                      labelText: 'Vehicle insurance expiry',
+                      helperText: 'Must still be valid (not expired)',
+                      suffixIcon: Icon(Icons.calendar_today_outlined, size: 18),
+                    ),
                   ),
                   if (widget.isEditing) ...[
                     const SizedBox(height: 14),

@@ -10,10 +10,11 @@ import '../../../shared/widgets/async_value_view.dart';
 import '../../admin/providers/admin_providers.dart';
 import '../providers/console_providers.dart';
 
-/// Driver commission - a flat fee owed to the business per completed
-/// delivery (set from Console > Settings), automatically recorded the
-/// moment a delivery is marked delivered. This is where a dispatcher or
-/// super admin marks one paid once the driver actually settles it.
+/// Driver commission - a flat fee, a percentage of the delivery's payment,
+/// or both (set from Console > Settings) - owed to the business per
+/// completed delivery, automatically recorded the moment a delivery is
+/// marked delivered. This is where a dispatcher or super admin marks one
+/// paid once the driver actually settles it.
 class ConsoleCommissionTab extends ConsumerWidget {
   const ConsoleCommissionTab({super.key});
 
@@ -42,8 +43,9 @@ class ConsoleCommissionTab extends ConsumerWidget {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'No commission recorded yet. Set a flat fee per delivery '
-                'in Console > Settings to start tracking it.',
+                'No commission recorded yet. Set a flat fee and/or '
+                'percentage per delivery in Console > Settings to start '
+                'tracking it.',
                 textAlign: TextAlign.center,
                 style: TextStyle(color: Colors.grey.shade500),
               ),

@@ -13,6 +13,7 @@ class AppSettings {
     this.pricePerKm = 1.5,
     this.driverCommissionEnabled = true,
     this.commissionFlatFee = 0,
+    this.commissionPercentage = 0,
     this.freeDayDeliveryThreshold,
     this.zoneAutoAssignCap = 5,
     this.zoneDetectionRadiusKm = 5,
@@ -53,6 +54,14 @@ class AppSettings {
   /// commission tracking is effectively off. Ignored entirely while
   /// [driverCommissionEnabled] is false.
   final double commissionFlatFee;
+
+  /// Percentage of a completed delivery's recorded payment amount added
+  /// on top of [commissionFlatFee] to make up the commission due for that
+  /// delivery - see `0066_commission_percentage.sql`. 0 means no
+  /// percentage-based commission (a flat fee, if set, still applies).
+  /// Ignored entirely while [driverCommissionEnabled] is false. Always
+  /// 0-100.
+  final double commissionPercentage;
 
   /// Automatic free-day incentive: every this many completed deliveries
   /// earns a driver 1 free commission day, credited to
@@ -117,6 +126,8 @@ class AppSettings {
       driverCommissionEnabled:
           map['driver_commission_enabled'] as bool? ?? true,
       commissionFlatFee: (map['commission_flat_fee'] as num?)?.toDouble() ?? 0,
+      commissionPercentage:
+          (map['commission_percentage'] as num?)?.toDouble() ?? 0,
       freeDayDeliveryThreshold: (map['free_day_delivery_threshold'] as num?)
           ?.toInt(),
       zoneAutoAssignCap: (map['zone_auto_assign_cap'] as num?)?.toInt() ?? 5,

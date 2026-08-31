@@ -101,6 +101,22 @@ class SettingsRepository {
         .eq('id', true);
   }
 
+  /// Changes the percentage-of-payment commission added to the flat fee -
+  /// see [AppSettings.commissionPercentage]. Only takes effect going
+  /// forward; commission already recorded keeps whatever rate applied at
+  /// the time.
+  Future<void> updateCommissionPercentage(double percentage) async {
+    if (percentage < 0 || percentage > 100) {
+      throw ArgumentError(
+        'The commission percentage must be between 0 and 100.',
+      );
+    }
+    await _client
+        .from(_table)
+        .update({'commission_percentage': percentage})
+        .eq('id', true);
+  }
+
   /// Changes (or clears) the automatic free-day threshold - see
   /// [AppSettings.freeDayDeliveryThreshold]. Null turns the automatic
   /// rule off; manual grants from Console > Daily Fees are unaffected

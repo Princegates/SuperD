@@ -8,6 +8,7 @@ import '../../../models/driver_daily_fee_tier.dart';
 import '../../../models/user_role.dart';
 import '../../../models/vehicle_type.dart';
 import '../../../shared/utils/audit_log.dart';
+import '../../../shared/utils/ghana_phone.dart';
 import '../../../shared/widgets/async_value_view.dart';
 
 /// App-wide settings: the currency payments are recorded and displayed in
@@ -29,6 +30,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   final _baseFareController = TextEditingController();
   final _pricePerKmController = TextEditingController();
   final _commissionFeeController = TextEditingController();
+  final _commissionPercentageController = TextEditingController();
   final _freeDayThresholdController = TextEditingController();
   final _zoneAutoAssignCapController = TextEditingController();
   final _zoneDetectionRadiusController = TextEditingController();
@@ -51,6 +53,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     _baseFareController.dispose();
     _pricePerKmController.dispose();
     _commissionFeeController.dispose();
+    _commissionPercentageController.dispose();
     _freeDayThresholdController.dispose();
     _zoneAutoAssignCapController.dispose();
     _zoneDetectionRadiusController.dispose();
@@ -135,20 +138,33 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     }
   }
 
-  Future<void> _saveCommission(AppSettings settings, double flatFee) async {
+  Future<void> _saveCommission(
+    AppSettings settings,
+    double flatFee,
+    double percentage,
+  ) async {
     setState(() => _isSavingCommission = true);
     try {
       await ref
           .read(settingsRepositoryProvider)
           .updateCommissionFlatFee(flatFee);
+      await ref
+          .read(settingsRepositoryProvider)
+          .updateCommissionPercentage(percentage);
       await logAuditEvent(
         ref.read(supabaseClientProvider),
         action: 'commission_fee_changed',
         entityType: 'app_settings',
         summary:
             'Changed driver commission to ${settings.currency} '
-            '${flatFee.toStringAsFixed(2)} per delivery',
+            '${flatFee.toStringAsFixed(2)} + ${percentage.toStringAsFixed(1)}% '
+            'per delivery',
       );
+    } on ArgumentError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message.toString())));
+      }
     } finally {
       if (mounted) setState(() => _isSavingCommission = false);
     }
@@ -245,16 +261,23 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   }
 
   Future<void> _saveSupportPhone(String? phone) async {
+    if (phone != null && GhanaPhone.normalize(phone) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid Ghana phone number')),
+      );
+      return;
+    }
     setState(() => _isSavingSupportPhone = true);
     try {
-      await ref.read(settingsRepositoryProvider).updateSupportPhone(phone);
+      final normalized = phone == null ? null : GhanaPhone.normalize(phone);
+      await ref.read(settingsRepositoryProvider).updateSupportPhone(normalized);
       await logAuditEvent(
         ref.read(supabaseClientProvider),
         action: 'support_phone_changed',
         entityType: 'app_settings',
-        summary: phone == null
+        summary: normalized == null
             ? 'Removed the support phone number'
-            : 'Changed the support phone number to $phone',
+            : 'Changed the support phone number to $normalized',
       );
     } finally {
       if (mounted) setState(() => _isSavingSupportPhone = false);
@@ -262,10 +285,19 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   }
 
   Future<void> _saveAdminAlerts(String? email, String? phone) async {
+    if (phone != null && GhanaPhone.normalize(phone) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid Ghana phone number')),
+      );
+      return;
+    }
+    final normalizedPhone = phone == null ? null : GhanaPhone.normalize(phone);
     setState(() => _isSavingAdminAlerts = true);
     try {
       await ref.read(settingsRepositoryProvider).updateAdminAlertEmail(email);
-      await ref.read(settingsRepositoryProvider).updateAdminAlertPhone(phone);
+      await ref
+          .read(settingsRepositoryProvider)
+          .updateAdminAlertPhone(normalizedPhone);
       await logAuditEvent(
         ref.read(supabaseClientProvider),
         action: 'admin_alerts_changed',
@@ -292,7 +324,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
         // clobbered by their own keystroke triggering a rebuild.
         final syncKey =
             '${settings.baseFare}|${settings.pricePerKm}|'
-            '${settings.commissionFlatFee}|'
+            '${settings.commissionFlatFee}|${settings.commissionPercentage}|'
             '${settings.freeDayDeliveryThreshold}|'
             '${settings.zoneAutoAssignCap}|${settings.zoneDetectionRadiusKm}|'
             '${settings.autoAssignRadiusKm}|'
@@ -304,6 +336,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
           _pricePerKmController.text = settings.pricePerKm.toStringAsFixed(2);
           _commissionFeeController.text = settings.commissionFlatFee
               .toStringAsFixed(2);
+          _commissionPercentageController.text = settings.commissionPercentage
+              .toStringAsFixed(1);
           _freeDayThresholdController.text =
               settings.freeDayDeliveryThreshold?.toString() ?? '';
           _zoneAutoAssignCapController.text = settings.zoneAutoAssignCap
@@ -921,15 +955,18 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'A flat amount a driver owes the business for every '
-                      'delivery they complete - recorded automatically in '
+                      'A flat amount, a percentage of the delivery\'s '
+                      'recorded payment amount, or both - added together '
+                      'into one amount a driver owes the business for every '
+                      'delivery they complete. Recorded automatically in '
                       'Console > Commission the moment a delivery is marked '
-                      "delivered. Set to 0 to stop tracking it. Doesn't "
+                      "delivered. Set both to 0 to stop tracking it. Doesn't "
                       'affect commission already recorded.',
                       style: TextStyle(color: Colors.grey.shade600),
                     ),
                     const SizedBox(height: 16),
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                           child: TextField(
@@ -938,42 +975,60 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                               decimal: true,
                             ),
                             decoration: InputDecoration(
-                              labelText:
-                                  'Commission per delivery (${settings.currency})',
+                              labelText: 'Flat fee (${settings.currency})',
                               border: const OutlineInputBorder(),
                             ),
                           ),
                         ),
                         const SizedBox(width: 12),
-                        FilledButton(
-                          onPressed: _isSavingCommission
-                              ? null
-                              : () {
-                                  final flatFee = double.tryParse(
-                                    _commissionFeeController.text.trim(),
-                                  );
-                                  if (flatFee == null) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Enter a valid number.'),
-                                      ),
-                                    );
-                                    return;
-                                  }
-                                  _saveCommission(settings, flatFee);
-                                },
-                          child: _isSavingCommission
-                              ? const SizedBox(
-                                  height: 18,
-                                  width: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : const Text('Save'),
+                        Expanded(
+                          child: TextField(
+                            controller: _commissionPercentageController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Percentage of payment (%)',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
                         ),
                       ],
+                    ),
+                    const SizedBox(height: 12),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton(
+                        onPressed: _isSavingCommission
+                            ? null
+                            : () {
+                                final flatFee = double.tryParse(
+                                  _commissionFeeController.text.trim(),
+                                );
+                                final percentage = double.tryParse(
+                                  _commissionPercentageController.text.trim(),
+                                );
+                                if (flatFee == null || percentage == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Enter valid numbers.'),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                _saveCommission(settings, flatFee, percentage);
+                              },
+                        child: _isSavingCommission
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Save'),
+                      ),
                     ),
                   ],
                 ),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/driver_vehicle_type.dart';
+import '../../../shared/utils/ghana_phone.dart';
 
 /// Self-service signup for drivers only - reachable from the login screen's
 /// Driver tab, native app only (the router keeps this route out of reach
@@ -26,11 +28,57 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
   final _vehicleController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmController = TextEditingController();
+  final _dobController = TextEditingController();
+  final _licenseNumberController = TextEditingController();
+  final _licenseExpiryController = TextEditingController();
+  final _insuranceNumberController = TextEditingController();
+  final _insuranceExpiryController = TextEditingController();
 
   DriverVehicleType? _vehicleType;
+  DateTime? _dateOfBirth;
+  DateTime? _licenseExpiry;
+  DateTime? _insuranceExpiry;
   bool _isSubmitting = false;
   String? _errorMessage;
   bool _checkEmail = false;
+
+  static String _formatDate(DateTime date) =>
+      DateFormat('dd MMM yyyy').format(date);
+
+  Future<void> _pickDateOfBirth() async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _dateOfBirth ?? DateTime(now.year - 25),
+      firstDate: DateTime(now.year - 100),
+      lastDate: now,
+    );
+    if (picked != null) {
+      setState(() {
+        _dateOfBirth = picked;
+        _dobController.text = _formatDate(picked);
+      });
+    }
+  }
+
+  Future<void> _pickExpiry(
+    TextEditingController controller,
+    ValueChanged<DateTime> onPicked,
+  ) async {
+    final now = DateTime.now();
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: now.add(const Duration(days: 365)),
+      firstDate: now,
+      lastDate: DateTime(now.year + 20),
+    );
+    if (picked != null) {
+      setState(() {
+        onPicked(picked);
+        controller.text = _formatDate(picked);
+      });
+    }
+  }
 
   @override
   void dispose() {
@@ -40,6 +88,11 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
     _vehicleController.dispose();
     _passwordController.dispose();
     _confirmController.dispose();
+    _dobController.dispose();
+    _licenseNumberController.dispose();
+    _licenseExpiryController.dispose();
+    _insuranceNumberController.dispose();
+    _insuranceExpiryController.dispose();
     super.dispose();
   }
 
@@ -54,16 +107,30 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
       _isSubmitting = true;
       _errorMessage = null;
     });
+    final phone = GhanaPhone.normalize(_phoneController.text.trim())!;
     try {
+      // See check_driver_signup_throttle() in
+      // 0069_driver_signup_throttle.sql - a basic per-phone-number rate
+      // limit, since driver signup can't use the CAPTCHA the two public
+      // web forms use (Cloudflare Turnstile is a browser-only widget, and
+      // this screen only exists on the native app).
+      await ref.read(authRepositoryProvider).checkDriverSignupThrottle(phone);
       final response = await ref
           .read(authRepositoryProvider)
           .signUp(
             email: _emailController.text.trim(),
             password: _passwordController.text,
             fullName: _nameController.text.trim(),
-            phone: _emptyToNull(_phoneController.text),
+            phone: phone,
             vehicleNumber: _emptyToNull(_vehicleController.text),
             vehicleType: _vehicleType,
+            dateOfBirth: _dateOfBirth,
+            drivingLicenseNumber: _emptyToNull(_licenseNumberController.text),
+            drivingLicenseExpiry: _licenseExpiry,
+            vehicleInsuranceNumber: _emptyToNull(
+              _insuranceNumberController.text,
+            ),
+            vehicleInsuranceExpiry: _insuranceExpiry,
           );
       // A session means the project has email confirmation off - the
       // router picks up the new session on its own and takes the driver
@@ -71,6 +138,8 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
       if (mounted && response.session == null) {
         setState(() => _checkEmail = true);
       }
+    } on PostgrestException catch (e) {
+      setState(() => _errorMessage = e.message);
     } on AuthException catch (e) {
       setState(() => _errorMessage = e.message);
     } catch (e) {
@@ -137,6 +206,20 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                             decoration: const InputDecoration(
                               labelText: 'Telephone number',
                             ),
+                            validator: GhanaPhone.validator(),
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _dobController,
+                            readOnly: true,
+                            onTap: _pickDateOfBirth,
+                            decoration: const InputDecoration(
+                              labelText: 'Date of birth',
+                              suffixIcon: Icon(
+                                Icons.calendar_today_outlined,
+                                size: 18,
+                              ),
+                            ),
                             validator: (v) => (v == null || v.trim().isEmpty)
                                 ? 'Required'
                                 : null,
@@ -145,19 +228,22 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                           TextFormField(
                             controller: _vehicleController,
                             decoration: const InputDecoration(
-                              labelText: 'Vehicle number (optional)',
+                              labelText: 'Vehicle number',
                             ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Required'
+                                : null,
                           ),
                           const SizedBox(height: 14),
                           DropdownButtonFormField<DriverVehicleType?>(
                             initialValue: _vehicleType,
                             decoration: const InputDecoration(
-                              labelText: 'Vehicle type (optional)',
+                              labelText: 'Vehicle type',
                             ),
                             items: [
                               const DropdownMenuItem<DriverVehicleType?>(
                                 value: null,
-                                child: Text('Not set'),
+                                child: Text('Select one'),
                               ),
                               for (final type in DriverVehicleType.values)
                                 DropdownMenuItem<DriverVehicleType?>(
@@ -167,6 +253,61 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                             ],
                             onChanged: (value) =>
                                 setState(() => _vehicleType = value),
+                            validator: (v) => v == null ? 'Required' : null,
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _licenseNumberController,
+                            decoration: const InputDecoration(
+                              labelText: 'Driving licence number',
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Required'
+                                : null,
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _licenseExpiryController,
+                            readOnly: true,
+                            onTap: () => _pickExpiry(
+                              _licenseExpiryController,
+                              (date) => _licenseExpiry = date,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Driving licence expiry',
+                              helperText: 'Must still be valid (not expired)',
+                              suffixIcon: Icon(
+                                Icons.calendar_today_outlined,
+                                size: 18,
+                              ),
+                            ),
+                            validator: (v) => (v == null || v.trim().isEmpty)
+                                ? 'Required'
+                                : null,
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _insuranceNumberController,
+                            decoration: const InputDecoration(
+                              labelText: 'Vehicle insurance policy number',
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          TextFormField(
+                            controller: _insuranceExpiryController,
+                            readOnly: true,
+                            onTap: () => _pickExpiry(
+                              _insuranceExpiryController,
+                              (date) => _insuranceExpiry = date,
+                            ),
+                            decoration: const InputDecoration(
+                              labelText: 'Vehicle insurance expiry',
+                              helperText: 'Must still be valid (not expired)',
+                              suffixIcon: Icon(
+                                Icons.calendar_today_outlined,
+                                size: 18,
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 14),
                           TextFormField(

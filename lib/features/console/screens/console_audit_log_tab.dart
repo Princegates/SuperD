@@ -50,6 +50,18 @@ class ConsoleAuditLogTab extends ConsumerWidget {
 }
 
 ({IconData icon, Color color}) _iconFor(String action) {
+  if (action == 'user_signed_in') {
+    return (icon: Icons.login, color: Colors.teal.shade400);
+  }
+  if (action == 'user_signed_out') {
+    return (icon: Icons.logout, color: Colors.blueGrey.shade400);
+  }
+  if (action == 'user_signed_up') {
+    return (
+      icon: Icons.person_add_alt_1_outlined,
+      color: Colors.green.shade600,
+    );
+  }
   if (action.contains('deactivat') || action == 'staff_removed') {
     return (icon: Icons.remove_circle_outline, color: Colors.red.shade400);
   }

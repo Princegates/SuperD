@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
-import '../../../core/theme/app_theme.dart';
 import '../../../models/customer.dart';
 import '../../../models/delivery.dart';
 import '../../../shared/widgets/async_value_view.dart';
@@ -203,9 +202,8 @@ class _HistoryRow extends StatelessWidget {
                   style: const TextStyle(fontWeight: FontWeight.w600),
                 ),
                 Text(
-                  DateFormat(
-                    'd MMM yyyy, h:mm a',
-                  ).format(delivery.createdAt.toLocal()),
+                  DateFormat('d MMM yyyy, h:mm a')
+                      .format(delivery.createdAt.toLocal()),
                   style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
                 ),
               ],

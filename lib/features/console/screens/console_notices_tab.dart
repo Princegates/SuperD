@@ -161,8 +161,7 @@ class _ConsoleNoticesTabState extends ConsumerState<ConsoleNoticesTab> {
     // of them (see admin_shell_screen.dart), a dispatcher reaches this
     // screen too and must keep full access.
     final canWrite =
-        ref.watch(currentProfileProvider).valueOrNull?.role !=
-        UserRole.auditor;
+        ref.watch(currentProfileProvider).valueOrNull?.role != UserRole.auditor;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -278,8 +277,7 @@ class _ConsoleNoticesTabState extends ConsumerState<ConsoleNoticesTab> {
                         ),
                         if (_expiresAt != null)
                           IconButton(
-                            onPressed: () =>
-                                setState(() => _expiresAt = null),
+                            onPressed: () => setState(() => _expiresAt = null),
                             icon: const Icon(Icons.close, size: 18),
                             tooltip: 'Clear expiry',
                           ),

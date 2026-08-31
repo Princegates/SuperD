@@ -109,6 +109,10 @@ Deno.serve(async (req) => {
     const vehicleType = (body.vehicleType ?? "").trim() || null;
     const dateOfBirth = (body.dateOfBirth ?? "").trim() || null;
     const residentialAddress = (body.residentialAddress ?? "").trim() || null;
+    const drivingLicenseNumber = (body.drivingLicenseNumber ?? "").trim() || null;
+    const drivingLicenseExpiry = (body.drivingLicenseExpiry ?? "").trim() || null;
+    const vehicleInsuranceNumber = (body.vehicleInsuranceNumber ?? "").trim() || null;
+    const vehicleInsuranceExpiry = (body.vehicleInsuranceExpiry ?? "").trim() || null;
     const role = body.role === "dispatcher" ? "dispatcher" : "driver";
 
     if (!email || !fullName) {
@@ -137,6 +141,25 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Same backstop for a driver: date of birth, vehicle, and driving
+    // licence are required going forward (see
+    // 0070_driver_license_and_insurance.sql) - the app's own "Add driver"
+    // form already requires these too. Vehicle insurance stays optional -
+    // not every driver has a policy on file yet.
+    if (
+      role === "driver" &&
+      (!phone || !dateOfBirth || !vehicleNumber || !vehicleType ||
+        !drivingLicenseNumber || !drivingLicenseExpiry)
+    ) {
+      return jsonResponse(
+        {
+          error:
+            "Phone, date of birth, vehicle details, and driving licence are all required for a driver",
+        },
+        400,
+      );
+    }
+
     const tempPassword = randomPassword();
 
     const { data: created, error: createError } = await admin.auth.admin
@@ -152,6 +175,10 @@ Deno.serve(async (req) => {
           vehicle_type: vehicleType,
           date_of_birth: dateOfBirth,
           residential_address: residentialAddress,
+          driving_license_number: drivingLicenseNumber,
+          driving_license_expiry: drivingLicenseExpiry,
+          vehicle_insurance_number: vehicleInsuranceNumber,
+          vehicle_insurance_expiry: vehicleInsuranceExpiry,
           must_change_password: true,
         },
         // Only settable server-side (never by a signing-up client) - lets

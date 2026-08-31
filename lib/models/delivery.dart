@@ -26,6 +26,11 @@ class Delivery {
   final String? vendorId;
   final String? zoneId;
 
+  /// Which vehicle type this delivery needs/used, if recorded - see
+  /// `vehicle_type_id` in `0065_delivery_vehicle_type.sql`. Informational
+  /// only; doesn't affect price on its own.
+  final String? vehicleTypeId;
+
   /// True if the *current* [assignedDriverId] was picked by the system
   /// automatically - submit_delivery_request()'s same-zone matching at
   /// creation, or driver_cancel_delivery()'s same-zone hand-off - rather
@@ -66,6 +71,7 @@ class Delivery {
     this.assignedDriverId,
     this.vendorId,
     this.zoneId,
+    this.vehicleTypeId,
     this.autoAssigned = false,
     this.assignedAt,
     this.pickedUpAt,
@@ -97,6 +103,7 @@ class Delivery {
       assignedDriverId: map['assigned_driver_id'] as String?,
       vendorId: map['vendor_id'] as String?,
       zoneId: map['zone_id'] as String?,
+      vehicleTypeId: map['vehicle_type_id'] as String?,
       autoAssigned: map['auto_assigned'] as bool? ?? false,
       createdAt: parseDate(map['created_at']) ?? DateTime.now(),
       updatedAt: parseDate(map['updated_at']) ?? DateTime.now(),
@@ -142,6 +149,7 @@ class Delivery {
       assignedDriverId: assignedDriverId,
       vendorId: vendorId,
       zoneId: zoneId,
+      vehicleTypeId: vehicleTypeId,
       autoAssigned: autoAssigned,
       createdAt: createdAt,
       updatedAt: updatedAt,

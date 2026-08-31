@@ -10,7 +10,21 @@ import 'package:superd/data/repositories/vehicle_type_repository.dart';
 import 'package:superd/features/console/screens/console_settings_tab.dart';
 import 'package:superd/models/app_settings.dart';
 import 'package:superd/models/driver_daily_fee_tier.dart';
+import 'package:superd/models/profile.dart';
+import 'package:superd/models/user_role.dart';
 import 'package:superd/models/vehicle_type.dart';
+
+/// Every control on this tab is wrapped in an `AbsorbPointer` for anyone
+/// but a super admin (see `0054_auditor_role_permissions.sql`'s auditor
+/// role) - these tests exercise a super admin's own interactions, so
+/// [currentProfileProvider] needs a super-admin profile in every test's
+/// overrides, or every tap/drag below would be silently absorbed.
+const _fakeSuperAdmin = Profile(
+  id: 'fake-super-admin',
+  email: 'admin@example.com',
+  fullName: 'Fake Super Admin',
+  role: UserRole.superAdmin,
+);
 
 /// Records what was asked of it instead of touching the network, so the
 /// currency dropdown's behavior can be tested without a live Supabase
@@ -158,6 +172,9 @@ void main() {
           vehicleTypeRepositoryProvider.overrideWithValue(
             _FakeVehicleTypeRepository(),
           ),
+          currentProfileProvider.overrideWith(
+            (ref) => Stream.value(_fakeSuperAdmin),
+          ),
           supabaseClientProvider.overrideWithValue(_testClient()),
         ],
         child: const MaterialApp(home: Scaffold(body: ConsoleSettingsTab())),
@@ -193,6 +210,9 @@ void main() {
           ),
           vehicleTypeRepositoryProvider.overrideWithValue(
             _FakeVehicleTypeRepository(),
+          ),
+          currentProfileProvider.overrideWith(
+            (ref) => Stream.value(_fakeSuperAdmin),
           ),
           supabaseClientProvider.overrideWithValue(_testClient()),
         ],
@@ -235,6 +255,9 @@ void main() {
           ),
           vehicleTypeRepositoryProvider.overrideWithValue(
             _FakeVehicleTypeRepository(),
+          ),
+          currentProfileProvider.overrideWith(
+            (ref) => Stream.value(_fakeSuperAdmin),
           ),
           supabaseClientProvider.overrideWithValue(_testClient()),
         ],

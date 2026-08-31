@@ -65,8 +65,7 @@ class PushNotificationService {
     // The app was launched BY tapping the notification (it wasn't
     // running at all) - onMessageOpenedApp never fires for this case,
     // this is the only way to see it.
-    final initialMessage = await FirebaseMessaging.instance
-        .getInitialMessage();
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null) handleTap(initialMessage);
   }
 

@@ -112,7 +112,13 @@ supabase/
     0062_in_transit_assignment_limit.sql        stops every automatic assignment path from handing a driver a new delivery once they already have 2 in_transit at once, on top of the general per-driver cap - see "Capping a driver at 2 deliveries in transit" below
     0063_no_undo_after_delivered.sql            enforce_delivery_update() rejects a driver undoing a 'delivered' status back to 'picked_up' - the customer already confirmed receipt with the PIN by then - see "Delivery-completion PIN" below
     0064_show_pin_on_customer_tracking.sql      get_delivery_by_tracking_code() now also returns the delivery-completion PIN, but only while status is picked_up/in_transit - see "Delivery-completion PIN" below
-    0065_commission_payments_realtime.sql       adds commission_payments to the supabase_realtime publication - it was missing, so a driver's dashboard only cleared a settled commission after a full log-out/log-in instead of the moment payment went through
+    0065_delivery_vehicle_type.sql               adds deliveries.vehicle_type_id (informational) and has submit_delivery_request() store it, so a customer's/dispatcher's picked vehicle type is kept on record, not just used transiently for pricing
+    0066_commission_percentage.sql               adds app_settings.commission_percentage - a percentage of a delivery's recorded payment amount, added to commission_flat_fee to make up the single commission_payments row log_commission_due() creates
+    0067_daily_commission_settlement.sql          adds driver_has_overdue_commission() and wires it into every assignment path as a hard block, same as the daily fee - commission left `due` from a previous day (not today's) now stops a driver from getting a new delivery until it's paid/waived
+    0068_driver_payment_access_override.sql       adds profiles.payment_access_override_until - a dispatcher/super-admin-granted temporary bypass of the daily-fee/commission block for a payment-gateway outage, honored by driver_daily_fee_paid()/claim_free_day_credit()/driver_has_overdue_commission() without changing what's actually owed
+    0069_driver_signup_throttle.sql                per-phone-number throttle (3/day) on driver self-signup, since it can't use the Turnstile CAPTCHA the two anonymous web forms use - a check_driver_signup_throttle() pre-check for a clean error message, backed by a before-insert trigger on auth.users as the real backstop
+    0070_driver_license_and_insurance.sql          adds driving_license_number/expiry and vehicle_insurance_number/expiry to profiles, and has handle_new_user() pick them up (plus date_of_birth, now collected for drivers too, not just dispatchers) - all four required going forward on both the driver signup form and admin-create-driver, though not a database constraint (existing drivers predate this)
+    0071_commission_payments_realtime.sql        adds commission_payments to the supabase_realtime publication - it was missing, so a driver's dashboard only cleared a settled commission after a full log-out/log-in instead of the moment payment went through
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -619,6 +625,21 @@ Function, for accounts a dispatcher creates from Drivers) - never by
 `user_metadata` a signing-up client controls. See
 `supabase/migrations/0014_driver_self_signup.sql`.
 
+Unlike the two anonymous public forms (vendor signup, a customer's
+delivery request), driver signup can't use a Cloudflare Turnstile CAPTCHA
+- Turnstile is a browser-only widget, and this screen only exists on the
+native app, which never renders it. Instead, `0069_driver_signup_throttle.sql`
+throttles by the phone number the form already requires - 3 signup
+attempts per phone number per day, the same limit and reasoning as
+`register_vendor()`'s own per-phone throttle. The driver signup screen
+calls `check_driver_signup_throttle()` right before `auth.signUp()` for a
+clean, immediate error message; a `before insert` trigger on `auth.users`
+itself is the real, unbypassable backstop (skipped for an admin-created
+account), in case anything ever calls Supabase's own signup endpoint
+without going through the app first. Like every other throttle in this
+app, it stops a burst of junk signups from one number, not a determined
+attacker rotating phone numbers per attempt.
+
 ### Driver application emails
 
 Three more notifications, on top of the account-created one in **Staff
@@ -788,13 +809,27 @@ notify-driver-application` / `notify-driver-approved`).
 ## Staff management
 
 Dispatchers and super admins can add, edit, and remove drivers straight from
-the **Drivers** screen — Full name, email, telephone number, residential
-address, Ghana card number, and vehicle number, grouped by vehicle type.
-It's its own section, separate from **Team**, precisely so driver-specific
-settings (approve/deactivate, freeze, and anything added later - e.g. a
-daily-fee tier pin from Console > Daily Fees) have a dedicated home instead
-of being buried in a general staff list; both dispatchers and super admins
-can reach it, since managing the driver roster is routine dispatch work.
+the **Drivers** screen, grouped by vehicle type. Full name, email,
+telephone number, date of birth, vehicle number, vehicle type, and driving
+licence number/expiry are all required (checked both in the form and
+server-side, in `admin-create-driver` - see
+`0070_driver_license_and_insurance.sql`); residential address and Ghana
+card number stay optional. Vehicle insurance policy number/expiry is
+collected the same way but is **not** required - the form doesn't mark it
+"(optional)" or otherwise call that out, it simply isn't validated against
+being empty, so it's easy to still fill in without looking skippable. A
+licence/insurance expiry must be a future date at the point it's entered -
+the form's own date picker won't offer an already-past one - though it
+isn't re-checked automatically afterward if it later lapses. This is its
+own section, separate from **Team**, precisely so driver-specific settings
+(approve/deactivate, freeze, and anything added later - e.g. a daily-fee
+tier pin from Console > Daily Fees) have a dedicated home instead of being
+buried in a general staff list; both dispatchers and super admins can
+reach it, since managing the driver roster is routine dispatch work.
+
+A driver signing themselves up (see **Driver self-signup** below) fills in
+the same fields on their own signup form, with the same insurance
+exception - there's no gap between the two paths.
 
 Super admins can also add, edit, and remove **dispatchers** from the
 **Team** screen the same way — Full name, date of birth, email, telephone
@@ -899,10 +934,12 @@ unaffected.
 
 - `profiles` — one row per user: `role` (`driver`, `dispatcher`, or
   `super_admin`), plus `full_name`, `phone`, `residential_address`,
-  `date_of_birth` (dispatchers only), `ghana_card_number`, and
-  `vehicle_number` (the last two are drivers only), and
-  `must_change_password` (forces the mandatory password screen described
-  above for accounts added by a dispatcher/super admin).
+  `date_of_birth` (both roles now), `ghana_card_number`, `vehicle_number`,
+  `driving_license_number`/`driving_license_expiry`, and
+  `vehicle_insurance_number`/`vehicle_insurance_expiry` (the last five are
+  drivers only), and `must_change_password` (forces the mandatory
+  password screen described above for accounts added by a dispatcher/
+  super admin).
 - `deliveries` — one row per parcel job: pickup/drop-off address +
   coordinates, customer info, status, assigned driver, timestamps.
 - `delivery_status_history` — an automatic audit trail of every status
@@ -1016,8 +1053,9 @@ Customer Delivery Price = Base Delivery Fare + Distance Charge + Vehicle Surchar
   detail screen if a particular order needs one.
 
 Deliveries created directly by a dispatcher/super admin (the "New
-delivery" form in the admin console) are unaffected — those already let
-the dispatcher set the delivery fee by hand, and have no vehicle picker.
+delivery" form in the admin console) are priced differently — see
+**The admin "New delivery" form** below — but can record a vehicle type
+too.
 
 ### Vehicle types
 
@@ -1040,6 +1078,42 @@ fee's tiers); an anonymous customer reads it through the
 `get_vehicle_types()` RPC instead — table RLS is never opened to `anon`
 in this app, following the same pattern `get_vendor_by_code()` set in
 `0010_vendors_zones.sql`.
+
+### The admin "New delivery" form
+
+Deliberately priced differently from the public request form above — a
+dispatcher/super admin sets the delivery fee **by hand**, there's no
+base-fare/distance/vehicle-surcharge calculation here at all. What it does
+share with the public form:
+
+- **Address suggestions** — both the pickup and drop-off address fields
+  are an `AddressAutocompleteField` (same free OSM Nominatim search the
+  location picker's own search box and the public request form use, see
+  **Picking a location** below) — type 3+ characters and matching places
+  show up in a dropdown; picking one sets that field's coordinates the
+  same way dropping a pin on the map would (including feeding the
+  driver-ranking-by-proximity list below). Typing a full address by hand
+  with no suggestion picked still works exactly as before, just without
+  coordinates until "Or set \[pickup/drop-off\] location on map" is used
+  instead.
+- **Vehicle (optional)** — the same `vehicle_types` list (Console >
+  Settings) a customer picks from, stored on the delivery
+  (`deliveries.vehicle_type_id`, see `0065_delivery_vehicle_type.sql`) so
+  it's on record which vehicle the job needs. Purely informational here —
+  picking one does **not** add its surcharge to the fee field, since the
+  dispatcher is already setting that fee directly.
+- **Currency** — the delivery fee field's label always shows the app's
+  configured currency (**Console > Settings**, GHS by default), falling
+  back to GHS itself for the brief moment settings are still loading
+  rather than omitting a currency from the label entirely.
+- **Payment method**, Mobile Money included, has always been a real field
+  here (`PaymentMethod.mobileMoney`) — selecting it doesn't trigger an
+  in-app charge (there's no Paystack/Mobile Money gateway wired to a
+  *customer's* delivery fee, only to a *driver's* own commission - see
+  **Driver daily fee** above), it records how the customer intends to
+  pay, the same "record it, don't try to collect it in-app" treatment
+  every other payment method already gets. A dispatcher marks it paid
+  once the money's actually in hand, from the delivery detail screen.
 
 ### Road-distance pricing setup
 
@@ -1239,32 +1313,43 @@ ever needs to be tunable per deployment.
 
 ### Turning commission off for testing
 
-Both commission mechanisms described below - the per-delivery flat fee
-and the tiered daily fee - share one master switch: **Console > Settings
-> Driver commission**. Off means nothing is charged, logged, or blocks a
-driver from getting new deliveries, but the configured flat fee/tiers are
-left untouched (see `0041_driver_commission_toggle.sql`) - flip it back
-on once the app is ready to go commercial and everything picks back up
-exactly as it was configured. Defaults to on.
+Both commission mechanisms described below - the per-delivery commission
+(flat fee and/or percentage) and the tiered daily fee - share one master
+switch: **Console > Settings > Driver commission**. Off means nothing is
+charged, logged, or blocks a driver from getting new deliveries, but the
+configured flat fee/percentage/tiers are left untouched (see
+`0041_driver_commission_toggle.sql`) - flip it back on once the app is
+ready to go commercial and everything picks back up exactly as it was
+configured. Defaults to on.
 
 ### Driver commission
 
 Separate from the `payments` table above (what a *customer* owes for a
-delivery), a super admin can set a flat **commission** fee the *driver*
-owes the business per completed delivery, from **Console > Settings**.
-It defaults to `0`, which means commission tracking is effectively off —
-no records are created until a fee is set.
+delivery), a super admin can set a **commission** the *driver* owes the
+business per completed delivery, from **Console > Settings**. It has two
+components, added together into a single amount, and either (or both) can
+be left at `0`:
 
-Once a fee is set, `0029_commission_payments.sql` records it
-automatically: a database trigger fires the instant a delivery's status
-changes to `delivered`, inserting a `due` row into `commission_payments`
-for whoever the assigned driver was, in the app's currency at that
-moment. A dispatcher or super admin can still mark a row `paid` (or
-`waived`) by hand from **Console > Commission** at any time (in person,
-weekly, however the business runs it) — but it's no longer collected
-*only* that way: see **Commission and the daily fee are billed together
-in-app** below for how it also rides along with a driver's own in-app
-daily-fee payment.
+- a flat fee (`commission_flat_fee`), the same currency amount every time;
+- a percentage (`commission_percentage`, `0066_commission_percentage.sql`)
+  of whatever's been recorded in `payments` for that delivery — 0 if
+  nothing's been recorded.
+
+Both default to `0`, which means commission tracking is effectively off —
+no records are created until at least one is set above `0`.
+
+The moment either is set, `0029_commission_payments.sql`/
+`0066_commission_percentage.sql` record it automatically: a database
+trigger fires the instant a delivery's status changes to `delivered`,
+inserting a `due` row into `commission_payments` for whoever the assigned
+driver was — `commission_flat_fee` plus `commission_percentage`% of that
+delivery's recorded payment total, in the app's currency at that moment.
+A dispatcher or super admin can still mark a row `paid` (or `waived`) by
+hand from **Console > Commission** at any time (in person, weekly,
+however the business runs it) — but it's no longer collected *only* that
+way: see **Commission and the daily fee are billed together in-app**
+below for how it also rides along with a driver's own in-app daily-fee
+payment.
 
 ### Driver daily fee
 
@@ -1348,11 +1433,51 @@ Paystack's webhook flips the `driver_daily_fees` row to `paid` and marks
 every `due` `commission_payments` row for that driver `paid` in the same
 call; a dispatcher approving a manually-submitted reference from
 **Console > Daily Fees** does the same via `set_daily_fee_status()`. This
-does **not** change what blocks a driver from getting a new delivery —
-that's still only an unpaid daily-fee tier (see above); unpaid
-per-delivery commission on its own still isn't a hard block, it just no
-longer needs its own separate in-app payment step once a driver has a
-daily-fee balance to clear anyway.
+is also how a driver clears the hard block described next — the same
+one payment settles everything, regardless of how many days it's been
+sitting `due`.
+
+### Commission must be settled daily, or it blocks the driver
+
+Unlike the flexible bundling above, commission left `due` from a
+*previous* calendar day is a hard block, the same way an unpaid
+daily-fee tier already is - not a warning, a real `raise exception` (see
+`driver_has_overdue_commission()` in
+`0067_daily_commission_settlement.sql`). Today's commission is still fair
+game — a driver has until the day ends to settle it like normal — but the
+moment it rolls over into a new day still `due`, that driver cannot be
+assigned another delivery, through any path: a dispatcher assigning them
+by hand (blocked with a clear error, and excluded from the Console's
+driver picker up front, same as `unpaid_driver_ids_today()` already did
+for the daily fee), either tier of automatic proximity-based assignment in
+`submit_delivery_request()`, a mid-trip hand-off in
+`driver_cancel_delivery()`, and the drive-into-range trigger in
+`assign_pending_deliveries_near_driver()`. It clears the same two ways
+described above: the driver's own in-app payment (Mobile Money or a
+manual reference), or a dispatcher/super admin marking the row
+paid/waived by hand from **Console > Commission**. Off entirely while
+**Console > Settings > Driver commission** is off, same as everything
+else in this section.
+
+### Emergency access when the payment gateway is down
+
+Both hard blocks above - an unpaid daily-fee tier and overdue commission -
+assume a driver can actually pay: Mobile Money in-app, or (needing no
+gateway at all) a manually-submitted reference. If Paystack itself is down
+*and* that's impractical in the moment, a dispatcher/super admin can grant
+a driver temporary access from **Console > Daily Fees > Emergency
+access** - 1 hour, the rest of today, or 24 hours. This is deliberately
+**not** the same as waiving a fee or marking commission waived: nothing
+about what the driver owes changes (`driver_daily_fee_balance()`/
+`driver_commission_due_amount()` are untouched, so a payment afterward
+still charges the full amount) - it only lifts the block meanwhile, on
+the understanding it still gets collected. See
+`payment_access_override_until` in
+`0068_driver_payment_access_override.sql`: while it's in the future,
+`driver_daily_fee_paid()`, `claim_free_day_credit()` (the actual gate
+inside `enforce_delivery_update()`/`enforce_delivery_insert()`), and
+`driver_has_overdue_commission()` all treat the driver as clear. A
+dispatcher can revoke it early from the same screen.
 
 ### Confirming payments: dispatcher and super admin alike
 
@@ -1904,10 +2029,15 @@ supabase functions deploy notify-delivery-events
 
 ### Notes
 
-- **Customer and vendor phone numbers should be in international
-  format** (`+233XXXXXXXXX`, not `0XXXXXXXXX`) - Twilio rejects anything
-  else, and neither the public request form nor the dispatcher's
-  create-delivery form currently enforce that format.
+- **Every phone number field in the app** (driver/dispatcher signup and
+  admin forms, the public vendor/customer forms, the dispatcher's
+  create-delivery form, and the console's support/alert phone settings)
+  is validated and normalized to Ghana's international format
+  (`+233XXXXXXXXX`) via `GhanaPhone` in
+  `lib/shared/utils/ghana_phone.dart` - Twilio rejects anything else. A
+  person can type a local number (`024XXXXXXX`) or paste one with
+  `+233`/`233` already on it; it's converted before it's ever sent to the
+  backend.
 - The function only trusts the delivery's *id* and event type from the
   webhook payload - everything else (the driver's real name/phone, the
   customer's/vendor's real contact details) is re-fetched fresh from the
@@ -2351,13 +2481,22 @@ back out of. What shows up in the nav is role-based:
     recent-payments feed.
   - **Audit log** - a chronological record of who did what: role changes,
     staff added/removed, vendors registered/edited/(de)activated, drivers
-    assigned, deliveries created, and payments marked paid. Entries are
-    written by a `log_audit_event` database function the instant each
-    action succeeds elsewhere in the app, and only a super admin or
-    auditor can ever read them back (RLS on `audit_log` has no select
-    policy for anyone else, and there's no insert/update/delete policy at
-    all - the log can only grow, through that one function, never be
-    edited after the fact).
+    assigned, deliveries created, payments marked paid, and every
+    account's own sign-up/sign-in/sign-out (`user_signed_up`/
+    `user_signed_in`/`user_signed_out` - logged once, centrally, inside
+    `AuthRepository` itself, so there's exactly one place each of those
+    three actually happens and nothing can add a new call site that
+    forgets to log it). Entries are written by a `log_audit_event`
+    database function the instant each action succeeds elsewhere in the
+    app, and only a super admin or auditor can ever read them back (RLS
+    on `audit_log` has no select policy for anyone else, and there's no
+    insert/update/delete policy at all - the log can only grow, through
+    that one function, never be edited after the fact). A sign-out is
+    logged *before* the session is actually torn down, since the function
+    needs a live `auth.uid()` to attribute the entry; a failed sign-in
+    attempt is deliberately not logged here at all - the caller isn't
+    authenticated yet, and this table has no anon-writable path (by
+    design, to keep it from being a spam/log-flooding target).
   - **Onboarding** - a single triage view of recently added staff and
     vendors, flagging what's incomplete (a driver who hasn't set their
     own password yet, a vendor with no zone or a deactivated link) with a

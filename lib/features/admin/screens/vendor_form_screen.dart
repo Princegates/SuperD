@@ -10,6 +10,7 @@ import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/geocode_search.dart';
+import '../../../shared/utils/ghana_phone.dart';
 import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/utils/vendor_link.dart';
 import '../../../shared/widgets/address_autocomplete_field.dart';
@@ -137,7 +138,7 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
         await repo.updateVendor(
           id: vendor.id,
           vendorName: _nameController.text.trim(),
-          phone: _phoneController.text.trim(),
+          phone: GhanaPhone.normalize(_phoneController.text.trim())!,
           email: _emailController.text.trim(),
           zoneId: _zoneId,
           locationLat: _lat,
@@ -161,7 +162,7 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
           vendorName: _nameController.text.trim(),
           locationLat: _lat!,
           locationLng: _lng!,
-          phone: _phoneController.text.trim(),
+          phone: GhanaPhone.normalize(_phoneController.text.trim())!,
           email: _emailController.text.trim(),
           zoneId: _zoneId,
           createdBy: userId,
@@ -219,8 +220,7 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
                         decoration: const InputDecoration(
                           labelText: 'Telephone number',
                         ),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                        validator: GhanaPhone.validator(),
                       ),
                       const SizedBox(height: 14),
                       TextFormField(

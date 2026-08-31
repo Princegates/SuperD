@@ -63,10 +63,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
       return;
     }
     setState(() => _isSearching = true);
-    _debounce = Timer(
-      const Duration(milliseconds: 450),
-      () => _search(query),
-    );
+    _debounce = Timer(const Duration(milliseconds: 450), () => _search(query));
   }
 
   Future<void> _search(String query) async {
@@ -84,9 +81,7 @@ class _AddressAutocompleteFieldState extends State<AddressAutocompleteField> {
   void _select(GeocodeResult result) {
     widget.controller
       ..text = result.displayName
-      ..selection = TextSelection.collapsed(
-        offset: result.displayName.length,
-      );
+      ..selection = TextSelection.collapsed(offset: result.displayName.length);
     setState(() => _suggestions = const []);
     FocusScope.of(context).unfocus();
     widget.onPlaceSelected?.call(result);

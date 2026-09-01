@@ -121,6 +121,7 @@ supabase/
     0071_commission_payments_realtime.sql        adds commission_payments to the supabase_realtime publication - it was missing, so a driver's dashboard only cleared a settled commission after a full log-out/log-in instead of the moment payment went through
     0072_permission_overrides.sql                adds profiles.permission_overrides plus role_default_permission()/has_permission(), letting a super admin override one dispatcher/auditor's create_deliveries/manage_drivers/assign_drivers/manage_vendors individually - see "Per-staff permission overrides" above
     0073_customers_realtime.sql                  adds public.customers to the supabase_realtime publication - it was missing since the table's own migration (0055), so Console > Customers failed outright with a RealtimeSubscribeException/channelError every time instead of just missing live updates
+    0074_vendor_subscriptions.sql                 adds a one-time vendor subscription fee (app_settings.vendor_subscription_enabled/vendor_subscription_fee, vendors.subscription_fee_amount/subscription_payment_reference/subscription_paid_at) - see "Vendor subscription fee" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -134,7 +135,8 @@ supabase/
     admin-resend-tracking-link/    Edge Function: re-sends a delivery's tracking link (SMS/email) to its customer on demand, from a delivery's detail page
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
     paystack-daily-fee-charge/     Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Paystack
-    paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee charge resolves (public, no Supabase session)
+    paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee or vendor subscription charge resolves - one function, since Paystack only supports one webhook URL per account (public, no Supabase session)
+    paystack-vendor-subscription-charge/   Edge Function: charges a vendor's Mobile Money wallet for their one-time subscription fee via Paystack (public, no Supabase session)
     notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, both customer + vendor when a driver is assigned (plus a push to the driver), and the customer's delivery PIN on pickup
     notify-vendor-registered/      Edge Function: texts/emails a vendor their link when they register, and staff too (plus a push to staff)
     notify-driver-application/     Edge Function: emails staff (not SMS - see below) and texts/emails the applicant when a driver signs themselves up (plus a push to staff)
@@ -2318,6 +2320,66 @@ on its card - an inactive link stops accepting new delivery requests, but
 the vendor's existing orders and tracking page keep working. Deactivating
 never changes the vendor's `code`, so reactivating restores the exact same
 link.
+
+### Vendor subscription fee
+
+A super admin can require a **one-time fee** before a self-registered
+vendor's link goes live - **Console > Settings > Vendor subscription
+fee**: a master switch (off by default) plus the amount, in the app's own
+currency. While it's off, public signup behaves exactly like today - free
+and instantly active. Turn it on and set an amount above 0, and the next
+vendor who registers through the **public** `/vendor` page starts
+inactive, right on the signup page, with a "Pay a one-time activation fee
+of `<currency> <amount>`" screen instead of the usual link/success screen.
+A vendor an admin adds directly from **Vendors > Add vendor** is never
+gated by this either way - that's already a vetted relationship, not
+someone paying to self-serve.
+
+Payment is the same real-time Mobile Money flow already used for a
+driver's daily fee (**Paystack's Charge API**,
+`supabase/functions/paystack-vendor-subscription-charge`) - the vendor
+enters their number and network right there on the signup page, approves
+a prompt on their phone, and Paystack's webhook activates their link the
+moment it resolves. That webhook is the same
+`supabase/functions/paystack-daily-fee-webhook` function used for the
+driver daily fee, not a separate one - Paystack's dashboard only has one
+**Webhook URL** field per account, so a second function would just never
+get called; instead it branches on the payment reference's prefix to
+tell a vendor subscription from a driver daily fee. The signup page polls
+`get_vendor_by_code` every few seconds while waiting (this page has no
+login/session to push a live update through the way the daily-fee banner
+does) and swaps itself for the normal success screen - with the vendor's
+real public/orders links - the moment it sees the link go active. A
+retried charge just overwrites the previous attempt's Paystack reference,
+so trying again after a failed/abandoned one is safe.
+
+**This is a soft gate, not a hard block.** A super admin can activate a
+vendor waiting on payment at any time from **Console > Vendors**, using
+the exact same toggle already used to (de)activate any other vendor -
+regardless of whether they've actually paid. A vendor in this state shows
+a **"Payment pending"** badge there instead of the usual "Inactive" one,
+so it's clear at a glance which vendors are waiting on the fee versus
+manually deactivated for some other reason. There's no automatic
+follow-up (a reminder, an expiry, a hard cutoff) - this is deliberately
+the simplest version of the idea: a one-time fee at signup, not a
+recurring subscription. A recurring monthly charge is a reasonable
+follow-up if it's ever needed, but needs its own design (grace periods,
+what happens on a missed renewal, and so on) - see **Roadmap ideas**
+below.
+
+Needs the same `PAYSTACK_SECRET_KEY` secret as the driver daily fee (see
+**Setting up real Paystack collection** under **Driver daily fee** above
+for how to get one) - no separate signup. Deploy the new charge function,
+and redeploy the webhook function since its code changed:
+
+```bash
+supabase functions deploy paystack-vendor-subscription-charge
+supabase functions deploy paystack-daily-fee-webhook
+```
+
+No Paystack dashboard changes are needed - the webhook URL is unchanged,
+it's the same one already configured for the driver daily fee (see
+**Setting up real Paystack collection** above), now handling both.
 
 The trash icon **permanently deletes** a vendor instead - unlike
 deactivating, this can't be undone, and Postgres rejects it outright if

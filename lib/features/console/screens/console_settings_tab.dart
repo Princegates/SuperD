@@ -38,6 +38,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   final _supportPhoneController = TextEditingController();
   final _adminAlertEmailController = TextEditingController();
   final _adminAlertPhoneController = TextEditingController();
+  final _vendorSubscriptionFeeController = TextEditingController();
   String? _syncedFromSettings;
   bool _isSavingPricing = false;
   bool _isSavingCommission = false;
@@ -47,6 +48,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
   bool _isSavingAutoAssignRadius = false;
   bool _isSavingSupportPhone = false;
   bool _isSavingAdminAlerts = false;
+  bool _isSavingVendorSubscriptionFee = false;
 
   @override
   void dispose() {
@@ -61,6 +63,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
     _supportPhoneController.dispose();
     _adminAlertEmailController.dispose();
     _adminAlertPhoneController.dispose();
+    _vendorSubscriptionFeeController.dispose();
     super.dispose();
   }
 
@@ -98,6 +101,43 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
           ? 'Enabled driver sign-in on the web dashboard'
           : 'Disabled driver sign-in on the web dashboard',
     );
+  }
+
+  Future<void> _toggleVendorSubscription(WidgetRef ref, bool enabled) async {
+    await ref
+        .read(settingsRepositoryProvider)
+        .setVendorSubscriptionEnabled(enabled);
+    await logAuditEvent(
+      ref.read(supabaseClientProvider),
+      action: 'vendor_subscription_toggled',
+      entityType: 'app_settings',
+      summary: enabled
+          ? 'Turned on the vendor subscription fee'
+          : 'Turned off the vendor subscription fee',
+    );
+  }
+
+  Future<void> _saveVendorSubscriptionFee(double fee) async {
+    setState(() => _isSavingVendorSubscriptionFee = true);
+    try {
+      await ref
+          .read(settingsRepositoryProvider)
+          .updateVendorSubscriptionFee(fee);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'vendor_subscription_fee_changed',
+        entityType: 'app_settings',
+        summary: 'Changed the vendor subscription fee to '
+            '${fee.toStringAsFixed(2)}',
+      );
+    } on ArgumentError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _isSavingVendorSubscriptionFee = false);
+    }
   }
 
   Future<void> _toggleDriverCommission(WidgetRef ref, bool enabled) async {
@@ -329,7 +369,8 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
             '${settings.zoneAutoAssignCap}|${settings.zoneDetectionRadiusKm}|'
             '${settings.autoAssignRadiusKm}|'
             '${settings.supportPhone}|'
-            '${settings.adminAlertEmail}|${settings.adminAlertPhone}';
+            '${settings.adminAlertEmail}|${settings.adminAlertPhone}|'
+            '${settings.vendorSubscriptionFee}';
         if (_syncedFromSettings != syncKey) {
           _syncedFromSettings = syncKey;
           _baseFareController.text = settings.baseFare.toStringAsFixed(2);
@@ -349,6 +390,9 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
           _supportPhoneController.text = settings.supportPhone ?? '';
           _adminAlertEmailController.text = settings.adminAlertEmail ?? '';
           _adminAlertPhoneController.text = settings.adminAlertPhone ?? '';
+          _vendorSubscriptionFeeController.text = settings
+              .vendorSubscriptionFee
+              .toStringAsFixed(2);
         }
         final content = ListView(
           padding: const EdgeInsets.all(16),
@@ -1151,6 +1195,99 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       'driver experience in a browser before the Android/iOS '
                       'apps are ready, then turn it back off once they are.',
                       style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            'Vendor subscription fee',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                        Switch(
+                          value: settings.vendorSubscriptionEnabled,
+                          onChanged: (value) =>
+                              _toggleVendorSubscription(ref, value),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Master switch for a one-time fee a vendor pays via '
+                      'Mobile Money right on the public "Register your '
+                      'business" page before their link goes live. Off by '
+                      'default - registration stays free and instantly '
+                      'active until you turn this on. Only applies to a '
+                      'vendor who registers themselves; one you add '
+                      'directly from Console > Vendors is never charged. '
+                      "A vendor who hasn't paid shows a \"Payment pending\" "
+                      'badge there - this is a soft gate, not a hard '
+                      'block, so you can still activate them by hand at '
+                      'any time regardless.',
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _vendorSubscriptionFeeController,
+                            keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true,
+                            ),
+                            decoration: InputDecoration(
+                              labelText: 'One-time fee (${settings.currency})',
+                              border: const OutlineInputBorder(),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        FilledButton(
+                          onPressed: _isSavingVendorSubscriptionFee
+                              ? null
+                              : () {
+                                  final fee = double.tryParse(
+                                    _vendorSubscriptionFeeController.text
+                                        .trim(),
+                                  );
+                                  if (fee == null || fee < 0) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          'Enter a fee of 0 or more.',
+                                        ),
+                                      ),
+                                    );
+                                    return;
+                                  }
+                                  _saveVendorSubscriptionFee(fee);
+                                },
+                          child: _isSavingVendorSubscriptionFee
+                              ? const SizedBox(
+                                  height: 18,
+                                  width: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text('Save'),
+                        ),
+                      ],
                     ),
                   ],
                 ),

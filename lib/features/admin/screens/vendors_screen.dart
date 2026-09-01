@@ -237,15 +237,28 @@ class _VendorCard extends ConsumerWidget {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: AppTheme.danger.withValues(alpha: 0.12),
+                      color:
+                          (vendor.isPaymentPending
+                                  ? AppTheme.warning
+                                  : AppTheme.danger)
+                              .withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: const Text(
-                      'Inactive',
+                    child: Text(
+                      // A vendor still owing their one-time subscription
+                      // fee (see 0074_vendor_subscriptions.sql) gets a
+                      // more specific badge than a plain "Inactive" -
+                      // this is a soft gate (the toggle below still
+                      // activates them regardless of payment), so it's
+                      // meant to explain *why* they're inactive, not just
+                      // that they are.
+                      vendor.isPaymentPending ? 'Payment pending' : 'Inactive',
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: AppTheme.danger,
+                        color: vendor.isPaymentPending
+                            ? AppTheme.warning
+                            : AppTheme.danger,
                       ),
                     ),
                   ),

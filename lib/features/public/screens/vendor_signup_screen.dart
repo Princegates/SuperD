@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +9,8 @@ import 'package:latlong2/latlong.dart';
 import '../../../core/config/env.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/repositories/vendor_repository.dart'
+    show VendorSubscriptionException;
 import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/geocode_search.dart';
@@ -147,9 +151,8 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
             constraints: const BoxConstraints(maxWidth: 480),
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(20),
-              child: _registration != null
-                  ? _SuccessCard(registration: _registration!)
-                  : Form(
+              child: _registration == null
+                  ? Form(
                       key: _formKey,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -272,7 +275,12 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
                           ),
                         ],
                       ),
-                    ),
+                    )
+                  : (_registration!.isActive
+                        ? _SuccessCard(registration: _registration!)
+                        : _SubscriptionPaymentCard(
+                            registration: _registration!,
+                          )),
             ),
           ),
         ),
@@ -324,6 +332,208 @@ class _SuccessCard extends StatelessWidget {
           onPressed: () =>
               context.go('/vendor-orders/${registration.ordersCode}'),
           child: const Text('View my orders'),
+        ),
+      ],
+    );
+  }
+}
+
+const _networks = [
+  (value: 'mtn-gh', label: 'MTN Mobile Money'),
+  (value: 'vodafone-gh', label: 'Vodafone Cash'),
+  (value: 'tigo-gh', label: 'AirtelTigo Money'),
+];
+
+/// Shown instead of [_SuccessCard] right after registering, when the
+/// one-time subscription fee is on (`0074_vendor_subscriptions.sql`) -
+/// the new vendor's link stays inactive until they pay it here, via the
+/// same real-time Mobile Money flow a driver already uses for their
+/// daily fee (see `DailyFeeBanner`). Polls [VendorRepository.fetchVendorByCode]
+/// after a charge attempt to notice the moment Paystack's webhook
+/// activates the link, then swaps itself for the usual success screen -
+/// there's no session here to push a live update through instead.
+class _SubscriptionPaymentCard extends ConsumerStatefulWidget {
+  const _SubscriptionPaymentCard({required this.registration});
+
+  final VendorRegistration registration;
+
+  @override
+  ConsumerState<_SubscriptionPaymentCard> createState() =>
+      _SubscriptionPaymentCardState();
+}
+
+class _SubscriptionPaymentCardState
+    extends ConsumerState<_SubscriptionPaymentCard> {
+  final _phoneController = TextEditingController();
+  String _network = _networks.first.value;
+  bool _isCharging = false;
+  bool _isPolling = false;
+  Timer? _pollTimer;
+  String? _message;
+  String? _error;
+  VendorPublicInfo? _status;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_refreshStatus());
+  }
+
+  @override
+  void dispose() {
+    _pollTimer?.cancel();
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refreshStatus() async {
+    final info = await ref
+        .read(vendorRepositoryProvider)
+        .fetchVendorByCode(widget.registration.code);
+    if (mounted) setState(() => _status = info);
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    setState(() => _isPolling = true);
+    _pollTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      final info = await ref
+          .read(vendorRepositoryProvider)
+          .fetchVendorByCode(widget.registration.code);
+      if (!mounted) return;
+      setState(() => _status = info);
+      if (info?.isActive == true) {
+        _pollTimer?.cancel();
+        setState(() => _isPolling = false);
+      }
+    });
+  }
+
+  Future<void> _pay() async {
+    final phone = _phoneController.text.trim();
+    if (phone.isEmpty) {
+      setState(() => _error = 'Enter a Mobile Money number.');
+      return;
+    }
+    setState(() {
+      _isCharging = true;
+      _error = null;
+      _message = null;
+    });
+    try {
+      final message = await ref
+          .read(vendorRepositoryProvider)
+          .payVendorSubscription(
+            code: widget.registration.code,
+            phone: phone,
+            network: _network,
+          );
+      if (mounted) {
+        setState(() => _message = message);
+        _startPolling();
+      }
+    } on VendorSubscriptionException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _isCharging = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_status?.isActive == true) {
+      return _SuccessCard(registration: widget.registration);
+    }
+
+    final fee = _status?.subscriptionFeeAmount;
+    final currency = _status?.currency ?? 'GHS';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Icon(Icons.payments_outlined, color: AppTheme.primary, size: 56),
+        const SizedBox(height: 12),
+        const Text(
+          "You're almost there",
+          textAlign: TextAlign.center,
+          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 20),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          fee == null
+              ? 'Pay a one-time activation fee to start accepting orders.'
+              : 'Pay a one-time activation fee of $currency '
+                    '${fee.toStringAsFixed(2)} to start accepting orders.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.black54),
+        ),
+        const SizedBox(height: 20),
+        TextField(
+          controller: _phoneController,
+          keyboardType: TextInputType.phone,
+          decoration: const InputDecoration(labelText: 'Mobile Money number'),
+        ),
+        const SizedBox(height: 12),
+        DropdownButtonFormField<String>(
+          initialValue: _network,
+          decoration: const InputDecoration(labelText: 'Network'),
+          items: [
+            for (final n in _networks)
+              DropdownMenuItem(value: n.value, child: Text(n.label)),
+          ],
+          onChanged: (value) => setState(() => _network = value!),
+        ),
+        const SizedBox(height: 14),
+        ElevatedButton(
+          onPressed: _isCharging ? null : _pay,
+          child: _isCharging
+              ? const SizedBox(
+                  height: 20,
+                  width: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2.4),
+                )
+              : const Text('Pay via Mobile Money'),
+        ),
+        if (_isPolling) ...[
+          const SizedBox(height: 16),
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              SizedBox(
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+              SizedBox(width: 10),
+              Text('Waiting for confirmation...'),
+            ],
+          ),
+        ],
+        if (_message != null) ...[
+          const SizedBox(height: 14),
+          Text(
+            _message!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              color: AppTheme.success,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+        if (_error != null) ...[
+          const SizedBox(height: 14),
+          Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: AppTheme.danger),
+          ),
+        ],
+        const SizedBox(height: 8),
+        Center(
+          child: TextButton(
+            onPressed: _isPolling ? null : _refreshStatus,
+            child: const Text('Already paid? Check again'),
+          ),
         ),
       ],
     );

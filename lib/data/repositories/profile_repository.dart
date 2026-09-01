@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/driver_vehicle_type.dart';
 import '../../models/profile.dart';
+import '../../models/staff_permission.dart';
 import '../../models/user_role.dart';
 import '../../shared/utils/resilient_stream.dart';
 
@@ -104,6 +105,37 @@ class ProfileRepository {
     await _client
         .from('profiles')
         .update({'role': role.wireValue})
+        .eq('id', userId);
+  }
+
+  /// Sets [userId]'s permission override for [permission] to [allowed] -
+  /// or, with [allowed] null, clears the override so that permission falls
+  /// back to their role's normal default. Only takes effect server-side if
+  /// the caller is a super admin - enforced by
+  /// `enforce_permission_overrides_change()`, not just this client. Reads
+  /// the row back first since this is a read-modify-write on a single
+  /// jsonb column, not a column that can be patched independently.
+  Future<void> setPermissionOverride({
+    required String userId,
+    required StaffPermission permission,
+    required bool? allowed,
+  }) async {
+    final row = await _client
+        .from('profiles')
+        .select('permission_overrides')
+        .eq('id', userId)
+        .single();
+    final overrides = Map<String, dynamic>.from(
+      row['permission_overrides'] as Map<String, dynamic>? ?? {},
+    );
+    if (allowed == null) {
+      overrides.remove(permission.wireValue);
+    } else {
+      overrides[permission.wireValue] = allowed;
+    }
+    await _client
+        .from('profiles')
+        .update({'permission_overrides': overrides})
         .eq('id', userId);
   }
 
@@ -245,6 +277,23 @@ class ProfileRepository {
     required String residentialAddress,
   }) => _createStaffAccount(
     role: UserRole.dispatcher,
+    email: email,
+    fullName: fullName,
+    phone: phone,
+    dateOfBirth: dateOfBirth,
+    residentialAddress: residentialAddress,
+  );
+
+  /// Creates an auditor's login and profile via the same Edge Function.
+  /// Only a super admin may call this - enforced server-side too.
+  Future<({String tempPassword, bool emailSent})> createAuditor({
+    required String email,
+    required String fullName,
+    required String phone,
+    required DateTime dateOfBirth,
+    required String residentialAddress,
+  }) => _createStaffAccount(
+    role: UserRole.auditor,
     email: email,
     fullName: fullName,
     phone: phone,

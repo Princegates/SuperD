@@ -4,9 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
+import '../../../models/staff_permission.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivery_card.dart';
 import '../../../shared/widgets/staggered_list_item.dart';
@@ -45,6 +47,11 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final canCreateDeliveries =
+        ref.watch(currentProfileProvider).valueOrNull?.hasPermission(
+              StaffPermission.createDeliveries,
+            ) ??
+        false;
     final deliveriesState = ref.watch(allDeliveriesProvider);
     final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
     final driverNames = {for (final d in drivers) d.id: d.displayName};
@@ -94,11 +101,13 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     });
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/admin/new'),
-        icon: const Icon(Icons.add),
-        label: const Text('New delivery'),
-      ),
+      floatingActionButton: canCreateDeliveries
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/admin/new'),
+              icon: const Icon(Icons.add),
+              label: const Text('New delivery'),
+            )
+          : null,
       body: Column(
         children: [
           if (deliveriesState.valueOrNull case final all?)

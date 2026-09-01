@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../models/driver_vehicle_type.dart';
 import '../../../models/profile.dart';
+import '../../../models/staff_permission.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/widgets/async_value_view.dart';
@@ -177,15 +178,19 @@ class DriversScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final myProfile = ref.watch(currentProfileProvider).valueOrNull;
     final isSuperAdmin = myProfile?.role == UserRole.superAdmin;
+    final canManageDrivers =
+        myProfile?.hasPermission(StaffPermission.manageDrivers) ?? false;
     final driversAsync = ref.watch(driversListProvider);
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () =>
-            context.push('/admin/team/new', extra: UserRole.driver),
-        icon: const Icon(Icons.person_add_alt_1),
-        label: const Text('Add driver'),
-      ),
+      floatingActionButton: canManageDrivers
+          ? FloatingActionButton.extended(
+              onPressed: () =>
+                  context.push('/admin/team/new', extra: UserRole.driver),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Add driver'),
+            )
+          : null,
       body: AsyncValueView<List<Profile>>(
         value: driversAsync,
         data: (drivers) {
@@ -238,6 +243,7 @@ class DriversScreen extends ConsumerWidget {
                         person: driver,
                         isMe: driver.id == myProfile?.id,
                         isSuperAdmin: isSuperAdmin,
+                        canManageDriver: canManageDrivers,
                         onToggleActive: () =>
                             _toggleActive(context, ref, driver),
                         onToggleFrozen: () =>

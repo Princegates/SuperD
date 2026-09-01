@@ -9,6 +9,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../models/driver_vehicle_type.dart';
 import '../../../models/profile.dart';
+import '../../../models/staff_permission.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/ghana_phone.dart';
@@ -195,34 +196,43 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
           ..invalidate(driversListProvider);
         if (mounted) context.pop();
       } else {
-        final result = _isDriver
-            ? await repo.createDriver(
-                email: _emailController.text.trim(),
-                fullName: _nameController.text.trim(),
-                phone: GhanaPhone.normalize(_phoneController.text.trim()),
-                ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
-                vehicleNumber: _emptyToNull(_vehicleController.text),
-                vehicleType: _vehicleType,
-                residentialAddress: _emptyToNull(
-                  _residentialAddressController.text,
-                ),
-                dateOfBirth: _dateOfBirth,
-                drivingLicenseNumber: _emptyToNull(
-                  _licenseNumberController.text,
-                ),
-                drivingLicenseExpiry: _licenseExpiry,
-                vehicleInsuranceNumber: _emptyToNull(
-                  _insuranceNumberController.text,
-                ),
-                vehicleInsuranceExpiry: _insuranceExpiry,
-              )
-            : await repo.createDispatcher(
+        final result = switch (widget.role) {
+          UserRole.driver => await repo.createDriver(
+            email: _emailController.text.trim(),
+            fullName: _nameController.text.trim(),
+            phone: GhanaPhone.normalize(_phoneController.text.trim()),
+            ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
+            vehicleNumber: _emptyToNull(_vehicleController.text),
+            vehicleType: _vehicleType,
+            residentialAddress: _emptyToNull(
+              _residentialAddressController.text,
+            ),
+            dateOfBirth: _dateOfBirth,
+            drivingLicenseNumber: _emptyToNull(
+              _licenseNumberController.text,
+            ),
+            drivingLicenseExpiry: _licenseExpiry,
+            vehicleInsuranceNumber: _emptyToNull(
+              _insuranceNumberController.text,
+            ),
+            vehicleInsuranceExpiry: _insuranceExpiry,
+          ),
+          UserRole.auditor => await repo.createAuditor(
+            email: _emailController.text.trim(),
+            fullName: _nameController.text.trim(),
+            phone: GhanaPhone.normalize(_phoneController.text.trim())!,
+            dateOfBirth: _dateOfBirth!,
+            residentialAddress: _residentialAddressController.text.trim(),
+          ),
+          UserRole.dispatcher || UserRole.superAdmin => await repo
+              .createDispatcher(
                 email: _emailController.text.trim(),
                 fullName: _nameController.text.trim(),
                 phone: GhanaPhone.normalize(_phoneController.text.trim())!,
                 dateOfBirth: _dateOfBirth!,
                 residentialAddress: _residentialAddressController.text.trim(),
-              );
+              ),
+        };
         await logAuditEvent(
           ref.read(supabaseClientProvider),
           action: 'staff_created',
@@ -516,6 +526,13 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                     ),
                   ],
                 ],
+                if (widget.isEditing &&
+                    callerIsSuperAdmin &&
+                    (widget.role == UserRole.dispatcher ||
+                        widget.role == UserRole.auditor)) ...[
+                  const SizedBox(height: 20),
+                  _PermissionOverridesSection(person: widget.existing!),
+                ],
                 if (_errorMessage != null) ...[
                   const SizedBox(height: 16),
                   Text(
@@ -548,3 +565,162 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
     );
   }
 }
+
+/// Lets a super admin fine-tune one dispatcher/auditor's permissions
+/// beyond their role's normal defaults - a key present in
+/// [Profile.permissionOverrides] wins outright; "Default" clears it back
+/// to whatever the role normally gets. Applies immediately on selection
+/// (a plain profile update, not part of the surrounding form's submit),
+/// same as [RoleControl] on the Team screen changing a role.
+class _PermissionOverridesSection extends ConsumerWidget {
+  const _PermissionOverridesSection({required this.person});
+
+  final Profile person;
+
+  Future<void> _setOverride(
+    BuildContext context,
+    WidgetRef ref,
+    StaffPermission permission,
+    bool? allowed,
+  ) async {
+    try {
+      await ref.read(profileRepositoryProvider).setPermissionOverride(
+        userId: person.id,
+        permission: permission,
+        allowed: allowed,
+      );
+      ref.invalidate(allProfilesProvider);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not update that permission')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Re-reads the live profile rather than trusting [person] (which is
+    // whatever was passed in when this screen opened) so a toggle here
+    // reflects immediately, and survives this section being rebuilt after
+    // another toggle.
+    final live =
+        ref.watch(allProfilesProvider).valueOrNull?.firstWhere(
+              (p) => p.id == person.id,
+              orElse: () => person,
+            ) ??
+        person;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Permissions',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              "Overrides ${live.role.label.toLowerCase()}s' usual "
+              "permissions for ${live.displayName} specifically.",
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
+            const SizedBox(height: 12),
+            for (final permission in StaffPermission.values)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(child: Text(permission.label)),
+                    _PermissionChip(
+                      allowed: live.permissionOverrides[permission.wireValue],
+                      roleDefault: live.roleDefaultPermission(permission),
+                      onSelected: (allowed) =>
+                          _setOverride(context, ref, permission, allowed),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PermissionChip extends StatelessWidget {
+  const _PermissionChip({
+    required this.allowed,
+    required this.roleDefault,
+    required this.onSelected,
+  });
+
+  /// The explicit override, if any - null means "no override, using the
+  /// role default".
+  final bool? allowed;
+  final bool roleDefault;
+  final ValueChanged<bool?> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = (allowed ?? roleDefault) ? AppTheme.success : AppTheme.danger;
+    final label = allowed == null
+        ? 'Default (${roleDefault ? 'allowed' : 'denied'})'
+        : (allowed! ? 'Always allowed' : 'Always denied');
+    // PopupMenuButton can't tell "the user picked the null-valued item"
+    // apart from "the user dismissed the menu without picking anything" -
+    // both come back as a null result from showMenu() internally, and it
+    // only calls onSelected for the former. Routing through this
+    // non-nullable enum and translating back to bool? afterward sidesteps
+    // that entirely, instead of silently dropping every tap on "Default".
+    return PopupMenuButton<_OverrideChoice>(
+      tooltip: 'Change this permission',
+      onSelected: (choice) => onSelected(switch (choice) {
+        _OverrideChoice.useDefault => null,
+        _OverrideChoice.allow => true,
+        _OverrideChoice.deny => false,
+      }),
+      itemBuilder: (context) => [
+        PopupMenuItem(
+          value: _OverrideChoice.useDefault,
+          child: Text('Default (${roleDefault ? 'allowed' : 'denied'})'),
+        ),
+        const PopupMenuItem(
+          value: _OverrideChoice.allow,
+          child: Text('Always allow'),
+        ),
+        const PopupMenuItem(
+          value: _OverrideChoice.deny,
+          child: Text('Always deny'),
+        ),
+      ],
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 2),
+            Icon(Icons.arrow_drop_down, size: 16, color: color),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+enum _OverrideChoice { useDefault, allow, deny }

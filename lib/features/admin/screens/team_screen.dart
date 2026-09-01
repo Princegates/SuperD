@@ -109,6 +109,37 @@ class TeamScreen extends ConsumerWidget {
     }
   }
 
+  Future<void> _pickRoleAndAdd(BuildContext context) async {
+    final role = await showModalBottomSheet<UserRole>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.support_agent_outlined),
+              title: const Text('Add dispatcher'),
+              subtitle: const Text('Runs day-to-day dispatch operations'),
+              onTap: () => Navigator.of(context).pop(UserRole.dispatcher),
+            ),
+            ListTile(
+              leading: const Icon(Icons.fact_check_outlined),
+              title: const Text('Add auditor'),
+              subtitle: const Text(
+                'Same dispatch access as a dispatcher; read-only on the '
+                'admin-only Console tabs',
+              ),
+              onTap: () => Navigator.of(context).pop(UserRole.auditor),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (role != null && context.mounted) {
+      context.push('/admin/team/new', extra: role);
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final myProfile = ref.watch(currentProfileProvider).valueOrNull;
@@ -118,10 +149,9 @@ class TeamScreen extends ConsumerWidget {
     return Scaffold(
       floatingActionButton: isSuperAdmin
           ? FloatingActionButton.extended(
-              onPressed: () =>
-                  context.push('/admin/team/new', extra: UserRole.dispatcher),
+              onPressed: () => _pickRoleAndAdd(context),
               icon: const Icon(Icons.person_add_alt_1),
-              label: const Text('Add dispatcher'),
+              label: const Text('Add team member'),
             )
           : null,
       body: AsyncValueView<List<Profile>>(
@@ -143,7 +173,7 @@ class TeamScreen extends ConsumerWidget {
                 padding: const EdgeInsets.all(24),
                 child: Text(
                   isSuperAdmin
-                      ? 'No other staff yet. Tap "Add dispatcher" below.'
+                      ? 'No other staff yet. Tap "Add team member" below.'
                       : 'No other staff yet.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey.shade600),

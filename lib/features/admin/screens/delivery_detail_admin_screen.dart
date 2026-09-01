@@ -12,6 +12,7 @@ import '../../../data/repositories/delivery_repository.dart'
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
+import '../../../models/staff_permission.dart';
 import '../../../models/user_role.dart';
 import '../../../models/zone.dart';
 import '../../../shared/providers/delivery_detail_providers.dart';
@@ -465,6 +466,11 @@ class _AssignedDriverCardState extends ConsumerState<_AssignedDriverCard> {
   @override
   Widget build(BuildContext context) {
     final delivery = widget.delivery;
+    final canAssign =
+        ref.watch(currentProfileProvider).valueOrNull?.hasPermission(
+              StaffPermission.assignDrivers,
+            ) ??
+        false;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -500,7 +506,12 @@ class _AssignedDriverCardState extends ConsumerState<_AssignedDriverCard> {
             DropdownButtonFormField<String?>(
               key: ValueKey(_resetCount),
               initialValue: delivery.assignedDriverId,
-              decoration: const InputDecoration(labelText: 'Driver'),
+              decoration: InputDecoration(
+                labelText: 'Driver',
+                helperText: canAssign
+                    ? null
+                    : "You don't have permission to assign drivers",
+              ),
               items: [
                 const DropdownMenuItem<String?>(
                   value: null,
@@ -512,7 +523,7 @@ class _AssignedDriverCardState extends ConsumerState<_AssignedDriverCard> {
                     child: Text(driver.displayName),
                   ),
               ],
-              onChanged: delivery.status == DeliveryStatus.cancelled
+              onChanged: (delivery.status == DeliveryStatus.cancelled || !canAssign)
                   ? null
                   : _assignDriver,
             ),

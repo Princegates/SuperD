@@ -1,4 +1,5 @@
 import 'driver_vehicle_type.dart';
+import 'staff_permission.dart';
 import 'user_role.dart';
 
 class Profile {
@@ -37,6 +38,13 @@ class Profile {
   /// `0068_driver_payment_access_override.sql`.
   final DateTime? paymentAccessOverrideUntil;
   final UserRole role;
+
+  /// Per-account permission overrides on top of [role]'s defaults - a key
+  /// present here (true or false) wins; a key absent falls back to
+  /// [hasPermission]'s role-based default. Only ever non-empty for a
+  /// dispatcher/auditor a super admin has specifically overridden - see
+  /// `0072_permission_overrides.sql`.
+  final Map<String, bool> permissionOverrides;
   final bool isActive;
   final bool isOnline;
   final bool isFrozen;
@@ -64,6 +72,7 @@ class Profile {
     this.vehicleInsuranceExpiry,
     this.dailyFeeTierOverrideId,
     this.paymentAccessOverrideUntil,
+    this.permissionOverrides = const {},
     this.isActive = true,
     this.isOnline = false,
     this.isFrozen = false,
@@ -101,6 +110,9 @@ class Profile {
           ? null
           : DateTime.tryParse(map['payment_access_override_until'] as String),
       role: UserRole.fromString(map['role'] as String? ?? 'driver'),
+      permissionOverrides: (map['permission_overrides'] as Map<String, dynamic>?)
+              ?.map((key, value) => MapEntry(key, value as bool)) ??
+          const {},
       isActive: map['is_active'] as bool? ?? true,
       isOnline: map['is_online'] as bool? ?? false,
       isFrozen: map['is_frozen'] as bool? ?? false,
@@ -117,6 +129,32 @@ class Profile {
   }
 
   String get displayName => fullName.isNotEmpty ? fullName : email;
+
+  /// Whether this account may do [permission] right now - an explicit
+  /// override always wins; absent that, a super admin always can, a
+  /// dispatcher/auditor can for every [StaffPermission] as things stand
+  /// today, and a driver never can. Mirrors `has_permission()`/
+  /// `role_default_permission()` in `0072_permission_overrides.sql` - the
+  /// database is still the real enforcement point (this is only for
+  /// deciding what the UI shows), so keep the two in sync if either
+  /// changes.
+  bool hasPermission(StaffPermission permission) {
+    if (role == UserRole.superAdmin) return true;
+    final override = permissionOverrides[permission.wireValue];
+    if (override != null) return override;
+    return roleDefaultPermission(permission);
+  }
+
+  /// What [role] gets for [permission] with any override ignored - use
+  /// this only to label the "Default (...)" choice in the permissions
+  /// editor; [hasPermission] (override-aware) is what actually decides
+  /// access. Mirrors `role_default_permission()` in
+  /// `0072_permission_overrides.sql`.
+  bool roleDefaultPermission(StaffPermission permission) {
+    return role == UserRole.superAdmin ||
+        role == UserRole.dispatcher ||
+        role == UserRole.auditor;
+  }
 
   /// Whether a granted [paymentAccessOverrideUntil] is still in effect
   /// right now.

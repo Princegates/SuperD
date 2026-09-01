@@ -119,14 +119,15 @@ supabase/
     0069_driver_signup_throttle.sql                per-phone-number throttle (3/day) on driver self-signup, since it can't use the Turnstile CAPTCHA the two anonymous web forms use - a check_driver_signup_throttle() pre-check for a clean error message, backed by a before-insert trigger on auth.users as the real backstop
     0070_driver_license_and_insurance.sql          adds driving_license_number/expiry and vehicle_insurance_number/expiry to profiles, and has handle_new_user() pick them up (plus date_of_birth, now collected for drivers too, not just dispatchers) - all four required going forward on both the driver signup form and admin-create-driver, though not a database constraint (existing drivers predate this)
     0071_commission_payments_realtime.sql        adds commission_payments to the supabase_realtime publication - it was missing, so a driver's dashboard only cleared a settled commission after a full log-out/log-in instead of the moment payment went through
+    0072_permission_overrides.sql                adds profiles.permission_overrides plus role_default_permission()/has_permission(), letting a super admin override one dispatcher/auditor's create_deliveries/manage_drivers/assign_drivers/manage_vendors individually - see "Per-staff permission overrides" above
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
     public-submit-delivery-request/  Edge Function: verifies a Turnstile token, then calls submit_delivery_request() with the caller's real IP - the only way anon can reach it since 0059
     public-register-vendor/        Edge Function: verifies a Turnstile token, then calls register_vendor() with the caller's real IP - the only way anon can reach it since 0059
-    admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
-    admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
-    admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
+    admin-create-driver/           Edge Function: creates a driver's, dispatcher's, or auditor's login
+    admin-delete-driver/           Edge Function: deletes a driver's, dispatcher's, or auditor's login
+    admin-update-email/            Edge Function: fixes a driver's, dispatcher's, or auditor's email
     admin-resend-vendor-link/      Edge Function: re-sends a vendor's own link (SMS/email) on demand, from Console > Vendors
     admin-resend-tracking-link/    Edge Function: re-sends a delivery's tracking link (SMS/email) to its customer on demand, from a delivery's detail page
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
@@ -193,11 +194,12 @@ supabase/
 
 ### Promote your first super admin
 
-Dispatcher and super admin accounts are always created deliberately, from
-the Team screen by an existing super admin — there's no self-signup for
-either role. (A driver can create their own account from the native app,
-pending approval - see **Driver self-signup** below - but that's the one
-exception.) For the very first account, create it straight from Supabase:
+Dispatcher, auditor, and super admin accounts are always created
+deliberately, from the Team screen by an existing super admin — there's no
+self-signup for any of the three. (A driver can create their own account
+from the native app, pending approval - see **Driver self-signup** below -
+but that's the one exception.) For the very first account, create it
+straight from Supabase:
 
 1. Supabase dashboard → **Authentication → Users → Add user** (email +
    password, and toggle **Auto Confirm User** on so it doesn't wait on a
@@ -834,26 +836,28 @@ A driver signing themselves up (see **Driver self-signup** below) fills in
 the same fields on their own signup form, with the same insurance
 exception - there's no gap between the two paths.
 
-Super admins can also add, edit, and remove **dispatchers** from the
-**Team** screen the same way — Full name, date of birth, email, telephone
-number, and residential address are all required for a dispatcher (checked
-both in the form and server-side). Team is super-admin-only: dispatcher
-management is exclusive to the super admin role, since dispatchers managing
-other dispatchers would be a peer managing peers. A super admin's own
-account can't be removed from either screen either way; that's not a
-roster edit.
+Super admins can also add, edit, and remove **dispatchers** and
+**auditors** from the **Team** screen the same way — its "Add team member"
+FAB opens a picker between the two roles before handing off to the same
+form. Full name, date of birth, email, telephone number, and residential
+address are all required for either (checked both in the form and
+server-side). Team is super-admin-only: dispatcher/auditor management is
+exclusive to the super admin role, since a dispatcher or auditor managing
+their peers would be a peer managing peers. A super admin's own account
+can't be removed from either screen either way; that's not a roster edit.
 
-Both screens have a toggle to deactivate an existing driver/dispatcher; on
-Drivers, the same toggle also approves a driver who signed themselves up
-(see **Driver self-signup** above) - an inactive driver shows a "Pending
-approval" badge and can't be assigned deliveries until switched on.
+Both screens have a toggle to deactivate an existing driver/dispatcher/
+auditor; on Drivers, the same toggle also approves a driver who signed
+themselves up (see **Driver self-signup** above) - an inactive driver shows
+a "Pending approval" badge and can't be assigned deliveries until switched
+on.
 
 Creating or deleting a login needs Supabase's admin API, which requires the
 project's service-role key. That key must never be embedded in the app
 (anyone could pull it out of the APK and get full database access), so
 those actions go through a trio of Edge Functions instead — the
 service-role key lives only on Supabase's servers, never on a device. The
-same functions handle both drivers and dispatchers.
+same functions handle drivers, dispatchers, and auditors alike.
 
 ### Supabase Cloud
 
@@ -885,8 +889,8 @@ inside every Edge Function — no need to set those yourself.
 
 ### Emailing the new account its password
 
-**Add driver**/**Add dispatcher** generate a random temporary password and
-email it straight to the new hire, using the same
+**Add driver**/**Add dispatcher**/**Add auditor** generate a random temporary
+password and email it straight to the new hire, using the same
 [Resend](https://resend.com) account you set up for password-reset emails
 (see **Enable "Forgot password?"** below — skip ahead if you haven't set
 that up yet). Give the Edge Function that same Resend API key as a secret:
@@ -933,10 +937,48 @@ works — "Add", "Remove", and a super admin's email fix will just show an
 error until they're deployed. Editing other fields and self-signup are
 unaffected.
 
+### Per-staff permission overrides
+
+A dispatcher/auditor's capabilities were always entirely decided by their
+role - every account with that role could do exactly the same things.
+`0072_permission_overrides.sql` adds a super-admin-editable override on
+top, for one specific account, for four actions to start: creating a
+delivery, managing the driver roster (add/edit/remove), assigning a driver
+to a delivery, and managing vendors (add/edit/remove). A super admin edits
+these from the "Permissions" section on a dispatcher's or auditor's own
+edit screen (Team > tap them > Edit) - a chip per permission reading
+"Default (allowed/denied)", "Always allowed", or "Always denied", changed
+via its dropdown and applied immediately (not part of the surrounding
+form's save).
+
+Each permission has a role default (`role_default_permission()` - true for
+dispatcher/auditor/super admin, false for driver, for these four keys),
+which an override in `profiles.permission_overrides` (a jsonb object)
+wins over when present; `has_permission(user_id, permission)` is the
+single function everything else calls to resolve the two into one answer,
+and a super admin is always true regardless of any override. Enforcement happens at
+every layer that used to just check `is_dispatcher_or_above()` for these
+four actions specifically: RLS policies on `deliveries` (insert) and
+`vendors` (insert/update/delete), the `register_vendor()` function's own
+check (it's `security definer` and callable directly, not just through
+RLS), a narrowed pair of `profiles` policies for driver-row writes, a new
+check inside the `enforce_delivery_update()` trigger for the
+`assigned_driver_id` column specifically (the existing update policy
+covers every kind of delivery edit, so it can't be the enforcement point
+for just this one), and a `has_permission()` RPC call from inside
+`admin-create-driver`/`admin-delete-driver` for the driver-creation/
+deletion path (those run with the service-role key and bypass RLS
+entirely). The Flutter side has its own `Profile.hasPermission()` mirror
+of the same role-default logic, used only to decide what the UI shows
+(hide the "Add driver"/"Add vendor"/"New delivery" buttons and the vendor
+card's action icons, disable the driver-assignment dropdown) - the
+database checks above are what actually enforce it either way.
+
 ## How the data model works
 
-- `profiles` — one row per user: `role` (`driver`, `dispatcher`, or
-  `super_admin`), plus `full_name`, `phone`, `residential_address`,
+- `profiles` — one row per user: `role` (`driver`, `dispatcher`,
+  `auditor`, or `super_admin`), `permission_overrides` (see **Per-staff
+  permission overrides** above), plus `full_name`, `phone`, `residential_address`,
   `date_of_birth` (both roles now), `ghana_card_number`, `vehicle_number`,
   `driving_license_number`/`driving_license_expiry`, and
   `vehicle_insurance_number`/`vehicle_insurance_expiry` (the last five are
@@ -2552,15 +2594,22 @@ role itself needs its own migration
 (`0053_add_auditor_role_enum.sql`) run and committed *before*
 `0054_auditor_role_permissions.sql`, which uses the literal value -
 Postgres refuses to use a brand-new enum value inside the same
-transaction that added it. A super admin assigns the role from the same
-Team screen role-control dropdown used for promoting/demoting
-dispatchers (`PersonCard`'s `RoleControl` - it lists every `UserRole`
-value, so the new one just appears there with no extra UI needed).
-Staff account creation/deletion (the `admin-create-driver`/
-`admin-delete-driver` Edge Functions) already used a hardcoded
-`["dispatcher", "super_admin"]` allowlist rather than
-`is_dispatcher_or_above()`, so an auditor is rejected there automatically
-too, with no Edge Function changes needed.
+transaction that added it. A super admin can create an auditor directly -
+the Team screen's "Add team member" FAB opens a picker between "Add
+dispatcher" and "Add auditor" before pushing `StaffFormScreen`, which
+calls the new `createAuditor()` repository method (same
+`admin-create-driver` Edge Function, `role: "auditor"` in the body) - or
+promote/demote an existing account via the same role-control dropdown
+used for dispatchers (`PersonCard`'s `RoleControl` - it lists every
+`UserRole` value, so the new one just appears there with no extra UI
+needed). Staff account creation/deletion (the `admin-create-driver`/
+`admin-delete-driver` Edge Functions) originally used a hardcoded
+`["dispatcher", "super_admin"]`/`role === "dispatcher"` allowlist that
+would have rejected an auditor - both were widened (any non-driver role
+now needs `super_admin` to create or remove) rather than left to fall
+through to `is_dispatcher_or_above()`, since a plain dispatcher creating
+or deleting *another* dispatcher or auditor is exactly the Team
+management action that must stay super-admin-only.
 
 One section - **Customers** - is deliberately NOT shared with an auditor
 the way everything else is: customer contact details (name, email,

@@ -18,7 +18,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 /// the platform folders - see the README's "Push notifications" section):
 /// [initialize] catches `Firebase.initializeApp()` throwing when there's
 /// no config to find, and every other method is a no-op until that
-/// succeeds - same as how this codebase already treats Twilio/Google
+/// succeeds - same as how this codebase already treats Hubtel/Google
 /// Maps/Google Directions being unconfigured.
 class PushNotificationService {
   PushNotificationService(this._client);

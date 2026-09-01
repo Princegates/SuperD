@@ -16,40 +16,8 @@
 // Deploy with `supabase functions deploy notify-driver-application`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+import { sendSms } from "../_shared/sms.ts";
 import { sendPushToProfile } from "../_shared/fcm.ts";
-
-async function sendSms(to: string, body: string): Promise<boolean> {
-  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
-  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
-  const fromNumber = Deno.env.get("TWILIO_FROM_NUMBER");
-  if (!accountSid || !authToken || !fromNumber) {
-    console.error("sendSms: Twilio secrets are not fully set");
-    return false;
-  }
-
-  try {
-    const res = await fetch(
-      `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: new URLSearchParams({ To: to, From: fromNumber, Body: body }),
-      },
-    );
-    if (!res.ok) {
-      console.error(
-        `sendSms: Twilio responded ${res.status} - ${await res.text()}`,
-      );
-    }
-    return res.ok;
-  } catch (e) {
-    console.error("sendSms: fetch to Twilio failed -", e);
-    return false;
-  }
-}
 
 async function sendEmail(
   to: string[],

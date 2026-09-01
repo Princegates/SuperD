@@ -451,7 +451,7 @@ class _SubscriptionPaymentCardState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const Icon(Icons.payments_outlined, color: AppTheme.primary, size: 56),
+        Icon(Icons.payments_outlined, color: AppTheme.primary, size: 56),
         const SizedBox(height: 12),
         const Text(
           "You're almost there",

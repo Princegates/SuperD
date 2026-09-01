@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/repositories/vendor_repository.dart' show VendorLinkException;
 import '../../../models/vendor.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/vendor_link.dart';
@@ -98,6 +99,35 @@ class _VendorCard extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Could not update this vendor')),
+        );
+      }
+    }
+  }
+
+  Future<void> _resendLink(BuildContext context, WidgetRef ref) async {
+    try {
+      await ref.read(vendorRepositoryProvider).resendVendorLink(vendor.id);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'vendor_link_resent',
+        entityType: 'vendor',
+        entityId: vendor.id,
+        summary: 'Resent link to vendor ${vendor.vendorName}',
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Link resent')),
+        );
+      }
+    } on VendorLinkException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not resend the link')),
         );
       }
     }
@@ -213,6 +243,11 @@ class _VendorCard extends ConsumerWidget {
                       ),
                     ),
                   ),
+                IconButton(
+                  tooltip: 'Resend link (SMS/email)',
+                  icon: const Icon(Icons.mark_email_unread_outlined, size: 20),
+                  onPressed: () => _resendLink(context, ref),
+                ),
                 IconButton(
                   tooltip: 'Edit vendor',
                   icon: const Icon(Icons.edit_outlined, size: 20),

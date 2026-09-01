@@ -431,4 +431,37 @@ class VendorRepository {
       },
     );
   }
+
+  /// Re-sends a vendor's own link (SMS + email) via the
+  /// "admin-resend-vendor-link" Edge Function - for a dispatcher/super
+  /// admin to use when the original notify-vendor-registered message
+  /// never arrived. Dispatcher-or-above only, enforced server-side.
+  Future<void> resendVendorLink(String vendorId) async {
+    try {
+      await _client.functions.invoke(
+        'admin-resend-vendor-link',
+        body: {'vendorId': vendorId},
+      );
+    } on FunctionException catch (e) {
+      throw VendorLinkException(_messageFrom(e));
+    }
+  }
+
+  String _messageFrom(FunctionException e) {
+    final details = e.details;
+    if (details is Map && details['error'] is String) {
+      return details['error'] as String;
+    }
+    return 'Something went wrong. Please try again.';
+  }
+}
+
+/// Thrown when resending a vendor's link fails, with a message safe to
+/// show directly to the dispatcher/super admin who triggered it.
+class VendorLinkException implements Exception {
+  VendorLinkException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
 }

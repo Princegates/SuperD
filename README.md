@@ -127,6 +127,8 @@ supabase/
     admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
     admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
     admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
+    admin-resend-vendor-link/      Edge Function: re-sends a vendor's own link (SMS/email) on demand, from Console > Vendors
+    admin-resend-tracking-link/    Edge Function: re-sends a delivery's tracking link (SMS/email) to its customer on demand, from a delivery's detail page
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
     paystack-daily-fee-charge/     Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Paystack
     paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee charge resolves (public, no Supabase session)

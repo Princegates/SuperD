@@ -220,7 +220,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                               child: const Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Text('Driver login'),
+                                  Text('Driver and admin login'),
                                   SizedBox(width: 6),
                                   Icon(Icons.arrow_forward, size: 17),
                                 ],

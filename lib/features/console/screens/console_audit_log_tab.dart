@@ -79,6 +79,9 @@ class ConsoleAuditLogTab extends ConsumerWidget {
   if (action.contains('driver_assigned')) {
     return (icon: Icons.local_shipping_outlined, color: Colors.blue.shade400);
   }
+  if (action == 'password_reset') {
+    return (icon: Icons.lock_reset_outlined, color: Colors.orange.shade600);
+  }
   return (icon: Icons.edit_outlined, color: Colors.blueGrey);
 }
 

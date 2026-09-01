@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/repositories/profile_repository.dart'
+    show StaffManagementException;
 import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/utils/audit_log.dart';
@@ -191,6 +194,8 @@ class PersonCard extends StatelessWidget {
                     onPressed: onDelete,
                   ),
                 ],
+                if (isSuperAdmin && person.role != UserRole.superAdmin)
+                  _ResetPasswordButton(person: person),
                 if (isSuperAdmin) RoleControl(person: person, enabled: !isMe),
               ],
             ),
@@ -305,6 +310,158 @@ class RoleControl extends ConsumerWidget {
           PopupMenuItem(value: role, child: Text(role.label)),
       ],
       child: chip,
+    );
+  }
+}
+
+/// A super admin's "reset password" action for one non-super-admin
+/// account - a driver, dispatcher, or auditor who's forgotten theirs and
+/// "Forgot password?" isn't an option (no working email, say). Generates
+/// a new random temporary password server-side (the "admin-reset-password"
+/// Edge Function) and forces the mandatory "Change password" screen on
+/// next sign-in, same as a brand-new account - see
+/// `0005_driver_password_reset.sql`.
+class _ResetPasswordButton extends ConsumerWidget {
+  const _ResetPasswordButton({required this.person});
+
+  final Profile person;
+
+  Future<void> _reset(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text("Reset ${person.displayName}'s password?"),
+        content: const Text(
+          "They'll be emailed a new temporary password and asked to set "
+          'their own on next sign-in. Their current password stops '
+          'working immediately.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Reset password'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    try {
+      final result = await ref
+          .read(profileRepositoryProvider)
+          .resetPassword(person.id);
+      unawaited(
+        logAuditEvent(
+          ref.read(supabaseClientProvider),
+          action: 'password_reset',
+          entityType: 'profile',
+          entityId: person.id,
+          summary: "Reset ${person.displayName}'s password",
+        ),
+      );
+      if (context.mounted) {
+        await _showResultDialog(
+          context,
+          tempPassword: result.tempPassword,
+          emailSent: result.emailSent,
+        );
+      }
+    } on StaffManagementException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not reset this password')),
+        );
+      }
+    }
+  }
+
+  Future<void> _showResultDialog(
+    BuildContext context, {
+    required String tempPassword,
+    required bool emailSent,
+  }) {
+    return showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Password reset'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              emailSent
+                  ? "We've emailed ${person.email} their new sign-in "
+                        "details. They'll be asked to set their own "
+                        "password on first sign-in. If the email doesn't "
+                        "arrive, here's a fallback:"
+                  : "Couldn't email ${person.email} automatically - share "
+                        'this one-time password with them directly. '
+                        "They'll be asked to set their own password on "
+                        'first sign-in.',
+            ),
+            const SizedBox(height: 16),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              decoration: BoxDecoration(
+                color: AppTheme.primary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: SelectableText(
+                      tempPassword,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Copy',
+                    icon: const Icon(Icons.copy, size: 18),
+                    onPressed: () {
+                      Clipboard.setData(ClipboardData(text: tempPassword));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Copied to clipboard')),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return IconButton(
+      tooltip: 'Reset password',
+      icon: const Icon(Icons.lock_reset_outlined, size: 20),
+      onPressed: () => _reset(context, ref),
     );
   }
 }

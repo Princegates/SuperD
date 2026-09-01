@@ -429,6 +429,24 @@ class ProfileRepository {
     }
   }
 
+  /// Sends a driver a free-form message via just one channel - [channel]
+  /// must be `'sms'` or `'email'` - via the "admin-message-driver" Edge
+  /// Function. Dispatcher-or-above only, enforced server-side.
+  Future<void> messageDriver({
+    required String driverId,
+    required String channel,
+    required String message,
+  }) async {
+    try {
+      await _client.functions.invoke(
+        'admin-message-driver',
+        body: {'driverId': driverId, 'channel': channel, 'message': message},
+      );
+    } on FunctionException catch (e) {
+      throw StaffManagementException(_messageFrom(e));
+    }
+  }
+
   String _messageFrom(FunctionException e) {
     final details = e.details;
     if (details is Map && details['error'] is String) {

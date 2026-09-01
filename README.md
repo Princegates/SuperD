@@ -132,6 +132,7 @@ supabase/
     admin-update-email/            Edge Function: fixes a driver's, dispatcher's, or auditor's email
     admin-reset-password/          Edge Function: resets a driver's, dispatcher's, or auditor's password to a new random temporary one
     admin-resend-vendor-link/      Edge Function: re-sends a vendor's own link via SMS or email (caller picks one), on demand, from Console > Vendors
+    admin-message-driver/          Edge Function: sends one driver a free-form message via SMS or email (caller picks one), from Console/Admin > Drivers
     admin-resend-tracking-link/    Edge Function: re-sends a delivery's tracking link (SMS/email) to its customer on demand, from a delivery's detail page
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
     paystack-daily-fee-charge/     Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Paystack

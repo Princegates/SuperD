@@ -179,6 +179,8 @@ class PersonCard extends StatelessWidget {
                       ),
                       onPressed: onToggleFrozen,
                     ),
+                  if (person.role == UserRole.driver)
+                    _MessageDriverButton(driver: person),
                   IconButton(
                     tooltip: 'Edit ${person.role.label.toLowerCase()}',
                     icon: const Icon(Icons.edit_outlined, size: 20),
@@ -462,6 +464,154 @@ class _ResetPasswordButton extends ConsumerWidget {
       tooltip: 'Reset password',
       icon: const Icon(Icons.lock_reset_outlined, size: 20),
       onPressed: () => _reset(context, ref),
+    );
+  }
+}
+
+/// A dispatcher/super admin's "message this driver" action - a free-form
+/// message sent via just one channel, whichever the sender picks (see
+/// "admin-message-driver") - for anything that doesn't fit an existing
+/// notification and needs a quick, direct word to one driver instead of a
+/// phone call.
+class _MessageDriverButton extends ConsumerWidget {
+  const _MessageDriverButton({required this.driver});
+
+  final Profile driver;
+
+  Future<void> _openDialog(BuildContext context, WidgetRef ref) async {
+    final result = await showDialog<({String channel, String message})>(
+      context: context,
+      builder: (context) => _MessageDriverDialog(driver: driver),
+    );
+    if (result == null) return;
+
+    try {
+      await ref
+          .read(profileRepositoryProvider)
+          .messageDriver(
+            driverId: driver.id,
+            channel: result.channel,
+            message: result.message,
+          );
+      unawaited(
+        logAuditEvent(
+          ref.read(supabaseClientProvider),
+          action: 'driver_messaged',
+          entityType: 'profile',
+          entityId: driver.id,
+          summary:
+              'Sent ${driver.displayName} a message via '
+              '${result.channel == 'sms' ? 'SMS' : 'email'}',
+        ),
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Message sent')),
+        );
+      }
+    } on StaffManagementException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not send the message')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return IconButton(
+      tooltip: 'Message driver',
+      icon: const Icon(Icons.chat_outlined, size: 20),
+      onPressed: () => _openDialog(context, ref),
+    );
+  }
+}
+
+/// The compose dialog itself - a plain [StatefulWidget] (not a Consumer
+/// one) since it only needs to hold its own text/channel state until Send
+/// is tapped; the actual send happens in [_MessageDriverButton] once this
+/// pops with a result.
+class _MessageDriverDialog extends StatefulWidget {
+  const _MessageDriverDialog({required this.driver});
+
+  final Profile driver;
+
+  @override
+  State<_MessageDriverDialog> createState() => _MessageDriverDialogState();
+}
+
+class _MessageDriverDialogState extends State<_MessageDriverDialog> {
+  final _controller = TextEditingController();
+  String _channel = 'sms';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Message ${widget.driver.displayName}'),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(
+                  value: 'sms',
+                  label: Text('SMS'),
+                  icon: Icon(Icons.sms_outlined, size: 16),
+                ),
+                ButtonSegment(
+                  value: 'email',
+                  label: Text('Email'),
+                  icon: Icon(Icons.email_outlined, size: 16),
+                ),
+              ],
+              selected: {_channel},
+              onSelectionChanged: (selected) =>
+                  setState(() => _channel = selected.first),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _controller,
+              maxLines: 4,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Message',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _controller.text.trim().isEmpty
+              ? null
+              : () => Navigator.of(context).pop((
+                  channel: _channel,
+                  message: _controller.text.trim(),
+                )),
+          child: const Text('Send'),
+        ),
+      ],
     );
   }
 }

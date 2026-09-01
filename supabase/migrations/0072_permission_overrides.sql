@@ -111,6 +111,7 @@ create trigger trg_enforce_permission_overrides_change
 --    specific permission.
 -- ---------------------------------------------------------------------------
 drop policy if exists "deliveries: dispatcher insert" on public.deliveries;
+drop policy if exists "deliveries: permitted staff insert" on public.deliveries;
 create policy "deliveries: permitted staff insert"
   on public.deliveries for insert
   with check (public.has_permission(auth.uid(), 'create_deliveries'));
@@ -234,6 +235,7 @@ create policy "profiles: user updates own non-role fields"
   );
 
 drop policy if exists "profiles: dispatcher inserts" on public.profiles;
+drop policy if exists "profiles: permitted staff insert" on public.profiles;
 create policy "profiles: permitted staff insert"
   on public.profiles for insert
   with check (

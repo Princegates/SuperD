@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
       .single();
     if (
       !callerProfile ||
-      !["dispatcher", "super_admin"].includes(callerProfile.role)
+      !["dispatcher", "super_admin", "auditor"].includes(callerProfile.role)
     ) {
       return jsonResponse({ error: "Not authorized" }, 403);
     }
@@ -41,10 +41,12 @@ Deno.serve(async (req) => {
     const userId = body.userId as string | undefined;
     if (!userId) return jsonResponse({ error: "userId is required" }, 400);
 
-    // A dispatcher/super admin can remove a driver. Only a super admin can
-    // remove a dispatcher or auditor - that's Team management. A super
-    // admin's own account is never removable through this function - that's
-    // a bigger decision than a roster edit.
+    // Removing a driver needs the manage_drivers permission specifically
+    // (normally true for any dispatcher/auditor, revocable per account -
+    // see admin-create-driver). Removing a dispatcher or auditor is Team
+    // management, super-admin-only. A super admin's own account is never
+    // removable through this function either way - that's a bigger
+    // decision than a roster edit.
     const { data: targetProfile } = await admin
       .from("profiles")
       .select("role")
@@ -58,6 +60,18 @@ Deno.serve(async (req) => {
         { error: "Only a super admin can remove a dispatcher or auditor" },
         403,
       );
+    }
+    if (targetProfile.role === "driver") {
+      const { data: permitted } = await admin.rpc("has_permission", {
+        p_user_id: userData.user.id,
+        p_permission: "manage_drivers",
+      });
+      if (!permitted) {
+        return jsonResponse(
+          { error: "You don't have permission to remove a driver" },
+          403,
+        );
+      }
     }
 
     const { error: deleteError } = await admin.auth.admin.deleteUser(userId);

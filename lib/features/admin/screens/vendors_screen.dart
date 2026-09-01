@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/vendor_repository.dart' show VendorLinkException;
+import '../../../models/staff_permission.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/vendor_link.dart';
@@ -25,13 +26,20 @@ class VendorsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final vendorsState = ref.watch(vendorsProvider);
+    final canManage =
+        ref.watch(currentProfileProvider).valueOrNull?.hasPermission(
+              StaffPermission.manageVendors,
+            ) ??
+        false;
 
     return Scaffold(
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => context.push('/admin/vendors/new'),
-        icon: const Icon(Icons.add_business_outlined),
-        label: const Text('Add vendor'),
-      ),
+      floatingActionButton: canManage
+          ? FloatingActionButton.extended(
+              onPressed: () => context.push('/admin/vendors/new'),
+              icon: const Icon(Icons.add_business_outlined),
+              label: const Text('Add vendor'),
+            )
+          : null,
       body: RefreshIndicator(
         onRefresh: () async => ref.invalidate(vendorsProvider),
         child: AsyncValueView<List<Vendor>>(
@@ -65,7 +73,7 @@ class VendorsScreen extends ConsumerWidget {
               itemCount: vendors.length,
               separatorBuilder: (_, _) => const SizedBox(height: 10),
               itemBuilder: (context, index) =>
-                  _VendorCard(vendor: vendors[index]),
+                  _VendorCard(vendor: vendors[index], canManage: canManage),
             );
           },
         ),
@@ -75,9 +83,15 @@ class VendorsScreen extends ConsumerWidget {
 }
 
 class _VendorCard extends ConsumerWidget {
-  const _VendorCard({required this.vendor});
+  const _VendorCard({required this.vendor, required this.canManage});
 
   final Vendor vendor;
+
+  /// The manage_vendors permission (see `StaffPermission`) - a super admin
+  /// can revoke it from one specific dispatcher/auditor, hiding these
+  /// action icons for them (the write itself is rejected server-side too,
+  /// via RLS - this is just so the UI doesn't offer a doomed action).
+  final bool canManage;
 
   Future<void> _toggleActive(WidgetRef ref, BuildContext context) async {
     try {
@@ -257,46 +271,53 @@ class _VendorCard extends ConsumerWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 4),
-            Wrap(
-              alignment: WrapAlignment.end,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                IconButton(
-                  tooltip: 'Resend link (SMS/email)',
-                  icon: const Icon(Icons.mark_email_unread_outlined, size: 20),
-                  onPressed: () => _resendLink(context, ref),
-                ),
-                IconButton(
-                  tooltip: 'Edit vendor',
-                  icon: const Icon(Icons.edit_outlined, size: 20),
-                  onPressed: () =>
-                      context.push('/admin/vendors/edit', extra: vendor),
-                ),
-                IconButton(
-                  tooltip: vendor.isActive
-                      ? 'Deactivate link'
-                      : 'Activate link',
-                  icon: Icon(
-                    vendor.isActive
-                        ? Icons.toggle_on
-                        : Icons.toggle_off_outlined,
-                    size: 26,
-                    color: vendor.isActive ? AppTheme.success : Colors.black38,
+            if (canManage) ...[
+              const SizedBox(height: 4),
+              Wrap(
+                alignment: WrapAlignment.end,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  IconButton(
+                    tooltip: 'Resend link (SMS/email)',
+                    icon: const Icon(
+                      Icons.mark_email_unread_outlined,
+                      size: 20,
+                    ),
+                    onPressed: () => _resendLink(context, ref),
                   ),
-                  onPressed: () => _toggleActive(ref, context),
-                ),
-                IconButton(
-                  tooltip: 'Delete vendor',
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    size: 20,
-                    color: AppTheme.danger,
+                  IconButton(
+                    tooltip: 'Edit vendor',
+                    icon: const Icon(Icons.edit_outlined, size: 20),
+                    onPressed: () =>
+                        context.push('/admin/vendors/edit', extra: vendor),
                   ),
-                  onPressed: () => _delete(context, ref),
-                ),
-              ],
-            ),
+                  IconButton(
+                    tooltip: vendor.isActive
+                        ? 'Deactivate link'
+                        : 'Activate link',
+                    icon: Icon(
+                      vendor.isActive
+                          ? Icons.toggle_on
+                          : Icons.toggle_off_outlined,
+                      size: 26,
+                      color: vendor.isActive
+                          ? AppTheme.success
+                          : Colors.black38,
+                    ),
+                    onPressed: () => _toggleActive(ref, context),
+                  ),
+                  IconButton(
+                    tooltip: 'Delete vendor',
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      size: 20,
+                      color: AppTheme.danger,
+                    ),
+                    onPressed: () => _delete(context, ref),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 4),
             Text(
               vendor.email?.isNotEmpty == true

@@ -23,6 +23,7 @@ class PersonCard extends StatelessWidget {
     required this.onEdit,
     required this.onDelete,
     this.onToggleFrozen,
+    this.canManageDriver = true,
   });
 
   final Profile person;
@@ -36,17 +37,25 @@ class PersonCard extends StatelessWidget {
   /// driver row (freezing a dispatcher/super admin isn't a thing).
   final VoidCallback? onToggleFrozen;
 
+  /// Whether the caller may manage THIS row when [person] is a driver -
+  /// the `manage_drivers` permission (see `StaffPermission`), which a
+  /// super admin can revoke from one specific dispatcher/auditor. Ignored
+  /// for a staff row, where [isSuperAdmin] alone still decides. Defaults
+  /// true so TeamScreen's usage (staff rows only) doesn't need to pass it.
+  final bool canManageDriver;
+
   @override
   Widget build(BuildContext context) {
-    // A driver row can be managed by any dispatcher-or-above caller (this
-    // card is shared with DriversScreen, open to dispatchers/auditors too)
-    // - but a staff row (dispatcher/super admin/auditor) is Team
-    // management, exclusive to an actual super admin caller, same as the
-    // role control below. A super admin's own row (or any other super
-    // admin's) isn't editable through these icons either way - removing/
-    // editing one that way isn't wired up.
+    // A driver row can be managed by a dispatcher-or-above caller who has
+    // the manage_drivers permission (this card is shared with
+    // DriversScreen, open to dispatchers/auditors too) - but a staff row
+    // (dispatcher/super admin/auditor) is Team management, exclusive to an
+    // actual super admin caller, same as the role control below. A super
+    // admin's own row (or any other super admin's) isn't editable through
+    // these icons either way - removing/editing one that way isn't wired
+    // up.
     final canManage = person.role == UserRole.driver
-        ? true
+        ? canManageDriver
         : (isSuperAdmin && person.role != UserRole.superAdmin);
     final canFreeze = isSuperAdmin && onToggleFrozen != null;
 

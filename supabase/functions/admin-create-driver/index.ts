@@ -79,8 +79,11 @@ Deno.serve(async (req) => {
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
 
-    // Verify who's calling and that they're a dispatcher or super admin -
-    // never trust the client, this check happens again here server-side.
+    // Verify who's calling and that they're staff at all - never trust the
+    // client, this check happens again here server-side. What they're
+    // actually allowed to create (a driver needs manage_drivers, a
+    // dispatcher/auditor needs to be a super admin) is checked below, once
+    // the target role is known.
     const { data: userData, error: userError } = await admin.auth.getUser(
       authHeader.replace("Bearer ", ""),
     );
@@ -95,7 +98,7 @@ Deno.serve(async (req) => {
       .single();
     if (
       !callerProfile ||
-      !["dispatcher", "super_admin"].includes(callerProfile.role)
+      !["dispatcher", "super_admin", "auditor"].includes(callerProfile.role)
     ) {
       return jsonResponse({ error: "Not authorized" }, 403);
     }
@@ -121,13 +124,28 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "email and fullName are required" }, 400);
     }
 
-    // Only a super admin can add another dispatcher or auditor - a plain
-    // dispatcher can still add drivers (checked above).
+    // Only a super admin can add another dispatcher or auditor - Team
+    // management, never delegable. Adding a driver instead needs the
+    // manage_drivers permission specifically - normally true for any
+    // dispatcher/auditor (role_default_permission()), but a super admin
+    // can revoke it from one specific account via Team > Permissions.
     if (role !== "driver" && callerProfile.role !== "super_admin") {
       return jsonResponse(
         { error: "Only a super admin can add a dispatcher or auditor" },
         403,
       );
+    }
+    if (role === "driver") {
+      const { data: permitted } = await admin.rpc("has_permission", {
+        p_user_id: userData.user.id,
+        p_permission: "manage_drivers",
+      });
+      if (!permitted) {
+        return jsonResponse(
+          { error: "You don't have permission to add a driver" },
+          403,
+        );
+      }
     }
 
     // A dispatcher's or auditor's record must include date of birth, phone,

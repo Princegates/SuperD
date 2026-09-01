@@ -119,6 +119,7 @@ supabase/
     0069_driver_signup_throttle.sql                per-phone-number throttle (3/day) on driver self-signup, since it can't use the Turnstile CAPTCHA the two anonymous web forms use - a check_driver_signup_throttle() pre-check for a clean error message, backed by a before-insert trigger on auth.users as the real backstop
     0070_driver_license_and_insurance.sql          adds driving_license_number/expiry and vehicle_insurance_number/expiry to profiles, and has handle_new_user() pick them up (plus date_of_birth, now collected for drivers too, not just dispatchers) - all four required going forward on both the driver signup form and admin-create-driver, though not a database constraint (existing drivers predate this)
     0071_commission_payments_realtime.sql        adds commission_payments to the supabase_realtime publication - it was missing, so a driver's dashboard only cleared a settled commission after a full log-out/log-in instead of the moment payment went through
+    0072_permission_overrides.sql                adds profiles.permission_overrides plus role_default_permission()/has_permission(), letting a super admin override one dispatcher/auditor's create_deliveries/manage_drivers/assign_drivers/manage_vendors individually - see "Per-staff permission overrides" above
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -936,10 +937,48 @@ works — "Add", "Remove", and a super admin's email fix will just show an
 error until they're deployed. Editing other fields and self-signup are
 unaffected.
 
+### Per-staff permission overrides
+
+A dispatcher/auditor's capabilities were always entirely decided by their
+role - every account with that role could do exactly the same things.
+`0072_permission_overrides.sql` adds a super-admin-editable override on
+top, for one specific account, for four actions to start: creating a
+delivery, managing the driver roster (add/edit/remove), assigning a driver
+to a delivery, and managing vendors (add/edit/remove). A super admin edits
+these from the "Permissions" section on a dispatcher's or auditor's own
+edit screen (Team > tap them > Edit) - a chip per permission reading
+"Default (allowed/denied)", "Always allowed", or "Always denied", changed
+via its dropdown and applied immediately (not part of the surrounding
+form's save).
+
+Each permission has a role default (`role_default_permission()` - true for
+dispatcher/auditor/super admin, false for driver, for these four keys),
+which an override in `profiles.permission_overrides` (a jsonb object)
+wins over when present; `has_permission(user_id, permission)` is the
+single function everything else calls to resolve the two into one answer,
+and a super admin is always true regardless of any override. Enforcement happens at
+every layer that used to just check `is_dispatcher_or_above()` for these
+four actions specifically: RLS policies on `deliveries` (insert) and
+`vendors` (insert/update/delete), the `register_vendor()` function's own
+check (it's `security definer` and callable directly, not just through
+RLS), a narrowed pair of `profiles` policies for driver-row writes, a new
+check inside the `enforce_delivery_update()` trigger for the
+`assigned_driver_id` column specifically (the existing update policy
+covers every kind of delivery edit, so it can't be the enforcement point
+for just this one), and a `has_permission()` RPC call from inside
+`admin-create-driver`/`admin-delete-driver` for the driver-creation/
+deletion path (those run with the service-role key and bypass RLS
+entirely). The Flutter side has its own `Profile.hasPermission()` mirror
+of the same role-default logic, used only to decide what the UI shows
+(hide the "Add driver"/"Add vendor"/"New delivery" buttons and the vendor
+card's action icons, disable the driver-assignment dropdown) - the
+database checks above are what actually enforce it either way.
+
 ## How the data model works
 
-- `profiles` — one row per user: `role` (`driver`, `dispatcher`, or
-  `super_admin`), plus `full_name`, `phone`, `residential_address`,
+- `profiles` — one row per user: `role` (`driver`, `dispatcher`,
+  `auditor`, or `super_admin`), `permission_overrides` (see **Per-staff
+  permission overrides** above), plus `full_name`, `phone`, `residential_address`,
   `date_of_birth` (both roles now), `ghana_card_number`, `vehicle_number`,
   `driving_license_number`/`driving_license_expiry`, and
   `vehicle_insurance_number`/`vehicle_insurance_expiry` (the last five are

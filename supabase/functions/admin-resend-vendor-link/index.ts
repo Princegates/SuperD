@@ -1,10 +1,12 @@
-// Re-sends a vendor's own public link (SMS + email) on demand - for when
-// the original notify-vendor-registered message never arrived and a
-// dispatcher/super admin wants to resend it from the Console rather than
-// reading the link out over the phone. Deliberately only resends the
-// vendor's own message, not the "new vendor registered" staff broadcast
-// notify-vendor-registered also sends at registration - staff already
-// heard about this vendor once, resending that isn't the point here.
+// Re-sends a vendor's own public link, via SMS or email (the caller picks
+// one, not both - see the two separate "Resend via email"/"Resend via
+// SMS" buttons on Console > Vendors) - for when the original
+// notify-vendor-registered message never arrived and a dispatcher/super
+// admin wants to resend it rather than reading the link out over the
+// phone. Deliberately only resends the vendor's own message, not the
+// "new vendor registered" staff broadcast notify-vendor-registered also
+// sends at registration - staff already heard about this vendor once,
+// resending that isn't the point here.
 // Called directly by an authenticated admin client (not a webhook), so
 // this keeps the platform default verify_jwt = true and additionally
 // checks the caller's own role, same pattern as admin-create-driver/
@@ -83,6 +85,13 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const vendorId = body.vendorId as string | undefined;
     if (!vendorId) return jsonResponse({ error: "vendorId is required" }, 400);
+    const channel = body.channel as string | undefined;
+    if (channel !== "sms" && channel !== "email") {
+      return jsonResponse(
+        { error: 'channel must be "sms" or "email"' },
+        400,
+      );
+    }
 
     const { data: vendor, error: vendorError } = await admin
       .from("vendors")
@@ -100,40 +109,43 @@ Deno.serve(async (req) => {
     if (!link) {
       return jsonResponse({ error: "APP_BASE_URL is not set" }, 500);
     }
-    if (!vendor.phone && !vendor.email) {
-      return jsonResponse(
-        { error: "This vendor has no phone or email on file" },
-        400,
-      );
-    }
 
-    let sentSms: boolean | undefined;
-    if (vendor.phone) {
-      sentSms = await sendSms(
+    if (channel === "sms") {
+      if (!vendor.phone) {
+        return jsonResponse(
+          { error: "This vendor has no phone number on file" },
+          400,
+        );
+      }
+      const sentSms = await sendSms(
         vendor.phone as string,
         `Hi ${vendor.vendor_name}, here's your SuperD link again: ${link}. ` +
           `Your private orders link: ${ordersLink}`,
       );
-    }
-    let sentEmail: boolean | undefined;
-    if (vendor.email) {
-      sentEmail = await sendEmail(
-        vendor.email as string,
-        "Your SuperD delivery link",
-        `
-          <p>Hi ${vendor.vendor_name},</p>
-          <p>Here's your customer link again - they'll use it to request a
-          delivery from you:</p>
-          <p><a href="${link}">${link}</a></p>
-          <p>This second link is private - it shows every order ever placed
-          through your link above, so it's only for you. Never share it
-          with a customer:</p>
-          <p><a href="${ordersLink}">${ordersLink}</a></p>
-        `,
-      );
+      return jsonResponse({ sentSms });
     }
 
-    return jsonResponse({ sentSms, sentEmail });
+    if (!vendor.email) {
+      return jsonResponse(
+        { error: "This vendor has no email on file" },
+        400,
+      );
+    }
+    const sentEmail = await sendEmail(
+      vendor.email as string,
+      "Your SuperD delivery link",
+      `
+        <p>Hi ${vendor.vendor_name},</p>
+        <p>Here's your customer link again - they'll use it to request a
+        delivery from you:</p>
+        <p><a href="${link}">${link}</a></p>
+        <p>This second link is private - it shows every order ever placed
+        through your link above, so it's only for you. Never share it
+        with a customer:</p>
+        <p><a href="${ordersLink}">${ordersLink}</a></p>
+      `,
+    );
+    return jsonResponse({ sentEmail });
   } catch (e) {
     return jsonResponse(
       { error: e instanceof Error ? e.message : String(e) },

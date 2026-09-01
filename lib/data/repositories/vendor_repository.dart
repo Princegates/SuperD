@@ -460,15 +460,19 @@ class VendorRepository {
     );
   }
 
-  /// Re-sends a vendor's own link (SMS + email) via the
-  /// "admin-resend-vendor-link" Edge Function - for a dispatcher/super
-  /// admin to use when the original notify-vendor-registered message
-  /// never arrived. Dispatcher-or-above only, enforced server-side.
-  Future<void> resendVendorLink(String vendorId) async {
+  /// Re-sends a vendor's own link via just one channel - [channel] must be
+  /// `'sms'` or `'email'` - via the "admin-resend-vendor-link" Edge
+  /// Function, for a dispatcher/super admin to use when the original
+  /// notify-vendor-registered message never arrived. Dispatcher-or-above
+  /// only, enforced server-side.
+  Future<void> resendVendorLink({
+    required String vendorId,
+    required String channel,
+  }) async {
     try {
       await _client.functions.invoke(
         'admin-resend-vendor-link',
-        body: {'vendorId': vendorId},
+        body: {'vendorId': vendorId, 'channel': channel},
       );
     } on FunctionException catch (e) {
       throw VendorLinkException(_messageFrom(e));

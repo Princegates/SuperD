@@ -118,15 +118,26 @@ class _VendorCard extends ConsumerWidget {
     }
   }
 
-  Future<void> _resendLink(BuildContext context, WidgetRef ref) async {
+  /// [channel] is `'sms'` or `'email'` - each has its own button below, so
+  /// a dispatcher can resend over whichever one actually didn't arrive
+  /// instead of always sending both.
+  Future<void> _resendLink(
+    BuildContext context,
+    WidgetRef ref,
+    String channel,
+  ) async {
     try {
-      await ref.read(vendorRepositoryProvider).resendVendorLink(vendor.id);
+      await ref
+          .read(vendorRepositoryProvider)
+          .resendVendorLink(vendorId: vendor.id, channel: channel);
       await logAuditEvent(
         ref.read(supabaseClientProvider),
         action: 'vendor_link_resent',
         entityType: 'vendor',
         entityId: vendor.id,
-        summary: 'Resent link to vendor ${vendor.vendorName}',
+        summary:
+            'Resent link to vendor ${vendor.vendorName} via '
+            '${channel == 'sms' ? 'SMS' : 'email'}',
       );
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -291,12 +302,17 @@ class _VendorCard extends ConsumerWidget {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   IconButton(
-                    tooltip: 'Resend link (SMS/email)',
+                    tooltip: 'Resend link via email',
                     icon: const Icon(
                       Icons.mark_email_unread_outlined,
                       size: 20,
                     ),
-                    onPressed: () => _resendLink(context, ref),
+                    onPressed: () => _resendLink(context, ref, 'email'),
+                  ),
+                  IconButton(
+                    tooltip: 'Resend link via SMS',
+                    icon: const Icon(Icons.sms_outlined, size: 20),
+                    onPressed: () => _resendLink(context, ref, 'sms'),
                   ),
                   IconButton(
                     tooltip: 'Edit vendor',

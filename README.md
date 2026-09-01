@@ -128,6 +128,7 @@ supabase/
     admin-create-driver/           Edge Function: creates a driver's, dispatcher's, or auditor's login
     admin-delete-driver/           Edge Function: deletes a driver's, dispatcher's, or auditor's login
     admin-update-email/            Edge Function: fixes a driver's, dispatcher's, or auditor's email
+    admin-reset-password/          Edge Function: resets a driver's, dispatcher's, or auditor's password to a new random temporary one
     admin-resend-vendor-link/      Edge Function: re-sends a vendor's own link (SMS/email) on demand, from Console > Vendors
     admin-resend-tracking-link/    Edge Function: re-sends a delivery's tracking link (SMS/email) to its customer on demand, from a delivery's detail page
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
@@ -852,12 +853,13 @@ themselves up (see **Driver self-signup** above) - an inactive driver shows
 a "Pending approval" badge and can't be assigned deliveries until switched
 on.
 
-Creating or deleting a login needs Supabase's admin API, which requires the
-project's service-role key. That key must never be embedded in the app
-(anyone could pull it out of the APK and get full database access), so
-those actions go through a trio of Edge Functions instead — the
-service-role key lives only on Supabase's servers, never on a device. The
-same functions handle drivers, dispatchers, and auditors alike.
+Creating, deleting, or resetting a login's password needs Supabase's admin
+API, which requires the project's service-role key. That key must never be
+embedded in the app (anyone could pull it out of the APK and get full
+database access), so those actions go through a set of Edge Functions
+instead — the service-role key lives only on Supabase's servers, never on
+a device. The same functions handle drivers, dispatchers, and auditors
+alike.
 
 ### Supabase Cloud
 
@@ -869,6 +871,7 @@ supabase link --project-ref your-project-ref
 supabase functions deploy admin-create-driver
 supabase functions deploy admin-delete-driver
 supabase functions deploy admin-update-email
+supabase functions deploy admin-reset-password
 ```
 
 ### Self-hosted
@@ -887,13 +890,14 @@ docker compose restart functions
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are provided automatically
 inside every Edge Function — no need to set those yourself.
 
-### Emailing the new account its password
+### Emailing the new/reset account password
 
 **Add driver**/**Add dispatcher**/**Add auditor** generate a random temporary
-password and email it straight to the new hire, using the same
+password and email it straight to the new hire; **Reset password** (see
+below) does the same for an existing account. Both use the same
 [Resend](https://resend.com) account you set up for password-reset emails
 (see **Enable "Forgot password?"** below — skip ahead if you haven't set
-that up yet). Give the Edge Function that same Resend API key as a secret:
+that up yet). Give the Edge Functions that same Resend API key as a secret:
 
 ```bash
 supabase secrets set RESEND_API_KEY=re_your_resend_api_key
@@ -924,6 +928,15 @@ through the `admin-update-email` Edge Function (changing someone else's
 login identity needs the admin API, same reason as create/delete) and
 takes effect immediately, no confirmation email required. A dispatcher
 editing a driver still can't touch email.
+
+**Reset password** (the icon next to a row's role chip, super-admin-only,
+any driver/dispatcher/auditor row) generates a new random temporary
+password through the `admin-reset-password` Edge Function - for when
+someone's forgotten theirs and "Forgot password?" isn't an option (a
+stale/inaccessible email, say). Their current password stops working
+immediately; they're emailed the new one (same fallback dialog as account
+creation if that fails) and get the same mandatory "Change password"
+screen on next sign-in as a brand-new account.
 
 **Remove** deletes the account's login entirely (their profile row goes
 with it automatically). A dispatcher can only remove drivers; removing a

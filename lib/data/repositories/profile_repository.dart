@@ -404,6 +404,31 @@ class ProfileRepository {
     }
   }
 
+  /// Resets a driver's/dispatcher's/auditor's password to a new random
+  /// temporary one via the "admin-reset-password" Edge Function - for when
+  /// someone's forgotten theirs and "Forgot password?" isn't an option.
+  /// Only a super admin may call this - enforced server-side too, same
+  /// footing as [updateEmail]. They're emailed the new password directly
+  /// and must set their own on next sign-in; [tempPassword] is still
+  /// returned as a fallback to share by hand if [emailSent] is false.
+  Future<({String tempPassword, bool emailSent})> resetPassword(
+    String userId,
+  ) async {
+    try {
+      final response = await _client.functions.invoke(
+        'admin-reset-password',
+        body: {'userId': userId},
+      );
+      final data = response.data as Map<String, dynamic>;
+      return (
+        tempPassword: data['tempPassword'] as String,
+        emailSent: data['emailSent'] as bool? ?? false,
+      );
+    } on FunctionException catch (e) {
+      throw StaffManagementException(_messageFrom(e));
+    }
+  }
+
   String _messageFrom(FunctionException e) {
     final details = e.details;
     if (details is Map && details['error'] is String) {

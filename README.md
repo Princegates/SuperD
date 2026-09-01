@@ -675,7 +675,7 @@ no benefit over email (the same reasoning as **SMS only on the first
 delivery** above). The applicant's own two messages (submitted, approved)
 still get SMS - each is a one-time message to them, not a recurring cost.
 
-**Setup** (reusing the same Twilio/Resend accounts and secrets as
+**Setup** (reusing the same Hubtel/Resend accounts and secrets as
 everywhere else in this README):
 
 ```bash
@@ -1846,7 +1846,7 @@ Adding a 7th theme is a matter of adding one more `ThemePreset` entry to
 
 One Edge Function, `notify-delivery-events`, handles four separate
 moments in a delivery's life - both by SMS via
-[Twilio](https://www.twilio.com), and by email via
+[Hubtel](https://hubtel.com), and by email via
 [Resend](https://resend.com) wherever an address is on file:
 
 1. **The instant a delivery is created**, the customer gets their
@@ -1943,7 +1943,7 @@ and email, or via the customer's own tracking page as described above.
 
 ### SMS only on the first delivery
 
-Twilio bills per SMS; Resend email is effectively free at this volume -
+Hubtel bills per SMS; Resend email is effectively free at this volume -
 so notifications 1 and 2 above send SMS only to a customer's or
 vendor's **first-ever delivery** (`isRepeatCustomer`/`isRepeatVendor` in
 `notify-delivery-events`, checking whether `deliveries.customer_phone`/
@@ -1959,32 +1959,39 @@ keeps going out rather than the notification going silent. Notification
 internal number/address, not a customer or vendor, it was never a
 per-user recurring cost.
 
-### 1. Get a Twilio number
+### 1. Get Hubtel API credentials
 
-Sign up at [twilio.com](https://www.twilio.com) (a trial account works for
-testing), buy/activate a phone number capable of sending SMS, and note down
-from the console:
+Sign up at [hubtel.com](https://hubtel.com) and, from the dashboard, set up
+the **SMS** service and generate an **API key** (Settings → API Keys, not
+your account login) - note down:
 
-- **Account SID**
-- **Auth Token**
-- Your **Twilio phone number** (in `+1XXXXXXXXXX` format)
-
-A trial account can only text phone numbers you've manually verified in the
-Twilio console first - fine for testing, but you'll need a paid account
-before real customers can receive these.
+- **Client ID**
+- **Client Secret**
+- Your **Sender ID** - an alphanumeric name up to 11 characters (e.g.
+  `SuperD`) shown as the "from" on a recipient's phone. New accounts start
+  on a shared/test sender ID good enough for development; a custom one
+  needs approval from Hubtel (usually quick) before it works for real
+  traffic - see their dashboard for the request form.
 
 ### 2. Set the secrets and deploy the function
 
 ```bash
-supabase secrets set TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-supabase secrets set TWILIO_AUTH_TOKEN=your_auth_token
-supabase secrets set TWILIO_FROM_NUMBER=+1XXXXXXXXXX
+supabase secrets set HUBTEL_CLIENT_ID=your_client_id
+supabase secrets set HUBTEL_CLIENT_SECRET=your_client_secret
+supabase secrets set HUBTEL_SENDER_ID=SuperD
 supabase functions deploy notify-delivery-events
 ```
 
 (Self-hosted: add those three as environment variables on the `functions`
 container instead of `supabase secrets set`, same as `RESEND_API_KEY`
-earlier.) The tracking-link email/SMS also needs `APP_BASE_URL` set (see
+earlier.) All SMS-sending functions share one `sendSms()` helper
+(`supabase/functions/_shared/sms.ts`), so these three secrets cover every
+one of them - `notify-delivery-events`, `notify-driver-approved`,
+`notify-driver-application`, `notify-vendor-registered`,
+`admin-resend-vendor-link`, and `admin-resend-tracking-link`. Deploy
+whichever of those you're using the same way as above (`supabase
+functions deploy <name>`). The tracking-link email/SMS also needs
+`APP_BASE_URL` set (see
 **Getting the link's domain right** below) - without it, the customer
 still gets a text, just without a link, since there'd be nothing valid to
 build one from.
@@ -2092,16 +2099,18 @@ supabase functions deploy notify-delivery-events
   create-delivery form, and the console's support/alert phone settings)
   is validated and normalized to Ghana's international format
   (`+233XXXXXXXXX`) via `GhanaPhone` in
-  `lib/shared/utils/ghana_phone.dart` - Twilio rejects anything else. A
-  person can type a local number (`024XXXXXXX`) or paste one with
-  `+233`/`233` already on it; it's converted before it's ever sent to the
-  backend.
+  `lib/shared/utils/ghana_phone.dart`; `sendSms()`
+  (`supabase/functions/_shared/sms.ts`) strips the leading `+` before
+  handing a number to Hubtel, which expects the digits-only form
+  (`233XXXXXXXXX`). A person can type a local number (`024XXXXXXX`) or
+  paste one with `+233`/`233` already on it; it's converted before it's
+  ever sent to the backend.
 - The function only trusts the delivery's *id* and event type from the
   webhook payload - everything else (the driver's real name/phone, the
   customer's/vendor's real contact details) is re-fetched fresh from the
   database, so a forged request can't be used to message an arbitrary
   number/address with made-up content.
-- If the Twilio/Resend secrets aren't set, or a send fails, nothing
+- If the Hubtel/Resend secrets aren't set, or a send fails, nothing
   breaks - the delivery/assignment itself still goes through; the
   failure is only visible in the function's logs (`supabase functions
   logs notify-delivery-events`).
@@ -2220,7 +2229,7 @@ Like the customer SMS notification above, this is wired up as a
 **Supabase Database Webhook** (not called from the app itself), so it
 fires no matter which screen registered the vendor:
 
-1. **Reuse your existing Resend/Twilio accounts** (the same ones from
+1. **Reuse your existing Resend/Hubtel accounts** (the same ones from
    **Emailing the new account its password** and **Delivery
    notifications**) - no new signup needed, just deploy the function with
    those same secrets already set:
@@ -2447,7 +2456,7 @@ real CAPTCHA, [Cloudflare Turnstile](https://developers.cloudflare.com/turnstile
   `TURNSTILE_SITE_KEY` unset the widget renders nothing and submission is
   never blocked waiting for a token, and with `TURNSTILE_SECRET_KEY`
   unset server-side, `verifyTurnstileToken()` always returns true - same
-  pattern as this codebase's other optional integrations (Twilio, Resend,
+  pattern as this codebase's other optional integrations (Hubtel, Resend,
   Firebase, Sentry).
 
 **To turn it on:**
@@ -2763,7 +2772,7 @@ Today, a driver finds out about a new delivery from SMS/email
 the update - both slower and less reliable than an actual push
 notification. The groundwork for that is in, but it needs a real Firebase
 project before it does anything - until then every piece of it is a
-deliberate no-op, the same way this codebase already treats Twilio/Google
+deliberate no-op, the same way this codebase already treats Hubtel/Google
 Maps/Google Directions being unconfigured.
 
 **What's already wired up:**

@@ -3,7 +3,7 @@
 // see the README's "Push notifications" section for how to create one and
 // set FIREBASE_SERVICE_ACCOUNT_JSON. Every function below degrades to a
 // no-op (logs and returns false/0) when that secret isn't set, same as
-// every other optional integration in this codebase (Twilio, Resend,
+// every other optional integration in this codebase (Hubtel, Resend,
 // Google Directions) - so nothing breaks for a project that hasn't set
 // push up yet.
 //

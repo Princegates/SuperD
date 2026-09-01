@@ -1,7 +1,8 @@
 /// Normalizes and validates Ghanaian phone numbers to the `+233XXXXXXXXX`
-/// international format Twilio requires for every number it's asked to
-/// text (see the README's Twilio setup section) - used by every signup and
-/// admin form that collects a phone number.
+/// international format every SMS-sending Edge Function expects (see
+/// `supabase/functions/_shared/sms.ts` and the README's SMS setup
+/// section) - used by every signup and admin form that collects a phone
+/// number.
 class GhanaPhone {
   GhanaPhone._();
 

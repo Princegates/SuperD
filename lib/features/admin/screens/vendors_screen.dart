@@ -196,7 +196,18 @@ class _VendorCard extends ConsumerWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Cramming the name, both badges, and all four action icons
+            // into one Row left almost no width for the name on a phone
+            // screen - Flutter's Text falls back to wrapping one or two
+            // characters per line rather than overflowing horizontally.
+            // Splitting the badges onto the name's own row (still just an
+            // Expanded, a real bounded width) and giving the actions a
+            // separate Wrap underneath (so they can flow onto a second
+            // line instead of stealing space from the text above) fixes
+            // it the same way PersonCard already does for the identical
+            // problem on Team/Drivers.
             Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: Text(
@@ -206,7 +217,7 @@ class _VendorCard extends ConsumerWidget {
                 ),
                 if (!vendor.isActive)
                   Container(
-                    margin: const EdgeInsets.only(right: 8),
+                    margin: const EdgeInsets.only(left: 8),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
@@ -226,6 +237,7 @@ class _VendorCard extends ConsumerWidget {
                   ),
                 if (vendor.zoneName != null)
                   Container(
+                    margin: const EdgeInsets.only(left: 8),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
                       vertical: 4,
@@ -243,6 +255,13 @@ class _VendorCard extends ConsumerWidget {
                       ),
                     ),
                   ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              alignment: WrapAlignment.end,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
                 IconButton(
                   tooltip: 'Resend link (SMS/email)',
                   icon: const Icon(Icons.mark_email_unread_outlined, size: 20),

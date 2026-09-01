@@ -195,34 +195,43 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
           ..invalidate(driversListProvider);
         if (mounted) context.pop();
       } else {
-        final result = _isDriver
-            ? await repo.createDriver(
-                email: _emailController.text.trim(),
-                fullName: _nameController.text.trim(),
-                phone: GhanaPhone.normalize(_phoneController.text.trim()),
-                ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
-                vehicleNumber: _emptyToNull(_vehicleController.text),
-                vehicleType: _vehicleType,
-                residentialAddress: _emptyToNull(
-                  _residentialAddressController.text,
-                ),
-                dateOfBirth: _dateOfBirth,
-                drivingLicenseNumber: _emptyToNull(
-                  _licenseNumberController.text,
-                ),
-                drivingLicenseExpiry: _licenseExpiry,
-                vehicleInsuranceNumber: _emptyToNull(
-                  _insuranceNumberController.text,
-                ),
-                vehicleInsuranceExpiry: _insuranceExpiry,
-              )
-            : await repo.createDispatcher(
+        final result = switch (widget.role) {
+          UserRole.driver => await repo.createDriver(
+            email: _emailController.text.trim(),
+            fullName: _nameController.text.trim(),
+            phone: GhanaPhone.normalize(_phoneController.text.trim()),
+            ghanaCardNumber: _emptyToNull(_ghanaCardController.text),
+            vehicleNumber: _emptyToNull(_vehicleController.text),
+            vehicleType: _vehicleType,
+            residentialAddress: _emptyToNull(
+              _residentialAddressController.text,
+            ),
+            dateOfBirth: _dateOfBirth,
+            drivingLicenseNumber: _emptyToNull(
+              _licenseNumberController.text,
+            ),
+            drivingLicenseExpiry: _licenseExpiry,
+            vehicleInsuranceNumber: _emptyToNull(
+              _insuranceNumberController.text,
+            ),
+            vehicleInsuranceExpiry: _insuranceExpiry,
+          ),
+          UserRole.auditor => await repo.createAuditor(
+            email: _emailController.text.trim(),
+            fullName: _nameController.text.trim(),
+            phone: GhanaPhone.normalize(_phoneController.text.trim())!,
+            dateOfBirth: _dateOfBirth!,
+            residentialAddress: _residentialAddressController.text.trim(),
+          ),
+          UserRole.dispatcher || UserRole.superAdmin => await repo
+              .createDispatcher(
                 email: _emailController.text.trim(),
                 fullName: _nameController.text.trim(),
                 phone: GhanaPhone.normalize(_phoneController.text.trim())!,
                 dateOfBirth: _dateOfBirth!,
                 residentialAddress: _residentialAddressController.text.trim(),
-              );
+              ),
+        };
         await logAuditEvent(
           ref.read(supabaseClientProvider),
           action: 'staff_created',

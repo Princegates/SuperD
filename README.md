@@ -124,9 +124,9 @@ supabase/
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
     public-submit-delivery-request/  Edge Function: verifies a Turnstile token, then calls submit_delivery_request() with the caller's real IP - the only way anon can reach it since 0059
     public-register-vendor/        Edge Function: verifies a Turnstile token, then calls register_vendor() with the caller's real IP - the only way anon can reach it since 0059
-    admin-create-driver/           Edge Function: creates a driver's or dispatcher's login
-    admin-delete-driver/           Edge Function: deletes a driver's or dispatcher's login
-    admin-update-email/            Edge Function: fixes a driver's or dispatcher's email
+    admin-create-driver/           Edge Function: creates a driver's, dispatcher's, or auditor's login
+    admin-delete-driver/           Edge Function: deletes a driver's, dispatcher's, or auditor's login
+    admin-update-email/            Edge Function: fixes a driver's, dispatcher's, or auditor's email
     admin-resend-vendor-link/      Edge Function: re-sends a vendor's own link (SMS/email) on demand, from Console > Vendors
     admin-resend-tracking-link/    Edge Function: re-sends a delivery's tracking link (SMS/email) to its customer on demand, from a delivery's detail page
     get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
@@ -193,11 +193,12 @@ supabase/
 
 ### Promote your first super admin
 
-Dispatcher and super admin accounts are always created deliberately, from
-the Team screen by an existing super admin — there's no self-signup for
-either role. (A driver can create their own account from the native app,
-pending approval - see **Driver self-signup** below - but that's the one
-exception.) For the very first account, create it straight from Supabase:
+Dispatcher, auditor, and super admin accounts are always created
+deliberately, from the Team screen by an existing super admin — there's no
+self-signup for any of the three. (A driver can create their own account
+from the native app, pending approval - see **Driver self-signup** below -
+but that's the one exception.) For the very first account, create it
+straight from Supabase:
 
 1. Supabase dashboard → **Authentication → Users → Add user** (email +
    password, and toggle **Auto Confirm User** on so it doesn't wait on a
@@ -834,26 +835,28 @@ A driver signing themselves up (see **Driver self-signup** below) fills in
 the same fields on their own signup form, with the same insurance
 exception - there's no gap between the two paths.
 
-Super admins can also add, edit, and remove **dispatchers** from the
-**Team** screen the same way — Full name, date of birth, email, telephone
-number, and residential address are all required for a dispatcher (checked
-both in the form and server-side). Team is super-admin-only: dispatcher
-management is exclusive to the super admin role, since dispatchers managing
-other dispatchers would be a peer managing peers. A super admin's own
-account can't be removed from either screen either way; that's not a
-roster edit.
+Super admins can also add, edit, and remove **dispatchers** and
+**auditors** from the **Team** screen the same way — its "Add team member"
+FAB opens a picker between the two roles before handing off to the same
+form. Full name, date of birth, email, telephone number, and residential
+address are all required for either (checked both in the form and
+server-side). Team is super-admin-only: dispatcher/auditor management is
+exclusive to the super admin role, since a dispatcher or auditor managing
+their peers would be a peer managing peers. A super admin's own account
+can't be removed from either screen either way; that's not a roster edit.
 
-Both screens have a toggle to deactivate an existing driver/dispatcher; on
-Drivers, the same toggle also approves a driver who signed themselves up
-(see **Driver self-signup** above) - an inactive driver shows a "Pending
-approval" badge and can't be assigned deliveries until switched on.
+Both screens have a toggle to deactivate an existing driver/dispatcher/
+auditor; on Drivers, the same toggle also approves a driver who signed
+themselves up (see **Driver self-signup** above) - an inactive driver shows
+a "Pending approval" badge and can't be assigned deliveries until switched
+on.
 
 Creating or deleting a login needs Supabase's admin API, which requires the
 project's service-role key. That key must never be embedded in the app
 (anyone could pull it out of the APK and get full database access), so
 those actions go through a trio of Edge Functions instead — the
 service-role key lives only on Supabase's servers, never on a device. The
-same functions handle both drivers and dispatchers.
+same functions handle drivers, dispatchers, and auditors alike.
 
 ### Supabase Cloud
 
@@ -885,8 +888,8 @@ inside every Edge Function — no need to set those yourself.
 
 ### Emailing the new account its password
 
-**Add driver**/**Add dispatcher** generate a random temporary password and
-email it straight to the new hire, using the same
+**Add driver**/**Add dispatcher**/**Add auditor** generate a random temporary
+password and email it straight to the new hire, using the same
 [Resend](https://resend.com) account you set up for password-reset emails
 (see **Enable "Forgot password?"** below — skip ahead if you haven't set
 that up yet). Give the Edge Function that same Resend API key as a secret:
@@ -2552,15 +2555,22 @@ role itself needs its own migration
 (`0053_add_auditor_role_enum.sql`) run and committed *before*
 `0054_auditor_role_permissions.sql`, which uses the literal value -
 Postgres refuses to use a brand-new enum value inside the same
-transaction that added it. A super admin assigns the role from the same
-Team screen role-control dropdown used for promoting/demoting
-dispatchers (`PersonCard`'s `RoleControl` - it lists every `UserRole`
-value, so the new one just appears there with no extra UI needed).
-Staff account creation/deletion (the `admin-create-driver`/
-`admin-delete-driver` Edge Functions) already used a hardcoded
-`["dispatcher", "super_admin"]` allowlist rather than
-`is_dispatcher_or_above()`, so an auditor is rejected there automatically
-too, with no Edge Function changes needed.
+transaction that added it. A super admin can create an auditor directly -
+the Team screen's "Add team member" FAB opens a picker between "Add
+dispatcher" and "Add auditor" before pushing `StaffFormScreen`, which
+calls the new `createAuditor()` repository method (same
+`admin-create-driver` Edge Function, `role: "auditor"` in the body) - or
+promote/demote an existing account via the same role-control dropdown
+used for dispatchers (`PersonCard`'s `RoleControl` - it lists every
+`UserRole` value, so the new one just appears there with no extra UI
+needed). Staff account creation/deletion (the `admin-create-driver`/
+`admin-delete-driver` Edge Functions) originally used a hardcoded
+`["dispatcher", "super_admin"]`/`role === "dispatcher"` allowlist that
+would have rejected an auditor - both were widened (any non-driver role
+now needs `super_admin` to create or remove) rather than left to fall
+through to `is_dispatcher_or_above()`, since a plain dispatcher creating
+or deleting *another* dispatcher or auditor is exactly the Team
+management action that must stay super-admin-only.
 
 One section - **Customers** - is deliberately NOT shared with an auditor
 the way everything else is: customer contact details (name, email,

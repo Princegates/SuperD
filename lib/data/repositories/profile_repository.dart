@@ -252,6 +252,23 @@ class ProfileRepository {
     residentialAddress: residentialAddress,
   );
 
+  /// Creates an auditor's login and profile via the same Edge Function.
+  /// Only a super admin may call this - enforced server-side too.
+  Future<({String tempPassword, bool emailSent})> createAuditor({
+    required String email,
+    required String fullName,
+    required String phone,
+    required DateTime dateOfBirth,
+    required String residentialAddress,
+  }) => _createStaffAccount(
+    role: UserRole.auditor,
+    email: email,
+    fullName: fullName,
+    phone: phone,
+    dateOfBirth: dateOfBirth,
+    residentialAddress: residentialAddress,
+  );
+
   /// Creates a login + profile via the "admin-create-driver" Edge Function
   /// (needs the service-role key, which never ships in the app). The new
   /// user is emailed their temporary password directly and must set their

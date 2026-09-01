@@ -1,4 +1,4 @@
-// Deletes a driver's or dispatcher's login (and, via the profiles FK's
+// Deletes a driver's, dispatcher's, or auditor's login (and, via the profiles FK's
 // "on delete cascade", their profile row too). Runs with the service-role
 // key - see the note in admin-create-driver/index.ts. Deploy with
 // `supabase functions deploy admin-delete-driver`.
@@ -42,8 +42,9 @@ Deno.serve(async (req) => {
     if (!userId) return jsonResponse({ error: "userId is required" }, 400);
 
     // A dispatcher/super admin can remove a driver. Only a super admin can
-    // remove a dispatcher. A super admin's own account is never removable
-    // through this function - that's a bigger decision than a roster edit.
+    // remove a dispatcher or auditor - that's Team management. A super
+    // admin's own account is never removable through this function - that's
+    // a bigger decision than a roster edit.
     const { data: targetProfile } = await admin
       .from("profiles")
       .select("role")
@@ -52,9 +53,9 @@ Deno.serve(async (req) => {
     if (!targetProfile || targetProfile.role === "super_admin") {
       return jsonResponse({ error: "That account can't be removed here" }, 400);
     }
-    if (targetProfile.role === "dispatcher" && callerProfile.role !== "super_admin") {
+    if (targetProfile.role !== "driver" && callerProfile.role !== "super_admin") {
       return jsonResponse(
-        { error: "Only a super admin can remove a dispatcher" },
+        { error: "Only a super admin can remove a dispatcher or auditor" },
         403,
       );
     }

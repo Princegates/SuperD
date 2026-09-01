@@ -1,16 +1,26 @@
-/// The two secrets `register_vendor` hands back - a public [code] to share
+/// The secrets `register_vendor` hands back - a public [code] to share
 /// with customers, and a private [ordersCode] for the vendor's own "view
 /// all my orders" page. See `0027_separate_vendor_orders_code.sql`.
+/// [isActive] is false only when the one-time subscription fee
+/// (`0074_vendor_subscriptions.sql`) is on and this was a public
+/// self-signup - the signup screen shows a payment step instead of the
+/// usual success screen when that's the case.
 class VendorRegistration {
   final String code;
   final String ordersCode;
+  final bool isActive;
 
-  const VendorRegistration({required this.code, required this.ordersCode});
+  const VendorRegistration({
+    required this.code,
+    required this.ordersCode,
+    this.isActive = true,
+  });
 
   factory VendorRegistration.fromMap(Map<String, dynamic> map) {
     return VendorRegistration(
       code: map['code'] as String,
       ordersCode: map['orders_code'] as String,
+      isActive: map['is_active'] as bool? ?? true,
     );
   }
 }
@@ -34,6 +44,16 @@ class Vendor {
   final bool isActive;
   final DateTime createdAt;
 
+  /// The one-time registration fee this vendor owed, captured at signup
+  /// time - null means no fee ever applied (subscriptions were off, or a
+  /// dispatcher/super admin added them directly). See
+  /// `0074_vendor_subscriptions.sql`.
+  final double? subscriptionFeeAmount;
+
+  /// When the fee cleared - null while still pending (see
+  /// [isPaymentPending]) or when [subscriptionFeeAmount] is null.
+  final DateTime? subscriptionPaidAt;
+
   const Vendor({
     required this.id,
     required this.code,
@@ -47,6 +67,8 @@ class Vendor {
     this.locationLng,
     this.email,
     this.isActive = true,
+    this.subscriptionFeeAmount,
+    this.subscriptionPaidAt,
   });
 
   factory Vendor.fromMap(Map<String, dynamic> map) {
@@ -63,13 +85,30 @@ class Vendor {
       phone: map['phone'] as String? ?? '',
       email: map['email'] as String?,
       isActive: map['is_active'] as bool? ?? true,
+      subscriptionFeeAmount: (map['subscription_fee_amount'] as num?)
+          ?.toDouble(),
+      subscriptionPaidAt: map['subscription_paid_at'] == null
+          ? null
+          : DateTime.tryParse(map['subscription_paid_at'] as String),
       createdAt: DateTime.parse(map['created_at'] as String),
     );
   }
+
+  /// True for a vendor still waiting on their one-time subscription fee -
+  /// distinct from one a dispatcher/super admin has simply deactivated by
+  /// hand (which has no [subscriptionFeeAmount] on file). Console >
+  /// Vendors shows this as a "Payment pending" badge; it's a soft gate,
+  /// not a hard block - a super admin can still activate them the usual
+  /// way regardless.
+  bool get isPaymentPending =>
+      !isActive && subscriptionFeeAmount != null && subscriptionPaidAt == null;
 }
 
 /// Public-facing vendor info, returned by the `get_vendor_by_code` RPC -
-/// only what a customer needs to see before filling in the request form.
+/// only what a customer needs to see before filling in the request form,
+/// plus what the signup page's payment step needs to poll for a vendor
+/// still awaiting their one-time subscription fee (see
+/// `0074_vendor_subscriptions.sql`).
 class VendorPublicInfo {
   final String id;
   final String vendorName;
@@ -78,6 +117,13 @@ class VendorPublicInfo {
   final double? locationLng;
   final bool isActive;
 
+  /// What this vendor owes on their pending subscription fee - null if
+  /// none applies (subscriptions were off, or an admin added them
+  /// directly). See [Vendor.isPaymentPending] for the same idea on the
+  /// admin-facing model.
+  final double? subscriptionFeeAmount;
+  final String currency;
+
   const VendorPublicInfo({
     required this.id,
     required this.vendorName,
@@ -85,6 +131,8 @@ class VendorPublicInfo {
     this.zoneName,
     this.locationLat,
     this.locationLng,
+    this.subscriptionFeeAmount,
+    this.currency = 'GHS',
   });
 
   factory VendorPublicInfo.fromMap(Map<String, dynamic> map) {
@@ -95,6 +143,9 @@ class VendorPublicInfo {
       locationLat: (map['location_lat'] as num?)?.toDouble(),
       locationLng: (map['location_lng'] as num?)?.toDouble(),
       isActive: map['is_active'] as bool? ?? false,
+      subscriptionFeeAmount: (map['subscription_fee_amount'] as num?)
+          ?.toDouble(),
+      currency: map['currency'] as String? ?? 'GHS',
     );
   }
 }

@@ -229,6 +229,34 @@ class VendorRepository {
     return VendorRegistration.fromMap(response.data as Map<String, dynamic>);
   }
 
+  /// Starts a real-time Mobile Money charge for [code]'s one-time
+  /// subscription fee via the "paystack-vendor-subscription-charge" Edge
+  /// Function - the vendor approves a prompt on their phone, and their
+  /// link activates itself once Paystack's webhook resolves it (poll
+  /// [fetchVendorByCode] to notice). Public - a vendor has no login, only
+  /// their own [code] - the actual amount owed is always looked up
+  /// server-side, never trusted from this client. Throws
+  /// [VendorSubscriptionException] if [code] isn't in a chargeable state
+  /// (already active, no fee applies, or the feature's since been turned
+  /// off).
+  Future<String> payVendorSubscription({
+    required String code,
+    required String phone,
+    required String network,
+  }) async {
+    try {
+      final response = await _client.functions.invoke(
+        'paystack-vendor-subscription-charge',
+        body: {'code': code, 'phone': phone, 'network': network},
+      );
+      final data = response.data as Map<String, dynamic>;
+      return data['message'] as String? ??
+          'Check your phone to approve the payment.';
+    } on FunctionException catch (e) {
+      throw VendorSubscriptionException(_messageFrom(e));
+    }
+  }
+
   /// Looks up a vendor by their public code - null if it doesn't exist.
   Future<VendorPublicInfo?> fetchVendorByCode(String code) async {
     final rows = await _client.rpc(
@@ -460,6 +488,16 @@ class VendorRepository {
 /// show directly to the dispatcher/super admin who triggered it.
 class VendorLinkException implements Exception {
   VendorLinkException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+/// Thrown when a vendor's one-time subscription charge fails, with a
+/// message safe to show directly to the vendor on the signup page.
+class VendorSubscriptionException implements Exception {
+  VendorSubscriptionException(this.message);
   final String message;
 
   @override

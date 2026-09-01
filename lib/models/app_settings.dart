@@ -21,6 +21,8 @@ class AppSettings {
     this.supportPhone,
     this.adminAlertEmail,
     this.adminAlertPhone,
+    this.vendorSubscriptionEnabled = false,
+    this.vendorSubscriptionFee = 0,
   });
 
   final String currency;
@@ -116,6 +118,19 @@ class AppSettings {
   /// sent.
   final String? adminAlertPhone;
 
+  /// Master switch for the one-time vendor subscription fee - off by
+  /// default, so public vendor self-signup stays free and instantly
+  /// active. When on (and [vendorSubscriptionFee] > 0), a new PUBLIC
+  /// signup starts inactive until it's paid via Mobile Money - an admin
+  /// adding a vendor directly is never gated by this. See
+  /// `0074_vendor_subscriptions.sql`.
+  final bool vendorSubscriptionEnabled;
+
+  /// The one-time fee charged at public vendor signup while
+  /// [vendorSubscriptionEnabled] is true. Changing it only affects new
+  /// registrations going forward.
+  final double vendorSubscriptionFee;
+
   factory AppSettings.fromMap(Map<String, dynamic> map) {
     return AppSettings(
       currency: map['currency'] as String? ?? 'GHS',
@@ -138,6 +153,10 @@ class AppSettings {
       supportPhone: map['support_phone'] as String?,
       adminAlertEmail: map['admin_alert_email'] as String?,
       adminAlertPhone: map['admin_alert_phone'] as String?,
+      vendorSubscriptionEnabled:
+          map['vendor_subscription_enabled'] as bool? ?? false,
+      vendorSubscriptionFee:
+          (map['vendor_subscription_fee'] as num?)?.toDouble() ?? 0,
     );
   }
 

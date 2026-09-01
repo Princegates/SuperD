@@ -1,11 +1,17 @@
-// Receives Paystack's webhook once a daily-fee Mobile Money charge
-// (started by paystack-daily-fee-charge) resolves, and flips the matching
-// driver_daily_fees row to 'paid' or 'failed'. Called by Paystack's
-// servers directly, not by the app - so it can't require a Supabase user
-// JWT (see verify_jwt = false for this function in supabase/config.toml).
-// Instead it verifies Paystack's own signature header (see
-// verifySignature() below) - the documented, standard way to confirm a
-// webhook request genuinely came from Paystack and wasn't forged.
+// Receives Paystack's webhook once a Mobile Money charge resolves - a
+// driver's daily fee (started by paystack-daily-fee-charge) or a vendor's
+// one-time subscription fee (started by
+// paystack-vendor-subscription-charge), branching on the reference's
+// prefix. Both share this one function/URL rather than each getting its
+// own, since Paystack's dashboard has exactly one "Webhook URL" field per
+// account - every event for the account goes to whichever single URL is
+// configured there, so a second function would just never be called.
+// Called by Paystack's servers directly, not by the app - so it can't
+// require a Supabase user JWT (see verify_jwt = false for this function
+// in supabase/config.toml). Instead it verifies Paystack's own signature
+// header (see verifySignature() below) - the documented, standard way to
+// confirm a webhook request genuinely came from Paystack and wasn't
+// forged.
 //
 // IMPORTANT: the exact shape of Paystack's webhook payload (event names,
 // nesting) should be verified against your own Paystack dashboard/test
@@ -14,12 +20,16 @@
 // details do shift over time.
 //
 // Needs the same PAYSTACK_SECRET_KEY secret as paystack-daily-fee-charge
-// (used here to verify the signature, not to call the API).
+// and paystack-vendor-subscription-charge (used here to verify the
+// signature, not to call the API).
 // Deploy with `supabase functions deploy paystack-daily-fee-webhook`
 // (or set verify_jwt = false for it in supabase/config.toml, already done
 // in this repo).
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+
+// deno-lint-ignore no-explicit-any
+type AdminClient = any;
 
 // Paystack signs the raw request body with HMAC-SHA512 using your secret
 // key, sent as the `x-paystack-signature` header - constant-ish time
@@ -47,6 +57,47 @@ async function verifySignature(
     .map((b) => b.toString(16).padStart(2, "0"))
     .join("");
   return computed === signature;
+}
+
+// A vendor's one-time subscription fee (see
+// paystack-vendor-subscription-charge and 0074_vendor_subscriptions.sql)
+// - activates the vendor's link on success. Idempotent: a duplicate/
+// retried webhook for an already-settled vendor is a no-op, and a failed
+// charge just leaves the vendor pending (they can retry from the signup
+// page), so there's nothing to write for that case beyond acknowledging it.
+async function handleVendorSubscriptionReference(
+  admin: AdminClient,
+  reference: string,
+  isSuccess: boolean,
+): Promise<Response> {
+  const { data: existing } = await admin
+    .from("vendors")
+    .select("id, subscription_paid_at")
+    .eq("subscription_payment_reference", reference)
+    .maybeSingle();
+  if (!existing) {
+    console.error(
+      `paystack-daily-fee-webhook: no vendor for reference ${reference}`,
+    );
+    return jsonResponse({ error: "Unknown reference" }, 404);
+  }
+  if (existing.subscription_paid_at !== null || !isSuccess) {
+    return jsonResponse({ ok: true });
+  }
+
+  const { error: updateError } = await admin
+    .from("vendors")
+    .update({ is_active: true, subscription_paid_at: new Date().toISOString() })
+    .eq("id", existing.id);
+  if (updateError) {
+    console.error(
+      "paystack-daily-fee-webhook: vendor activation failed -",
+      updateError,
+    );
+    return jsonResponse({ error: "Could not activate the vendor" }, 500);
+  }
+
+  return jsonResponse({ ok: true });
 }
 
 Deno.serve(async (req) => {
@@ -92,6 +143,14 @@ Deno.serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const admin = createClient(supabaseUrl, serviceRoleKey);
+
+    if (reference.startsWith("vendor-sub-")) {
+      return await handleVendorSubscriptionReference(
+        admin,
+        reference,
+        isSuccess,
+      );
+    }
 
     const { data: existing } = await admin
       .from("driver_daily_fees")

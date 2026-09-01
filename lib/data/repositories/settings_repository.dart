@@ -200,4 +200,27 @@ class SettingsRepository {
         .update({'admin_alert_phone': phone})
         .eq('id', true);
   }
+
+  /// Master switch for the one-time vendor subscription fee - see
+  /// [AppSettings.vendorSubscriptionEnabled]. Only takes effect if the
+  /// caller is a super admin - enforced by RLS.
+  Future<void> setVendorSubscriptionEnabled(bool enabled) async {
+    await _client
+        .from(_table)
+        .update({'vendor_subscription_enabled': enabled})
+        .eq('id', true);
+  }
+
+  /// Changes the one-time vendor subscription fee - see
+  /// [AppSettings.vendorSubscriptionFee]. Only affects new registrations
+  /// going forward.
+  Future<void> updateVendorSubscriptionFee(double fee) async {
+    if (fee < 0) {
+      throw ArgumentError('The fee cannot be negative.');
+    }
+    await _client
+        .from(_table)
+        .update({'vendor_subscription_fee': fee})
+        .eq('id', true);
+  }
 }

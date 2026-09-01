@@ -67,6 +67,20 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
   @override
   Widget build(BuildContext context) {
+    // Below ~380dp (the narrowest common phones), the 42px wordmark and
+    // 32px side padding this page was designed around don't leave enough
+    // room for "SuperDelivery" to fit on one line - it was breaking
+    // mid-word ("Deliver" / "y") instead of wrapping at a word boundary,
+    // since the two TextSpans below have no space between them to break
+    // on. Scaling both down together keeps the wordmark on one line on
+    // every phone size actually in use, rather than fixing the symptom
+    // (the break) without fixing the cause (not enough room).
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isNarrow = screenWidth < 380;
+    final isCompact = screenWidth < 480;
+    final titleFontSize = isNarrow ? 30.0 : (isCompact ? 36.0 : 42.0);
+    final horizontalPadding = isNarrow ? 20.0 : 32.0;
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: Stack(
@@ -95,8 +109,8 @@ class _WelcomeScreenState extends State<WelcomeScreen>
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 32,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: horizontalPadding,
                     vertical: 40,
                   ),
                   child: Column(
@@ -125,7 +139,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         textAlign: TextAlign.center,
                         text: TextSpan(
                           style: GoogleFonts.poppins(
-                            fontSize: 42,
+                            fontSize: titleFontSize,
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.8,
                             height: 1.1,
@@ -144,13 +158,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'The delivery management platform for local '
-                        'businesses - connecting vendors, dispatchers, and '
-                        'riders from order to doorstep.',
+                        'The delivery management platform built for local '
+                        'businesses — seamlessly connecting vendors with '
+                        'couriers from order to doorstep.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           color: Colors.grey.shade700,
-                          fontSize: 16,
+                          fontSize: isNarrow ? 14.5 : 16,
                           height: 1.5,
                         ),
                       ),

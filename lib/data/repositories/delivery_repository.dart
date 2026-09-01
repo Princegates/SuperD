@@ -253,4 +253,37 @@ class DeliveryRepository {
         .limit(limit);
     return rows.map(DeliveryIncident.fromMap).toList();
   }
+
+  /// Re-sends a delivery's tracking link (SMS + email) to its customer via
+  /// the "admin-resend-tracking-link" Edge Function - for a dispatcher/
+  /// super admin to use when the original notify-delivery-events message
+  /// never arrived. Dispatcher-or-above only, enforced server-side.
+  Future<void> resendTrackingLink(String deliveryId) async {
+    try {
+      await _client.functions.invoke(
+        'admin-resend-tracking-link',
+        body: {'deliveryId': deliveryId},
+      );
+    } on FunctionException catch (e) {
+      throw TrackingLinkException(_messageFrom(e));
+    }
+  }
+
+  String _messageFrom(FunctionException e) {
+    final details = e.details;
+    if (details is Map && details['error'] is String) {
+      return details['error'] as String;
+    }
+    return 'Something went wrong. Please try again.';
+  }
+}
+
+/// Thrown when resending a tracking link fails, with a message safe to
+/// show directly to the dispatcher/super admin who triggered it.
+class TrackingLinkException implements Exception {
+  TrackingLinkException(this.message);
+  final String message;
+
+  @override
+  String toString() => message;
 }

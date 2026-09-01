@@ -7,6 +7,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../data/repositories/delivery_repository.dart'
+    show TrackingLinkException;
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
@@ -213,6 +215,11 @@ class _DetailBody extends ConsumerWidget {
             ),
           ),
         ),
+        if (delivery.customerPhone?.isNotEmpty == true ||
+            delivery.customerEmail?.isNotEmpty == true) ...[
+          const SizedBox(height: 10),
+          _ResendTrackingLinkButton(delivery: delivery),
+        ],
         const SizedBox(height: 16),
         PaymentCard(deliveryId: delivery.id, canEdit: true),
         const SizedBox(height: 16),
@@ -324,6 +331,80 @@ class _DetailBody extends ConsumerWidget {
             label: const Text('Cancel delivery'),
           ),
       ],
+    );
+  }
+}
+
+/// Lets a dispatcher/super admin resend the customer's tracking link
+/// (SMS/email) on demand - for when the original notify-delivery-events
+/// message at creation never arrived. A `ConsumerStatefulWidget` of its
+/// own, not folded into [_DetailBody], just so it can own a small
+/// [_isSending] flag for its own loading state without touching the rest
+/// of the (stateless) screen.
+class _ResendTrackingLinkButton extends ConsumerStatefulWidget {
+  const _ResendTrackingLinkButton({required this.delivery});
+
+  final Delivery delivery;
+
+  @override
+  ConsumerState<_ResendTrackingLinkButton> createState() =>
+      _ResendTrackingLinkButtonState();
+}
+
+class _ResendTrackingLinkButtonState
+    extends ConsumerState<_ResendTrackingLinkButton> {
+  bool _isSending = false;
+
+  Future<void> _resend() async {
+    setState(() => _isSending = true);
+    try {
+      await ref
+          .read(deliveryRepositoryProvider)
+          .resendTrackingLink(widget.delivery.id);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'tracking_link_resent',
+        entityType: 'delivery',
+        entityId: widget.delivery.id,
+        summary:
+            'Resent tracking link for delivery '
+            '#${widget.delivery.trackingCode}',
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Link resent')));
+      }
+    } on TrackingLinkException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not resend the link')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSending = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: OutlinedButton.icon(
+        onPressed: _isSending ? null : _resend,
+        icon: _isSending
+            ? const SizedBox(
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.mark_email_unread_outlined, size: 18),
+        label: const Text('Resend tracking link to customer'),
+      ),
     );
   }
 }

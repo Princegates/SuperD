@@ -267,6 +267,19 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           fontSize: 13,
                         ),
                       ),
+                      const SizedBox(height: 18),
+                      GestureDetector(
+                        onTap: () => context.push('/legal/terms'),
+                        child: Text(
+                          'Terms & Privacy Policy',
+                          style: GoogleFonts.inter(
+                            color: Colors.grey.shade500,
+                            fontSize: 12.5,
+                            fontWeight: FontWeight.w600,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),

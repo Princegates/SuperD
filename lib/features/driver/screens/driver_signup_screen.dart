@@ -6,7 +6,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/driver_vehicle_type.dart';
+import '../../../shared/legal/superd_legal_policy.dart';
 import '../../../shared/utils/ghana_phone.dart';
+import '../../../shared/widgets/terms_checkbox.dart';
 
 /// Self-service signup for drivers only - reachable from the login screen's
 /// Driver tab, native app only (the router keeps this route out of reach
@@ -41,6 +43,10 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
   bool _isSubmitting = false;
   String? _errorMessage;
   bool _checkEmail = false;
+
+  /// Required before [_submit] will run at all - see [TermsCheckbox] near
+  /// the bottom of the form.
+  bool _agreedToTerms = false;
 
   static String _formatDate(DateTime date) =>
       DateFormat('dd MMM yyyy').format(date);
@@ -98,6 +104,12 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_agreedToTerms) {
+      setState(
+        () => _errorMessage = 'Please agree to the Terms & Privacy Policy.',
+      );
+      return;
+    }
     if (_passwordController.text != _confirmController.text) {
       setState(() => _errorMessage = 'Passwords do not match');
       return;
@@ -329,6 +341,12 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                             ),
                             onFieldSubmitted: (_) => _submit(),
                           ),
+                          const SizedBox(height: 16),
+                          TermsCheckbox(
+                            value: _agreedToTerms,
+                            onChanged: (value) =>
+                                setState(() => _agreedToTerms = value),
+                          ),
                           if (_errorMessage != null) ...[
                             const SizedBox(height: 14),
                             Text(
@@ -339,7 +357,9 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                           ],
                           const SizedBox(height: 20),
                           ElevatedButton(
-                            onPressed: _isSubmitting ? null : _submit,
+                            onPressed: (_isSubmitting || !_agreedToTerms)
+                                ? null
+                                : _submit,
                             child: _isSubmitting
                                 ? const SizedBox(
                                     height: 22,

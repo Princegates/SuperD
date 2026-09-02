@@ -19,6 +19,7 @@ import '../../features/driver/screens/driver_signup_screen.dart';
 import '../../features/driver/screens/earnings_screen.dart';
 import '../../features/driver/screens/my_rides_screen.dart';
 import '../../features/driver/screens/pending_approval_screen.dart';
+import '../../features/legal/screens/policy_screen.dart';
 import '../../features/public/screens/customer_request_screen.dart';
 import '../../features/public/screens/track_order_screen.dart';
 import '../../features/public/screens/vendor_orders_screen.dart';
@@ -106,7 +107,12 @@ final routerProvider = Provider<GoRouter>((ref) {
           loc == '/vendor' ||
           loc.startsWith('/v/') ||
           loc.startsWith('/vendor-orders/') ||
-          loc.startsWith('/t/')) {
+          loc.startsWith('/t/') ||
+          // The Terms & Privacy Policy page the vendor/driver signup
+          // screens link to before their "I agree" checkbox - has to work
+          // for a visitor who hasn't submitted the form yet, i.e. has no
+          // session at all.
+          loc == '/legal/terms') {
         return null;
       }
 
@@ -239,6 +245,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           key: state.pageKey,
           child: const DriverSignupScreen(),
         ),
+      ),
+      GoRoute(
+        path: '/legal/terms',
+        pageBuilder: (context, state) =>
+            fadeSlidePage(key: state.pageKey, child: const PolicyScreen()),
       ),
       GoRoute(
         path: '/v/:code',

@@ -1,1 +1,10 @@
+# SuperD migrated from superd.anknovate.com to superdeliverygh.com -
+# this sends every path on the old domain to the same path on the new
+# one (not just the homepage), permanently. Must come before the SPA
+# fallback rule below: Netlify _redirects matches top-to-bottom and
+# stops at the first hit, and that rule below has no host qualifier so
+# it'd otherwise swallow every request, including these, before this
+# one ever got a chance to run.
+https://superd.anknovate.com/*  https://superdeliverygh.com/:splat  301!
+
 /*    /index.html   200

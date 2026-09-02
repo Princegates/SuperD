@@ -22,6 +22,7 @@ const String kTermsVersion = '1.1';
 const String kTermsEffectiveDate = '2 September 2026';
 const String kOperatorLegalName = 'Anknovate IT Services';
 const String kOperatorContactEmail = 'info@anknovate.com';
+const String kOperatorContactPhone = '+233 55 355 2693';
 
 class PolicySection {
   const PolicySection(this.title, this.body);

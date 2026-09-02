@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/legal/superd_legal_policy.dart';
 import '../../../shared/utils/vendor_link.dart';
 
 /// The app's actual front door - reachable at the bare root (`/`), before
@@ -277,6 +278,20 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                             decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      GestureDetector(
+                        onTap: () => launchUrl(
+                          Uri.parse('https://anknovate.com'),
+                          webOnlyWindowName: '_blank',
+                        ),
+                        child: Text(
+                          'Powered by $kOperatorLegalName',
+                          style: GoogleFonts.inter(
+                            color: Colors.grey.shade400,
+                            fontSize: 12,
                           ),
                         ),
                       ),

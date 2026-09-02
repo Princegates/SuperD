@@ -1,11 +1,11 @@
 {
-    "name": "superd",
-    "short_name": "superd",
+    "name": "SuperDelivery",
+    "short_name": "SuperD",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",
     "theme_color": "#16213E",
-    "description": "A new Flutter project.",
+    "description": "The delivery management platform for local businesses - connecting vendors, dispatchers, and riders from order to doorstep.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

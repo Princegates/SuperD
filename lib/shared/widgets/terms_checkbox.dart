@@ -18,7 +18,9 @@ class TermsCheckbox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const textStyle = TextStyle(color: Colors.black87, fontSize: 13.5);
-    const linkStyle = TextStyle(
+    // Not const: AppTheme.primary is a mutable `static Color` (the active
+    // theme preset can change at runtime), not a compile-time constant.
+    final linkStyle = TextStyle(
       color: AppTheme.primary,
       fontWeight: FontWeight.w700,
       decoration: TextDecoration.underline,
@@ -40,7 +42,7 @@ class TermsCheckbox extends StatelessWidget {
                 const Text('I agree to the ', style: textStyle),
                 GestureDetector(
                   onTap: () => context.push('/legal/terms'),
-                  child: const Text('Terms & Privacy Policy', style: linkStyle),
+                  child: Text('Terms & Privacy Policy', style: linkStyle),
                 ),
                 const Text('.', style: textStyle),
               ],

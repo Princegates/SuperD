@@ -523,7 +523,10 @@ class _AssignedDriverCardState extends ConsumerState<_AssignedDriverCard> {
                     child: Text(driver.displayName),
                   ),
               ],
-              onChanged: (delivery.status == DeliveryStatus.cancelled || !canAssign)
+              onChanged:
+                  (delivery.status == DeliveryStatus.cancelled ||
+                      delivery.status == DeliveryStatus.delivered ||
+                      !canAssign)
                   ? null
                   : _assignDriver,
             ),

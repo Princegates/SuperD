@@ -18,7 +18,7 @@
 /// binding, final agreement.
 library;
 
-const String kTermsVersion = '1.1';
+const String kTermsVersion = '1.2';
 const String kTermsEffectiveDate = '2 September 2026';
 const String kOperatorLegalName = 'Anknovate IT Services';
 const String kOperatorContactEmail = 'info@anknovate.com';
@@ -182,11 +182,11 @@ const List<PolicySection> kPolicySections = [
   PolicySection(
     'Package restrictions and maximum value',
     'Every delivery submitted through the Platform is subject to a '
-        'maximum declared value of GH₵300. Do not use SuperD to send an '
+        'maximum declared value of GH₵200. Do not use SuperD to send an '
         'item worth more than this - arrange your own transport or '
         'insured courier for anything more valuable. If a lost or damaged '
         'package turns out to have been worth more, our liability (see '
-        '"Limitation of liability" below) is capped at GH₵300 or the '
+        '"Limitation of liability" below) is capped at GH₵200 or the '
         'item\'s actual value, whichever is lower.\n\n'
         'The following may never be sent through the Platform, regardless '
         'of value:\n'

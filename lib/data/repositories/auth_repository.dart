@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/driver_vehicle_type.dart';
+import '../../shared/legal/superd_legal_policy.dart';
 import '../../shared/utils/audit_log.dart';
 
 class AuthRepository {
@@ -81,6 +82,12 @@ class AuthRepository {
         'driving_license_expiry': _dateOnly(drivingLicenseExpiry),
         'vehicle_insurance_number': vehicleInsuranceNumber,
         'vehicle_insurance_expiry': _dateOnly(vehicleInsuranceExpiry),
+        // The driver signup screen won't call this at all until its
+        // Terms & Privacy Policy checkbox is ticked, so this is always
+        // "now" the moment signUp actually runs - not a value the caller
+        // needs to pass in.
+        'terms_accepted_at': DateTime.now().toIso8601String(),
+        'terms_version': kTermsVersion,
       },
     );
     // Only if signup actually established a session - with email

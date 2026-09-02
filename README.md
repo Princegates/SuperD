@@ -126,6 +126,7 @@ supabase/
     0076_drop_stale_register_vendor_overload.sql  drops a stale 7-argument register_vendor() overload left behind since 0059 added a trailing parameter without dropping the old signature first - PostgREST couldn't tell the two apart, so "Add vendor" failed outright with a 300 Multiple Choices error
     0077_merge_submit_delivery_request_forks.sql  fixes the same silent-fork bug in submit_delivery_request() - 0065/0067 both edited the stale, unreachable overload instead of the live one, so public delivery requests were missing the overdue-commission driver check and never saved the chosen vehicle_type_id; merges both forks' changes into the one live function and drops the stale overload
     0078_no_reassign_after_driver_reject.sql      adds delivery_rejections (one row per driver who's rejected a delivery) so assign_pending_deliveries_near_driver() and driver_cancel_delivery()'s fallback search both skip a driver who already turned down that exact delivery, instead of potentially auto-reassigning it right back to them
+    0079_terms_acceptance.sql                     adds vendors.terms_accepted_at/terms_version and profiles.terms_accepted_at/terms_version, set the moment a vendor/driver agrees to the Terms & Privacy Policy on their self-signup form - see "Terms & Privacy Policy" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -653,6 +654,37 @@ account), in case anything ever calls Supabase's own signup endpoint
 without going through the app first. Like every other throttle in this
 app, it stops a burst of junk signups from one number, not a determined
 attacker rotating phone numbers per attempt.
+
+### Terms & Privacy Policy
+
+Both public self-signup forms - vendor (`/vendor`) and driver
+(native-app-only) - now have a required "I agree to the Terms & Privacy
+Policy" checkbox; the submit button stays disabled until it's checked.
+Tapping the policy name pushes `/legal/terms` (`PolicyScreen`), which
+renders the single combined Terms of Service + Privacy Policy document in
+`lib/shared/legal/superd_legal_policy.dart` - one file, both roles: a
+shared privacy section plus a vendor-specific and a driver-specific
+section.
+
+**This text was drafted as a reasonable starting point, not by a
+lawyer.** Have it reviewed by counsel qualified in Ghanaian law (the Data
+Protection Act, 2012 (Act 843) in particular) before relying on it as a
+final, binding agreement - then edit `kPolicySections` directly; there's
+no CMS or database table backing this, it's plain Dart.
+
+**Consent is recorded, not just gated client-side**: the moment someone
+submits either form, `vendors.terms_accepted_at`/`terms_version` or
+`profiles.terms_accepted_at`/`terms_version` gets set server-side (see
+`0079_terms_acceptance.sql`) - real proof of what was agreed to and when,
+not just that the client-side checkbox happened to be checked. An
+admin-added vendor or admin-created driver account never went through
+either form, so these columns stay null for them - that's expected, not a
+bug.
+
+**Bump `kTermsVersion`** (same file) whenever `kPolicySections` changes in
+a way that matters - new signups then get the new text and record the new
+version, while an existing account's stored `terms_version` still shows
+which version *they* actually agreed to.
 
 ### Driver application emails
 

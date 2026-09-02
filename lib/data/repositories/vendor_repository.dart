@@ -213,6 +213,7 @@ class VendorRepository {
     String? zoneId,
     String? email,
     String? turnstileToken,
+    required String termsVersion,
   }) async {
     final response = await _client.functions.invoke(
       'public-register-vendor',
@@ -224,6 +225,7 @@ class VendorRepository {
         'phone': phone,
         'email': email,
         'turnstileToken': turnstileToken,
+        'termsVersion': termsVersion,
       },
     );
     return VendorRegistration.fromMap(response.data as Map<String, dynamic>);

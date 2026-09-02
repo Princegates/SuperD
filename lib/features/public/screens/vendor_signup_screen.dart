@@ -12,12 +12,14 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/vendor_repository.dart'
     show VendorSubscriptionException;
 import '../../../models/vendor.dart';
+import '../../../shared/legal/superd_legal_policy.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/geocode_search.dart';
 import '../../../shared/utils/ghana_phone.dart';
 import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/utils/vendor_link.dart';
 import '../../../shared/widgets/address_autocomplete_field.dart';
+import '../../../shared/widgets/terms_checkbox.dart';
 import '../../../shared/widgets/turnstile_widget.dart';
 import '../../admin/providers/admin_providers.dart';
 
@@ -53,8 +55,13 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
   /// for that, only requiring a token once one's actually expected.
   String? _turnstileToken;
 
+  /// Required before [_submit] will run at all - see the checkbox near
+  /// the bottom of the form, linking to the Terms & Privacy Policy page.
+  bool _agreedToTerms = false;
+
   bool get _canSubmit =>
       !_isSubmitting &&
+      _agreedToTerms &&
       (Env.turnstileSiteKey.isEmpty || _turnstileToken != null);
 
   @override
@@ -130,6 +137,7 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
             email: _emailController.text.trim(),
             zoneId: _zoneId,
             turnstileToken: _turnstileToken,
+            termsVersion: kTermsVersion,
           );
       if (mounted) setState(() => _registration = registration);
     } catch (e) {
@@ -253,6 +261,12 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
                             ),
                           ],
                           const SizedBox(height: 16),
+                          TermsCheckbox(
+                            value: _agreedToTerms,
+                            onChanged: (value) =>
+                                setState(() => _agreedToTerms = value),
+                          ),
+                          const SizedBox(height: 8),
                           Center(
                             child: TurnstileWidget(
                               onToken: (token) =>

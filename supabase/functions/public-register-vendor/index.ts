@@ -52,6 +52,7 @@ Deno.serve(async (req) => {
       email: body?.email ?? null,
       created_by: null,
       p_client_ip: clientIp,
+      p_terms_version: body?.termsVersion ?? null,
     });
 
     if (error) {

@@ -356,6 +356,17 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           ),
                         ),
                       ),
+                      const SizedBox(height: 6),
+                      Text(
+                        // DateTime.now().year, not a literal - never goes
+                        // stale on its own.
+                        '© ${DateTime.now().year} $kOperatorLegalName. '
+                        'All rights reserved.',
+                        style: GoogleFonts.inter(
+                          color: Colors.grey.shade400,
+                          fontSize: 11.5,
+                        ),
+                      ),
                     ],
                   ),
                 ),

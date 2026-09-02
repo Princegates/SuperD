@@ -526,9 +526,14 @@
     <br />
     Powered by
     <a class="foot-link" href="https://anknovate.com" target="_blank" rel="noopener">Anknovate IT Services</a>
+    <br />
+    &copy; <span id="copyright-year"></span> Anknovate IT Services. All rights reserved.
   </footer>
 
   <script>
+    // Never a stale hardcoded year in the footer.
+    document.getElementById('copyright-year').textContent = new Date().getFullYear();
+
     // Fades feature cards in as they scroll into view, instead of all at
     // once - purely cosmetic, so a browser without IntersectionObserver
     // just shows them immediately.

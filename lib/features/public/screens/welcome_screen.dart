@@ -258,6 +258,67 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             ),
                         ],
                       ),
+                      const SizedBox(height: 48),
+                      Text(
+                        'About SuperDelivery',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                          color: Colors.black87,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        'SuperDelivery is operated by $kOperatorLegalName, '
+                        'connecting vendors, dispatchers, and independent '
+                        "riders in one system - from a vendor's shareable "
+                        'ordering link, through live GPS tracking and '
+                        'Mobile Money payments, to PIN-verified proof of '
+                        'delivery at the door.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          color: Colors.grey.shade600,
+                          fontSize: 13.5,
+                          height: 1.6,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 18,
+                        runSpacing: 8,
+                        children: [
+                          GestureDetector(
+                            onTap: () => launchUrl(
+                              Uri.parse('mailto:$kOperatorContactEmail'),
+                            ),
+                            child: Text(
+                              kOperatorContactEmail,
+                              style: GoogleFonts.inter(
+                                color: AppTheme.primary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          GestureDetector(
+                            onTap: () => launchUrl(
+                              Uri.parse(
+                                'tel:${kOperatorContactPhone.replaceAll(' ', '')}',
+                              ),
+                            ),
+                            child: Text(
+                              kOperatorContactPhone,
+                              style: GoogleFonts.inter(
+                                color: AppTheme.primary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                       const SizedBox(height: 40),
                       Text(
                         "Already a customer? Use the tracking link your "

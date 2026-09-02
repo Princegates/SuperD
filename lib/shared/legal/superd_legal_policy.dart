@@ -18,7 +18,7 @@
 /// binding, final agreement.
 library;
 
-const String kTermsVersion = '1.0';
+const String kTermsVersion = '1.1';
 const String kTermsEffectiveDate = '2 September 2026';
 const String kOperatorLegalName = 'Anknovate IT Services';
 const String kOperatorContactEmail = 'info@anknovate.com';
@@ -179,6 +179,29 @@ const List<PolicySection> kPolicySections = [
         'every order ever placed through your account.',
   ),
   PolicySection(
+    'Package restrictions and maximum value',
+    'Every delivery submitted through the Platform is subject to a '
+        'maximum declared value of GH₵300. Do not use SuperD to send an '
+        'item worth more than this - arrange your own transport or '
+        'insured courier for anything more valuable. If a lost or damaged '
+        'package turns out to have been worth more, our liability (see '
+        '"Limitation of liability" below) is capped at GH₵300 or the '
+        'item\'s actual value, whichever is lower.\n\n'
+        'The following may never be sent through the Platform, regardless '
+        'of value:\n'
+        '- Cash or cash equivalents (cheques, money orders, gift cards, '
+        'and the like)\n'
+        '- Jewelry, precious metals, or precious stones\n'
+        '- Weapons, ammunition, or explosives\n'
+        '- Alcohol\n'
+        '- Illegal items or controlled substances of any kind\n\n'
+        'A Vendor or Customer who submits a prohibited item, or '
+        'misrepresents a package\'s value or contents, does so at their '
+        'own risk - SuperD and the Driver carrying it bear no liability '
+        'for it, and we may refuse or abandon such a delivery without '
+        'refund.',
+  ),
+  PolicySection(
     'Vendor activation fee',
     'Where enabled, a self-registered Vendor account starts inactive until '
         'a one-time activation fee is paid by Mobile Money. The fee amount '
@@ -267,6 +290,8 @@ const List<PolicySection> kPolicySections = [
         'arising from your use of the Platform, for the acts or omissions '
         'of a Vendor, Driver, or Customer (who are independent of us), or '
         'for a delivery delay or failure outside our reasonable control. '
+        'Where a package is lost or damaged, our liability is capped as '
+        'described in "Package restrictions and maximum value" above. '
         'Nothing in this section limits liability that cannot lawfully be '
         'limited or excluded.',
   ),

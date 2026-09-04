@@ -128,6 +128,7 @@ supabase/
     0078_no_reassign_after_driver_reject.sql      adds delivery_rejections (one row per driver who's rejected a delivery) so assign_pending_deliveries_near_driver() and driver_cancel_delivery()'s fallback search both skip a driver who already turned down that exact delivery, instead of potentially auto-reassigning it right back to them
     0079_terms_acceptance.sql                     adds vendors.terms_accepted_at/terms_version and profiles.terms_accepted_at/terms_version, set the moment a vendor/driver agrees to the Terms & Privacy Policy on their self-signup form - see "Terms & Privacy Policy" below
     0080_no_reassign_after_delivered.sql          enforce_delivery_update() now rejects any assigned_driver_id change once a delivery is already 'delivered', for every caller including a dispatcher/super admin from the Console - previously only a plain driver caller was blocked, so a completed delivery's driver record (what commission/payment settlement is tied to) could still be silently rewritten from the admin side
+    0081_special_deliveries.sql                   adds deliveries.is_special, a label for a delivery a dispatcher/super admin creates by hand with its own manually-entered fee instead of the usual zone pricing - see "Special deliveries" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -1213,6 +1214,24 @@ share with the public form:
   pay, the same "record it, don't try to collect it in-app" treatment
   every other payment method already gets. A dispatcher marks it paid
   once the money's actually in hand, from the delivery detail screen.
+
+### Special deliveries
+
+The admin "New delivery" form above was already always manually priced -
+"special" isn't about *how* the fee gets set (that never changes), it's a
+real, labeled category for one: flip the **Special delivery** switch in
+the Payment section and the fee field (otherwise optional) becomes
+required, and the delivery is tagged `deliveries.is_special` (see
+`0081_special_deliveries.sql`) - a small gold "Special" pill then shows
+next to its tracking code everywhere a `DeliveryCard` or the delivery
+detail screen renders it, and the Deliveries CSV export (Console >
+Reports) gets a "Special" Yes/No column.
+
+Driver commission needs nothing extra: `log_commission_due()` already
+computes it from whatever's recorded in `payments` for a delivery,
+regardless of how that payment got there, so a special delivery's
+required fee flows into commission exactly the same as any other
+delivery's.
 
 ### Road-distance pricing setup
 

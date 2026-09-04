@@ -261,6 +261,7 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                               headers: const [
                                 'Tracking code',
                                 'Status',
+                                'Special',
                                 'Customer',
                                 'Phone',
                                 'Pickup',
@@ -275,6 +276,7 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                               toRow: (d) => [
                                 d.trackingCode,
                                 d.status.label,
+                                d.isSpecial ? 'Yes' : 'No',
                                 d.customerName,
                                 d.customerPhone,
                                 d.pickupAddress,

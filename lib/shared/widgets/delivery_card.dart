@@ -73,6 +73,10 @@ class _DeliveryCardState extends State<DeliveryCard>
                     const SizedBox(width: 6),
                     const _AutoAssignedBadge(),
                   ],
+                  if (delivery.isSpecial) ...[
+                    const SizedBox(width: 6),
+                    const _SpecialBadge(),
+                  ],
                   const Spacer(),
                   StatusBadge(status: delivery.status),
                 ],
@@ -201,6 +205,44 @@ class _AutoAssignedBadge extends StatelessWidget {
               'Auto',
               style: TextStyle(
                 color: AppTheme.neutral,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small pill next to the tracking code marking a delivery a dispatcher
+/// priced by hand instead of the usual zone pricing - see
+/// [Delivery.isSpecial].
+class _SpecialBadge extends StatelessWidget {
+  const _SpecialBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    // Not const: AppTheme.accent is a mutable `static Color` (the active
+    // theme preset can change at runtime), not a compile-time constant.
+    return Tooltip(
+      message: 'Priced by hand, not the usual zone pricing',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppTheme.accent.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star_outline, size: 12, color: AppTheme.accent),
+            const SizedBox(width: 3),
+            Text(
+              'Special',
+              style: TextStyle(
+                color: AppTheme.accent,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),

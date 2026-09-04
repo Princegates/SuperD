@@ -45,6 +45,13 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   String? _vehicleTypeId;
   DateTime? _scheduledAt;
   PaymentMethod _paymentMethod = PaymentMethod.cash;
+
+  /// A delivery priced by hand instead of the usual zone/road-distance
+  /// pricing - see `0081_special_deliveries.sql`. Turning this on makes
+  /// the fee field below required instead of optional; driver commission
+  /// still applies to it exactly like any other delivery's payment.
+  bool _isSpecial = false;
+
   bool _isSubmitting = false;
   bool _isLocating = false;
   bool _isGeocodingPickup = false;
@@ -209,6 +216,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
             assignedDriverId: _assignedDriverId,
             scheduledAt: _scheduledAt,
             vehicleTypeId: _vehicleTypeId,
+            isSpecial: _isSpecial,
           );
 
       await logAuditEvent(
@@ -416,20 +424,42 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                 ),
                 const SizedBox(height: 20),
                 const _SectionLabel('Payment'),
+                SwitchListTile.adaptive(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Special delivery'),
+                  subtitle: const Text(
+                    'A custom job priced by hand instead of the usual '
+                    'zone pricing - requires a fee below. Driver '
+                    'commission still applies to it as normal.',
+                  ),
+                  value: _isSpecial,
+                  onChanged: (value) => setState(() => _isSpecial = value),
+                ),
+                const SizedBox(height: 8),
                 TextFormField(
                   controller: _feeController,
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
                   ),
                   decoration: InputDecoration(
-                    labelText: 'Delivery fee ($currency, optional)',
+                    labelText: _isSpecial
+                        ? 'Delivery fee ($currency)'
+                        : 'Delivery fee ($currency, optional)',
                     prefixIcon: const Icon(Icons.attach_money),
                   ),
                   validator: (v) {
-                    if (v == null || v.trim().isEmpty) return null;
-                    return double.tryParse(v.trim()) == null
-                        ? 'Enter a valid amount'
-                        : null;
+                    final text = v?.trim() ?? '';
+                    if (text.isEmpty) {
+                      return _isSpecial
+                          ? 'Required for a special delivery'
+                          : null;
+                    }
+                    final amount = double.tryParse(text);
+                    if (amount == null) return 'Enter a valid amount';
+                    if (_isSpecial && amount <= 0) {
+                      return 'Enter the fee for this special delivery';
+                    }
+                    return null;
                   },
                 ),
                 const SizedBox(height: 12),

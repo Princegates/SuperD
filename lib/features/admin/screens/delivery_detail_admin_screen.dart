@@ -157,6 +157,10 @@ class _DetailBody extends ConsumerWidget {
                 ),
               ),
             ),
+            if (delivery.isSpecial) ...[
+              const _SpecialBadge(),
+              const SizedBox(width: 8),
+            ],
             const SizedBox(width: 8),
             StatusBadge(status: delivery.status),
           ],
@@ -529,6 +533,44 @@ class _AssignedDriverCardState extends ConsumerState<_AssignedDriverCard> {
                       !canAssign)
                   ? null
                   : _assignDriver,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Small pill next to the tracking code marking a delivery a dispatcher
+/// priced by hand instead of the usual zone pricing - see
+/// [Delivery.isSpecial].
+class _SpecialBadge extends StatelessWidget {
+  const _SpecialBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    // Not const: AppTheme.accent is a mutable `static Color` (the active
+    // theme preset can change at runtime), not a compile-time constant.
+    return Tooltip(
+      message: 'Priced by hand, not the usual zone pricing',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: AppTheme.accent.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(999),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star_outline, size: 12, color: AppTheme.accent),
+            const SizedBox(width: 3),
+            Text(
+              'Special',
+              style: TextStyle(
+                color: AppTheme.accent,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ],
         ),

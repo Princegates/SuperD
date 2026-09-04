@@ -39,6 +39,12 @@ class Delivery {
   /// `0042_auto_assigned_indicator.sql`.
   final bool autoAssigned;
 
+  /// True for a delivery a dispatcher/super admin created by hand with
+  /// its own manually-entered fee (see `CreateDeliveryScreen`), outside
+  /// the normal zone/road-distance auto-pricing the public customer
+  /// request flow uses. See `0081_special_deliveries.sql`.
+  final bool isSpecial;
+
   final DateTime createdAt;
   final DateTime updatedAt;
   final DateTime? assignedAt;
@@ -73,6 +79,7 @@ class Delivery {
     this.zoneId,
     this.vehicleTypeId,
     this.autoAssigned = false,
+    this.isSpecial = false,
     this.assignedAt,
     this.pickedUpAt,
     this.deliveredAt,
@@ -105,6 +112,7 @@ class Delivery {
       zoneId: map['zone_id'] as String?,
       vehicleTypeId: map['vehicle_type_id'] as String?,
       autoAssigned: map['auto_assigned'] as bool? ?? false,
+      isSpecial: map['is_special'] as bool? ?? false,
       createdAt: parseDate(map['created_at']) ?? DateTime.now(),
       updatedAt: parseDate(map['updated_at']) ?? DateTime.now(),
       assignedAt: parseDate(map['assigned_at']),
@@ -151,6 +159,7 @@ class Delivery {
       zoneId: zoneId,
       vehicleTypeId: vehicleTypeId,
       autoAssigned: autoAssigned,
+      isSpecial: isSpecial,
       createdAt: createdAt,
       updatedAt: updatedAt,
       assignedAt: assignedAt,

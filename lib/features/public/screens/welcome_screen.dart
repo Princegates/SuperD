@@ -32,6 +32,27 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     (Icons.verified_outlined, 'Secure payments'),
   ];
 
+  static const _relaySteps = [
+    (
+      Icons.link,
+      'A vendor shares a link',
+      'One link goes out on WhatsApp, Instagram, or a storefront QR code '
+          '— no app download for the customer.',
+    ),
+    (
+      Icons.two_wheeler_outlined,
+      'The nearest rider gets it',
+      'The order is matched to a rider already working that zone, so '
+          'pickup starts within minutes.',
+    ),
+    (
+      Icons.task_alt,
+      'Proof lands at the door',
+      'A PIN confirms the handoff, and the vendor sees the delivery '
+          'update live, the moment it happens.',
+    ),
+  ];
+
   /// Drives the drifting logo watermark behind the content - one slow,
   /// looping clock the whole page reads its position off of.
   late final AnimationController _driftController;
@@ -218,14 +239,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                 ),
                               ),
                               onPressed: () => _open(context, '/login'),
-                              child: const Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text('Driver and staff login'),
-                                  SizedBox(width: 6),
-                                  Icon(Icons.arrow_forward, size: 17),
-                                ],
-                              ),
+                              child: const Text('Driver and staff login'),
                             ),
                           ),
                         ],
@@ -256,6 +270,33 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                                 ),
                               ],
                             ),
+                        ],
+                      ),
+                      const SizedBox(height: 56),
+                      Text(
+                        'How it works',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 19,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      Column(
+                        children: [
+                          for (
+                            var i = 0;
+                            i < _relaySteps.length;
+                            i++
+                          ) ...[
+                            _RelayStepRow(step: _relaySteps[i]),
+                            if (i < _relaySteps.length - 1)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 25),
+                                child: _DashedConnector(),
+                              ),
+                          ],
                         ],
                       ),
                       const SizedBox(height: 48),
@@ -484,4 +525,132 @@ class _AnimatedCtaState extends State<_AnimatedCta> {
       ),
     );
   }
+}
+
+/// One row of the "How it works" relay: a hexagonal, gold-gradient badge
+/// carrying the step's icon, next to its title and one-line description.
+/// The hexagon echoes the speed-line motif in the app mark rather than a
+/// plain numbered circle.
+class _RelayStepRow extends StatelessWidget {
+  const _RelayStepRow({required this.step});
+
+  final (IconData, String, String) step;
+
+  @override
+  Widget build(BuildContext context) {
+    final (icon, title, description) = step;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ClipPath(
+          clipper: const _HexBadgeClipper(),
+          child: Container(
+            width: 50,
+            height: 50,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppTheme.accent,
+                  AppTheme.accent.withValues(alpha: 0.7),
+                ],
+              ),
+            ),
+            child: Icon(icon, color: Colors.black87, size: 22),
+          ),
+        ),
+        const SizedBox(width: 18),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 15,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  description,
+                  style: GoogleFonts.inter(
+                    color: Colors.grey.shade600,
+                    fontSize: 13,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// A hexagon outline matching the app mark's speed-line badge shape, used
+/// to clip each relay step's icon container.
+class _HexBadgeClipper extends CustomClipper<Path> {
+  const _HexBadgeClipper();
+
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    return Path()
+      ..moveTo(w * 0.5, 0)
+      ..lineTo(w * 0.93, h * 0.25)
+      ..lineTo(w * 0.93, h * 0.75)
+      ..lineTo(w * 0.5, h)
+      ..lineTo(w * 0.07, h * 0.75)
+      ..lineTo(w * 0.07, h * 0.25)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
+}
+
+/// The short dashed line joining consecutive relay steps, echoing the
+/// dashed connector used between steps on the static marketing page.
+class _DashedConnector extends StatelessWidget {
+  const _DashedConnector();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 2,
+      height: 26,
+      child: CustomPaint(painter: _DashedConnectorPainter()),
+    );
+  }
+}
+
+class _DashedConnectorPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppTheme.accent.withValues(alpha: 0.4)
+      ..strokeWidth = 2;
+    const dashHeight = 4.0;
+    const dashSpace = 4.0;
+    var y = 0.0;
+    while (y < size.height) {
+      canvas.drawLine(
+        Offset(size.width / 2, y),
+        Offset(size.width / 2, y + dashHeight),
+        paint,
+      );
+      y += dashHeight + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

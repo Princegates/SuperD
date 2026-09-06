@@ -66,3 +66,8 @@ app.*.map.json
 
 # Supabase CLI local cache/link state (machine-specific, never shared)
 supabase/.temp/
+
+# Claude Code skills installed locally via `npx skills add` - tooling
+# config for whoever's working in the repo, not part of the app itself.
+.claude/
+skills-lock.json

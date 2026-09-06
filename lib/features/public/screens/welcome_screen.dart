@@ -181,7 +181,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       ),
                       const SizedBox(height: 48),
                       Text(
-                        'Your customers order. You watch it happen, live.',
+                        'Tracking is the new waiting.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: titleFontSize,
@@ -231,12 +231,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             ),
                           ),
                           _AnimatedCta(
-                            glowColor: palette.outlineForeground,
+                            glowColor: palette.secondaryText,
                             borderRadius: BorderRadius.circular(999),
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: palette.outlineForeground,
-                                side: BorderSide(color: palette.outlineBorder),
+                            child: FilledButton(
+                              style: FilledButton.styleFrom(
+                                backgroundColor: palette.secondaryBg,
+                                foregroundColor: palette.secondaryText,
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 26,
                                   vertical: 17,
@@ -284,7 +284,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w700,
                           fontSize: 19,
-                          color: isNight ? Colors.white : AppTheme.primary,
+                          color: palette.heading,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -678,32 +678,32 @@ class _Palette {
     required this.muted,
     required this.faint,
     required this.link,
-    required this.outlineForeground,
-    required this.outlineBorder,
+    required this.secondaryBg,
+    required this.secondaryText,
   });
 
   factory _Palette.of(bool isNight) {
     if (isNight) {
       return _Palette(
-        background: const Color(0xFF0B1024),
+        background: const Color(0xFF0B0C0E),
         heading: Colors.white,
         body: Colors.white.withValues(alpha: 0.78),
         muted: Colors.white.withValues(alpha: 0.62),
         faint: Colors.white.withValues(alpha: 0.45),
         link: AppTheme.accent,
-        outlineForeground: Colors.white,
-        outlineBorder: Colors.white.withValues(alpha: 0.32),
+        secondaryBg: Colors.white.withValues(alpha: 0.1),
+        secondaryText: Colors.white,
       );
     }
     return _Palette(
-      background: Colors.white,
-      heading: Colors.black87,
+      background: const Color(0xFFF5F6F7),
+      heading: const Color(0xFF0B0B0F),
       body: Colors.grey.shade700,
       muted: Colors.grey.shade600,
       faint: Colors.grey.shade400,
       link: AppTheme.primary,
-      outlineForeground: AppTheme.primary,
-      outlineBorder: AppTheme.primary.withValues(alpha: 0.35),
+      secondaryBg: Colors.white,
+      secondaryText: const Color(0xFF0B0B0F),
     );
   }
 
@@ -713,8 +713,8 @@ class _Palette {
   final Color muted;
   final Color faint;
   final Color link;
-  final Color outlineForeground;
-  final Color outlineBorder;
+  final Color secondaryBg;
+  final Color secondaryText;
 }
 
 /// The day/night switch itself - a small pill with a sliding sun/moon

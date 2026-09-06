@@ -57,9 +57,15 @@ class _WelcomeScreenState extends State<WelcomeScreen>
   /// looping clock the whole page reads its position off of.
   late final AnimationController _driftController;
 
+  /// Defaults to the visitor's actual local time of day, like the web
+  /// welcome page's toggle; the button below lets them override it.
+  late bool _isNightMode;
+
   @override
   void initState() {
     super.initState();
+    final hour = DateTime.now().hour;
+    _isNightMode = hour < 6 || hour >= 18;
     _driftController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 26),
@@ -102,24 +108,29 @@ class _WelcomeScreenState extends State<WelcomeScreen>
     final isCompact = screenWidth < 480;
     final titleFontSize = isNarrow ? 30.0 : (isCompact ? 36.0 : 42.0);
     final horizontalPadding = isNarrow ? 20.0 : 32.0;
+    final isNight = _isNightMode;
+    final palette = _Palette.of(isNight);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: palette.background,
       body: Stack(
         children: [
           // A single, static, understated glow behind the wordmark - not
           // the drifting multi-color orbs used on the splash screen. This
           // page is meant to read as a corporate product homepage, not a
-          // playful loading moment.
+          // playful loading moment. It fades to the night background color
+          // instead of white when the toggle below switches modes - the
+          // same "blended background" idea as the web welcome page's sky.
           Positioned.fill(
-            child: DecoratedBox(
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 500),
               decoration: BoxDecoration(
                 gradient: RadialGradient(
                   center: const Alignment(0, -0.5),
                   radius: 1.1,
                   colors: [
-                    AppTheme.accent.withValues(alpha: 0.10),
-                    Colors.white,
+                    AppTheme.accent.withValues(alpha: isNight ? 0.16 : 0.10),
+                    palette.background,
                   ],
                 ),
               ),
@@ -138,6 +149,15 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: _ModeToggleButton(
+                          isNight: isNight,
+                          onTap: () =>
+                              setState(() => _isNightMode = !_isNightMode),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
                       Container(
                         width: 88,
                         height: 88,
@@ -169,7 +189,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           children: [
                             TextSpan(
                               text: 'Super',
-                              style: TextStyle(color: AppTheme.primary),
+                              style: TextStyle(color: palette.heading),
                             ),
                             TextSpan(
                               text: 'Delivery',
@@ -185,7 +205,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         'couriers from order to doorstep.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
-                          color: Colors.grey.shade700,
+                          color: palette.body,
                           fontSize: isNarrow ? 14.5 : 16,
                           height: 1.5,
                         ),
@@ -218,16 +238,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             ),
                           ),
                           _AnimatedCta(
-                            glowColor: AppTheme.primary,
+                            glowColor: palette.outlineForeground,
                             borderRadius: BorderRadius.circular(999),
                             child: OutlinedButton(
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: AppTheme.primary,
-                                side: BorderSide(
-                                  color: AppTheme.primary.withValues(
-                                    alpha: 0.35,
-                                  ),
-                                ),
+                                foregroundColor: palette.outlineForeground,
+                                side: BorderSide(color: palette.outlineBorder),
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 26,
                                   vertical: 17,
@@ -254,16 +270,12 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(
-                                  icon,
-                                  size: 17,
-                                  color: Colors.grey.shade500,
-                                ),
+                                Icon(icon, size: 17, color: palette.muted),
                                 const SizedBox(width: 8),
                                 Text(
                                   label,
                                   style: GoogleFonts.inter(
-                                    color: Colors.grey.shade600,
+                                    color: palette.muted,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w500,
                                   ),
@@ -279,7 +291,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w700,
                           fontSize: 19,
-                          color: AppTheme.primary,
+                          color: isNight ? Colors.white : AppTheme.primary,
                         ),
                       ),
                       const SizedBox(height: 24),
@@ -290,7 +302,10 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             i < _relaySteps.length;
                             i++
                           ) ...[
-                            _RelayStepRow(step: _relaySteps[i]),
+                            _RelayStepRow(
+                              step: _relaySteps[i],
+                              palette: palette,
+                            ),
                             if (i < _relaySteps.length - 1)
                               const Padding(
                                 padding: EdgeInsets.only(left: 25),
@@ -306,7 +321,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
-                          color: Colors.black87,
+                          color: palette.heading,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -319,7 +334,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         'delivery at the door.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
-                          color: Colors.grey.shade600,
+                          color: palette.body,
                           fontSize: 13.5,
                           height: 1.6,
                         ),
@@ -337,7 +352,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             child: Text(
                               kOperatorContactEmail,
                               style: GoogleFonts.inter(
-                                color: AppTheme.primary,
+                                color: palette.link,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -352,7 +367,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             child: Text(
                               kOperatorContactPhone,
                               style: GoogleFonts.inter(
-                                color: AppTheme.primary,
+                                color: palette.link,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -366,7 +381,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         'vendor sent you after you placed your order.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
-                          color: Colors.grey.shade400,
+                          color: palette.faint,
                           fontSize: 13,
                         ),
                       ),
@@ -376,7 +391,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         child: Text(
                           'Terms & Privacy Policy',
                           style: GoogleFonts.inter(
-                            color: Colors.grey.shade500,
+                            color: palette.muted,
                             fontSize: 12.5,
                             fontWeight: FontWeight.w600,
                             decoration: TextDecoration.underline,
@@ -392,7 +407,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         child: Text(
                           'Powered by $kOperatorLegalName',
                           style: GoogleFonts.inter(
-                            color: Colors.grey.shade400,
+                            color: palette.faint,
                             fontSize: 12,
                           ),
                         ),
@@ -404,7 +419,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         '© ${DateTime.now().year} $kOperatorLegalName. '
                         'All rights reserved.',
                         style: GoogleFonts.inter(
-                          color: Colors.grey.shade400,
+                          color: palette.faint,
                           fontSize: 11.5,
                         ),
                       ),
@@ -532,9 +547,10 @@ class _AnimatedCtaState extends State<_AnimatedCta> {
 /// The hexagon echoes the speed-line motif in the app mark rather than a
 /// plain numbered circle.
 class _RelayStepRow extends StatelessWidget {
-  const _RelayStepRow({required this.step});
+  const _RelayStepRow({required this.step, required this.palette});
 
   final (IconData, String, String) step;
+  final _Palette palette;
 
   @override
   Widget build(BuildContext context) {
@@ -573,14 +589,14 @@ class _RelayStepRow extends StatelessWidget {
                   style: GoogleFonts.poppins(
                     fontWeight: FontWeight.w600,
                     fontSize: 15,
-                    color: Colors.black87,
+                    color: palette.heading,
                   ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   description,
                   style: GoogleFonts.inter(
-                    color: Colors.grey.shade600,
+                    color: palette.body,
                     fontSize: 13,
                     height: 1.5,
                   ),
@@ -653,4 +669,140 @@ class _DashedConnectorPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// The colors that flip between a light "day" look and a dark "night" one
+/// - the Flutter counterpart to the toggle on `web/welcome/index.html`. The
+/// gold accent and the icon card stay constant across both; everything
+/// else adapts so text stays legible against either background. Built
+/// fresh on every call (not cached) since [AppTheme.primary]/`.accent` are
+/// mutable and can change if the app's theme preset does.
+class _Palette {
+  const _Palette({
+    required this.background,
+    required this.heading,
+    required this.body,
+    required this.muted,
+    required this.faint,
+    required this.link,
+    required this.outlineForeground,
+    required this.outlineBorder,
+  });
+
+  factory _Palette.of(bool isNight) {
+    if (isNight) {
+      return _Palette(
+        background: const Color(0xFF0B1024),
+        heading: Colors.white,
+        body: Colors.white.withValues(alpha: 0.78),
+        muted: Colors.white.withValues(alpha: 0.62),
+        faint: Colors.white.withValues(alpha: 0.45),
+        link: AppTheme.accent,
+        outlineForeground: Colors.white,
+        outlineBorder: Colors.white.withValues(alpha: 0.32),
+      );
+    }
+    return _Palette(
+      background: Colors.white,
+      heading: Colors.black87,
+      body: Colors.grey.shade700,
+      muted: Colors.grey.shade600,
+      faint: Colors.grey.shade400,
+      link: AppTheme.primary,
+      outlineForeground: AppTheme.primary,
+      outlineBorder: AppTheme.primary.withValues(alpha: 0.35),
+    );
+  }
+
+  final Color background;
+  final Color heading;
+  final Color body;
+  final Color muted;
+  final Color faint;
+  final Color link;
+  final Color outlineForeground;
+  final Color outlineBorder;
+}
+
+/// The day/night switch itself - a small pill with a sliding sun/moon
+/// thumb, matching the one in the nav bar of `web/welcome/index.html`.
+class _ModeToggleButton extends StatelessWidget {
+  const _ModeToggleButton({required this.isNight, required this.onTap});
+
+  final bool isNight;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Switch between day and night background',
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 300),
+          width: 56,
+          height: 30,
+          padding: const EdgeInsets.symmetric(horizontal: 7),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            color: isNight
+                ? Colors.white.withValues(alpha: 0.07)
+                : AppTheme.primary.withValues(alpha: 0.05),
+            border: Border.all(
+              color: isNight
+                  ? Colors.white.withValues(alpha: 0.28)
+                  : AppTheme.primary.withValues(alpha: 0.18),
+            ),
+          ),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Icon(
+                    Icons.wb_sunny_rounded,
+                    size: 14,
+                    color: isNight
+                        ? Colors.white.withValues(alpha: 0.4)
+                        : AppTheme.primary,
+                  ),
+                  Icon(
+                    Icons.dark_mode_rounded,
+                    size: 14,
+                    color: isNight
+                        ? AppTheme.accent
+                        : AppTheme.primary.withValues(alpha: 0.35),
+                  ),
+                ],
+              ),
+              AnimatedAlign(
+                duration: const Duration(milliseconds: 300),
+                curve: Curves.easeOutCubic,
+                alignment: isNight
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [
+                        AppTheme.accent,
+                        AppTheme.accent.withValues(alpha: 0.7),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }

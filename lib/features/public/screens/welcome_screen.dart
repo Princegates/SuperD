@@ -95,18 +95,13 @@ class _WelcomeScreenState extends State<WelcomeScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Below ~380dp (the narrowest common phones), the 42px wordmark and
-    // 32px side padding this page was designed around don't leave enough
-    // room for "SuperDelivery" to fit on one line - it was breaking
-    // mid-word ("Deliver" / "y") instead of wrapping at a word boundary,
-    // since the two TextSpans below have no space between them to break
-    // on. Scaling both down together keeps the wordmark on one line on
-    // every phone size actually in use, rather than fixing the symptom
-    // (the break) without fixing the cause (not enough room).
+    // Scales the headline and side padding down on narrower phones, so the
+    // multi-line hero statement below keeps a comfortable line length
+    // instead of cramming against the edges.
     final screenWidth = MediaQuery.sizeOf(context).width;
     final isNarrow = screenWidth < 380;
     final isCompact = screenWidth < 480;
-    final titleFontSize = isNarrow ? 30.0 : (isCompact ? 36.0 : 42.0);
+    final titleFontSize = isNarrow ? 26.0 : (isCompact ? 30.0 : 36.0);
     final horizontalPadding = isNarrow ? 20.0 : 32.0;
     final isNight = _isNightMode;
     final palette = _Palette.of(isNight);
@@ -149,60 +144,58 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: _ModeToggleButton(
-                          isNight: isNight,
-                          onTap: () =>
-                              setState(() => _isNightMode = !_isNightMode),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: 88,
-                        height: 88,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: const Color(0xFFE7EAEE)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: AppTheme.primary.withValues(alpha: 0.14),
-                              blurRadius: 26,
-                              offset: const Offset(0, 12),
-                            ),
-                          ],
-                        ),
-                        child: Image.asset('assets/icon/icon.png'),
-                      ),
-                      const SizedBox(height: 36),
-                      RichText(
-                        textAlign: TextAlign.center,
-                        text: TextSpan(
-                          style: GoogleFonts.poppins(
-                            fontSize: titleFontSize,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.8,
-                            height: 1.1,
+                      // A small nav-style row - icon mark, wordmark, and the
+                      // day/night toggle - instead of a large centered logo,
+                      // so the big headline right below carries the hero
+                      // moment. Mirrors the nav bar on web/welcome/index.html.
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: Image.asset(
+                                  'assets/icon/icon.png',
+                                  width: 28,
+                                  height: 28,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                'SuperDelivery',
+                                style: GoogleFonts.poppins(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 16,
+                                  color: palette.heading,
+                                ),
+                              ),
+                            ],
                           ),
-                          children: [
-                            TextSpan(
-                              text: 'Super',
-                              style: TextStyle(color: palette.heading),
-                            ),
-                            TextSpan(
-                              text: 'Delivery',
-                              style: TextStyle(color: AppTheme.accent),
-                            ),
-                          ],
+                          _ModeToggleButton(
+                            isNight: isNight,
+                            onTap: () =>
+                                setState(() => _isNightMode = !_isNightMode),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 48),
+                      Text(
+                        'Your customers order. You watch it happen, live.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(
+                          fontSize: titleFontSize,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.8,
+                          height: 1.15,
+                          color: palette.heading,
                         ),
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'The delivery management platform built for local '
-                        'businesses — seamlessly connecting vendors with '
-                        'couriers from order to doorstep.',
+                        'SuperDelivery connects local vendors with nearby '
+                        'riders — from a shareable order link to '
+                        'PIN-verified delivery at the door.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           color: palette.body,

@@ -2,6 +2,24 @@
 <html lang="en">
 <head>
 <meta charset="utf-8" />
+<script>
+  // Set the day/night background mode before first paint, so there's no
+  // flash of the wrong theme while the rest of the page loads. Defaults to
+  // the visitor's actual local time of day; a manual toggle overrides that
+  // and is remembered for next time.
+  (function () {
+    try {
+      var saved = localStorage.getItem('superd-theme-mode');
+      if (saved !== 'day' && saved !== 'night') {
+        var hour = new Date().getHours();
+        saved = (hour >= 6 && hour < 18) ? 'day' : 'night';
+      }
+      document.documentElement.setAttribute('data-mode', saved);
+    } catch (e) {
+      document.documentElement.setAttribute('data-mode', 'night');
+    }
+  })();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>SuperDelivery — Delivering More. Connecting Better.</title>
 <meta name="description" content="SuperDelivery is the delivery management platform for local businesses - connecting vendors, dispatchers, and riders from order to doorstep." />
@@ -12,14 +30,31 @@
 <style>
   :root {
     --navy: #16213e;
-    --navy-deep: #0d1428;
     --gold: #f5a623;
     --gold-light: #ffd77a;
-    --ink: #16213e;
-    --muted: #5b6b85;
+
+    /* Night is the base palette; the day block below overrides it. */
+    --bg: #0b1024;
+    --bg-soft: #0f1730;
+    --surface-dark: #05070e;
+    --ink: #f2f4f8;
+    --muted: rgba(242, 244, 248, 0.62);
+    --border: rgba(255, 255, 255, 0.14);
+    --ghost-bg: rgba(255, 255, 255, 0.07);
+    --ghost-bg-hover: rgba(255, 255, 255, 0.14);
+    --ghost-border: rgba(255, 255, 255, 0.28);
+  }
+
+  :root[data-mode='day'] {
     --bg: #ffffff;
-    --bg-alt: #f7f8fa;
+    --bg-soft: #fff8ec;
+    --surface-dark: var(--navy);
+    --ink: var(--navy);
+    --muted: #5b6b85;
     --border: #e7eaee;
+    --ghost-bg: rgba(22, 33, 62, 0.05);
+    --ghost-bg-hover: rgba(22, 33, 62, 0.1);
+    --ghost-border: rgba(22, 33, 62, 0.18);
   }
 
   * { box-sizing: border-box; }
@@ -32,38 +67,132 @@
     background: var(--bg);
     color: var(--ink);
     overflow-x: hidden;
+    transition: background-color 0.6s ease, color 0.6s ease;
   }
 
   h1, h2, h3 { font-family: 'Poppins', 'Inter', sans-serif; margin: 0; }
 
   a { color: inherit; text-decoration: none; }
 
+  a:focus-visible, button:focus-visible {
+    outline: 2px solid var(--gold);
+    outline-offset: 3px;
+  }
+
+  /* ---------- Nav ---------- */
+
+  .nav {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 22px clamp(20px, 4vw, 48px);
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    font-size: 16px;
+  }
+
+  .nav-brand img { width: 28px; height: 28px; border-radius: 8px; }
+
+  .nav-actions { display: flex; align-items: center; gap: 16px; }
+
+  .mode-toggle {
+    position: relative;
+    width: 56px;
+    height: 30px;
+    border-radius: 999px;
+    border: 1px solid var(--ghost-border);
+    background: var(--ghost-bg);
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 7px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+  }
+
+  .mode-toggle svg {
+    position: relative;
+    z-index: 1;
+    width: 14px;
+    height: 14px;
+    color: var(--muted);
+    transition: color 0.3s ease;
+  }
+
+  :root[data-mode='day'] .mode-toggle .icon-sun { color: var(--navy); }
+  :root[data-mode='night'] .mode-toggle .icon-moon { color: var(--gold-light); }
+
+  .mode-toggle .thumb {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  :root[data-mode='day'] .mode-toggle .thumb { transform: translateX(0); }
+  :root[data-mode='night'] .mode-toggle .thumb { transform: translateX(26px); }
+
+  @media (max-width: 480px) {
+    .nav-actions .btn-sm { display: none; }
+  }
+
   /* ---------- Hero ---------- */
 
   .hero {
     position: relative;
+    overflow: hidden;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 48px 20px 64px;
-    background:
-      radial-gradient(circle at 50% 18%, rgba(245, 166, 35, 0.14), transparent 55%),
-      linear-gradient(160deg, var(--bg) 0%, var(--bg-alt) 70%);
-    background-size: 100% 100%, 140% 140%;
-    animation: drift 18s ease-in-out infinite alternate;
+    padding: 116px 20px 64px;
   }
 
-  @keyframes drift {
-    0%   { background-position: 50% 18%, 0% 0%; }
-    100% { background-position: 50% 30%, 100% 30%; }
+  .sky {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    opacity: 0;
+    transition: opacity 1s ease;
   }
+
+  .sky-night {
+    background:
+      radial-gradient(ellipse 120% 55% at 50% 100%, rgba(245, 166, 35, 0.16), transparent 60%),
+      radial-gradient(circle at 82% 14%, rgba(255, 255, 255, 0.07), transparent 42%),
+      linear-gradient(180deg, #05070e 0%, #0d1428 45%, #16213e 100%);
+  }
+
+  .sky-day {
+    background:
+      radial-gradient(circle at 50% -10%, rgba(255, 217, 122, 0.65), transparent 55%),
+      radial-gradient(circle at 14% 92%, rgba(245, 166, 35, 0.1), transparent 45%),
+      linear-gradient(180deg, #fff8ec 0%, #ffeecb 60%, #ffe6b0 100%);
+  }
+
+  :root[data-mode='night'] .sky-night { opacity: 1; }
+  :root[data-mode='day'] .sky-day { opacity: 1; }
 
   .speed-lines {
     position: absolute;
     inset: 0;
+    z-index: 1;
     pointer-events: none;
     overflow: hidden;
   }
@@ -89,57 +218,27 @@
     100% { transform: translateX(calc(100vw + 220px)); opacity: 0; }
   }
 
-  .logo-wrap {
+  .hero-content {
     position: relative;
-    width: 220px;
-    height: 220px;
-    margin-bottom: 8px;
-    animation: fade-in-up 0.9s ease both;
-  }
-
-  .logo-glow {
-    position: absolute;
-    inset: -30px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(245, 166, 35, 0.35), transparent 70%);
-    filter: blur(6px);
-    animation: pulse-glow 2.6s ease-in-out infinite;
-  }
-
-  @keyframes pulse-glow {
-    0%, 100% { transform: scale(0.94); opacity: 0.6; }
-    50%      { transform: scale(1.08); opacity: 1; }
-  }
-
-  .logo-wrap img {
-    position: relative;
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    border-radius: 28px;
-    animation: float 4.5s ease-in-out infinite;
-  }
-
-  @keyframes float {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50%      { transform: translateY(-14px) rotate(-1.5deg); }
+    z-index: 1;
+    max-width: 640px;
   }
 
   .hero h1 {
-    font-size: clamp(28px, 5vw, 44px);
+    font-size: clamp(30px, 6.2vw, 64px);
     font-weight: 800;
-    letter-spacing: -0.5px;
-    animation: fade-in-up 0.9s ease 0.15s both;
+    letter-spacing: -1.2px;
+    line-height: 1.12;
+    text-wrap: balance;
+    animation: fade-in-up 0.9s ease both;
   }
 
-  .hero .accent { color: var(--gold); }
-
   .hero p.tagline {
-    margin-top: 10px;
+    margin: 22px auto 0;
     font-size: clamp(14px, 2.2vw, 17px);
     color: var(--muted);
-    max-width: 520px;
-    animation: fade-in-up 0.9s ease 0.3s both;
+    max-width: 480px;
+    animation: fade-in-up 0.9s ease 0.15s both;
   }
 
   @keyframes fade-in-up {
@@ -153,7 +252,7 @@
     gap: 14px;
     justify-content: center;
     margin-top: 32px;
-    animation: fade-in-up 0.9s ease 0.45s both;
+    animation: fade-in-up 0.9s ease 0.3s both;
   }
 
   .btn {
@@ -164,7 +263,7 @@
     border-radius: 999px;
     font-weight: 600;
     font-size: 15px;
-    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    transition: transform 0.18s ease, box-shadow 0.18s ease, background-color 0.3s ease, border-color 0.3s ease;
     will-change: transform;
   }
 
@@ -172,19 +271,19 @@
 
   .btn-primary {
     background: linear-gradient(120deg, var(--gold), var(--gold-light));
-    color: var(--navy-deep);
+    color: var(--navy);
     box-shadow: 0 8px 24px rgba(245, 166, 35, 0.28);
   }
 
   .btn-primary:hover { box-shadow: 0 12px 30px rgba(245, 166, 35, 0.4); }
 
   .btn-ghost {
-    background: rgba(22, 33, 62, 0.05);
-    border: 1px solid rgba(22, 33, 62, 0.18);
+    background: var(--ghost-bg);
+    border: 1px solid var(--ghost-border);
     color: var(--ink);
   }
 
-  .btn-ghost:hover { background: rgba(22, 33, 62, 0.1); }
+  .btn-ghost:hover { background: var(--ghost-bg-hover); }
 
   .btn-sm { padding: 12px 22px; font-size: 14px; }
 
@@ -192,17 +291,18 @@
     margin-top: 22px;
     font-size: 13px;
     color: var(--muted);
-    animation: fade-in-up 0.9s ease 0.55s both;
+    animation: fade-in-up 0.9s ease 0.4s both;
   }
 
   .scroll-cue {
     position: absolute;
+    z-index: 1;
     bottom: 28px;
     left: 50%;
     transform: translateX(-50%);
     width: 26px;
     height: 42px;
-    border: 2px solid rgba(22, 33, 62, 0.25);
+    border: 2px solid var(--border);
     border-radius: 14px;
   }
 
@@ -213,7 +313,7 @@
     left: 50%;
     width: 4px;
     height: 8px;
-    background: var(--gold);
+    background: var(--ink);
     border-radius: 2px;
     transform: translateX(-50%);
     animation: scroll-dot 1.6s ease-in-out infinite;
@@ -231,6 +331,7 @@
     padding: 64px 20px;
     background: var(--bg);
     text-align: center;
+    transition: background-color 0.6s ease;
   }
 
   .about h2 {
@@ -251,8 +352,9 @@
 
   .flow {
     padding: 96px 20px 80px;
-    background: var(--navy);
+    background: var(--surface-dark);
     color: #fff;
+    transition: background-color 0.6s ease;
   }
 
   .flow-head {
@@ -261,16 +363,9 @@
     text-align: center;
   }
 
-  .flow-head .eyebrow {
-    color: var(--gold);
-    font-weight: 700;
-    font-size: 14px;
-  }
-
   .flow-head h2 {
     color: #fff;
     font-size: clamp(24px, 4vw, 32px);
-    margin-top: 8px;
   }
 
   .relay {
@@ -302,12 +397,17 @@
     width: 68px;
     height: 68px;
     margin: 0 auto 20px;
+    border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     background: linear-gradient(135deg, var(--gold), var(--gold-light));
-    clip-path: polygon(50% 0%, 93% 25%, 93% 75%, 50% 100%, 7% 75%, 7% 25%);
-    font-size: 26px;
+  }
+
+  .badge svg {
+    width: 28px;
+    height: 28px;
+    color: var(--navy);
   }
 
   .relay-step h3 {
@@ -335,6 +435,7 @@
   .included {
     padding: 80px 20px;
     background: var(--bg);
+    transition: background-color 0.6s ease;
   }
 
   .included h2 {
@@ -387,9 +488,10 @@
 
   .closing {
     padding: 72px 20px 88px;
-    background: var(--bg-alt);
+    background: var(--bg-soft);
     text-align: center;
     border-top: 1px solid var(--border);
+    transition: background-color 0.6s ease, border-color 0.6s ease;
   }
 
   .closing h2 {
@@ -406,45 +508,81 @@
     font-size: 12.5px;
     line-height: 2;
     color: var(--muted);
+    transition: background-color 0.6s ease;
   }
 
-  footer a.foot-link { color: var(--navy); font-weight: 600; }
+  footer a.foot-link { color: var(--ink); font-weight: 600; transition: color 0.3s ease; }
   footer a.foot-link:hover { color: var(--gold); }
+
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 </style>
 </head>
 <body>
 
-  <section class="hero">
+  <section class="hero" id="top">
+    <div class="sky sky-night" aria-hidden="true"></div>
+    <div class="sky sky-day" aria-hidden="true"></div>
+
+    <nav class="nav" aria-label="Primary">
+      <div class="nav-brand">
+        <img src="../assets/assets/icon/icon.png" alt="" onerror="this.style.display='none'" />
+        <span>SuperDelivery</span>
+      </div>
+      <div class="nav-actions">
+        <button
+          class="mode-toggle"
+          id="modeToggle"
+          type="button"
+          aria-pressed="false"
+          aria-label="Switch between day and night background"
+        >
+          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+          </svg>
+          <span class="thumb" aria-hidden="true"></span>
+          <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M20 14.5a8.5 8.5 0 1 1-9-9 7 7 0 0 0 9 9z"></path>
+          </svg>
+        </button>
+        <a class="btn btn-primary btn-sm" href="../vendor" target="_blank" rel="noopener">
+          Register your business
+        </a>
+      </div>
+    </nav>
+
     <div class="speed-lines" aria-hidden="true">
       <span></span><span></span><span></span><span></span>
     </div>
 
-    <div class="logo-wrap">
-      <div class="logo-glow" aria-hidden="true"></div>
-      <img
-        src="../assets/assets/icon/icon.png"
-        alt="SuperDelivery"
-        onerror="this.style.display='none'"
-      />
+    <div class="hero-content">
+      <h1>Your customers order. You watch it happen, live.</h1>
+      <p class="tagline">
+        SuperDelivery connects local vendors with nearby riders — from a
+        shareable order link to PIN-verified delivery at the door.
+      </p>
+
+      <div class="cta-row">
+        <a class="btn btn-primary" href="../vendor" target="_blank" rel="noopener">
+          Register your business
+        </a>
+        <a class="btn btn-ghost" href="../login" target="_blank" rel="noopener">
+          Driver and staff login
+        </a>
+      </div>
+
+      <p class="track-note">
+        Already a customer? Use the tracking link your vendor sent you after
+        you placed your order.
+      </p>
     </div>
-
-    <h1>Super<span class="accent">Delivery</span></h1>
-    <p class="tagline">The delivery management platform for local businesses —
-      connecting vendors, dispatchers, and riders from order to doorstep.</p>
-
-    <div class="cta-row">
-      <a class="btn btn-primary" href="../vendor" target="_blank" rel="noopener">
-        Register your business
-      </a>
-      <a class="btn btn-ghost" href="../login" target="_blank" rel="noopener">
-        Driver and staff login
-      </a>
-    </div>
-
-    <p class="track-note">
-      Already a customer? Use the tracking link your vendor sent you after
-      you placed your order.
-    </p>
 
     <div class="scroll-cue" aria-hidden="true"></div>
   </section>
@@ -465,25 +603,42 @@
 
   <section class="flow">
     <div class="flow-head">
-      <div class="eyebrow">How it works</div>
       <h2>One link, three people, no back and forth</h2>
     </div>
 
     <div class="relay">
       <div class="relay-step">
-        <div class="badge">🔗</div>
+        <div class="badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M9 17H7a5 5 0 0 1 0-10h2"></path>
+            <path d="M15 7h2a5 5 0 0 1 0 10h-2"></path>
+            <line x1="8" y1="12" x2="16" y2="12"></line>
+          </svg>
+        </div>
         <h3>Vendor shares a link</h3>
         <p>Register once and get a link that turns into a delivery form
           for your own customers - no account needed on either side.</p>
       </div>
       <div class="relay-step">
-        <div class="badge">🛵</div>
+        <div class="badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="5.5" cy="18" r="2.5"></circle>
+            <circle cx="18.5" cy="18" r="2.5"></circle>
+            <path d="M5.5 18h4l3-7h4l2.2 5.2H18.5"></path>
+            <path d="M9 11h4"></path>
+          </svg>
+        </div>
         <h3>Nearest rider gets it</h3>
         <p>Priced automatically from real road distance and matched to
           an available rider in the same zone the moment it's placed.</p>
       </div>
       <div class="relay-step">
-        <div class="badge">📍</div>
+        <div class="badge" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"></path>
+            <path d="M9 12l2 2 4-4"></path>
+          </svg>
+        </div>
         <h3>Proof lands at the door</h3>
         <p>Customer and vendor both watch it live, and a one-time PIN
           confirms it actually arrived.</p>
@@ -558,6 +713,19 @@
   <script>
     // Never a stale hardcoded year in the footer.
     document.getElementById('copyright-year').textContent = new Date().getFullYear();
+
+    var modeToggle = document.getElementById('modeToggle');
+    modeToggle.setAttribute(
+      'aria-pressed',
+      document.documentElement.getAttribute('data-mode') === 'night' ? 'true' : 'false'
+    );
+    modeToggle.addEventListener('click', function () {
+      var root = document.documentElement;
+      var next = root.getAttribute('data-mode') === 'day' ? 'night' : 'day';
+      root.setAttribute('data-mode', next);
+      modeToggle.setAttribute('aria-pressed', next === 'night' ? 'true' : 'false');
+      try { localStorage.setItem('superd-theme-mode', next); } catch (e) {}
+    });
   </script>
 </body>
 </html>

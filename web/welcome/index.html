@@ -26,35 +26,30 @@
 <link rel="icon" href="../favicon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800;900&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
     --navy: #16213e;
+    --navy-deep: #0e1730;
     --gold: #f5a623;
-    --gold-light: #ffd77a;
+    --gold-light: #ffc864;
 
-    /* Night is the base palette; the day block below overrides it. Kept
-       close to bolt.eu's actual palette - flat neutral surfaces and true
-       near-black text, not a tinted brand color standing in for ink. */
-    --bg: #0b0c0e;
-    --bg-soft: #141519;
-    --surface: #18191d;
-    --ink: #f4f4f5;
-    --muted: rgba(244, 244, 245, 0.6);
+    /* Night is the base palette; the day block below overrides it. */
+    --bg: #0f1424;
+    --bg-soft: #141a2e;
+    --surface: #182036;
+    --ink: #f3f1ec;
+    --muted: rgba(243, 241, 236, 0.64);
     --border: rgba(255, 255, 255, 0.12);
-    --pill-bg: rgba(255, 255, 255, 0.1);
-    --pill-bg-hover: rgba(255, 255, 255, 0.16);
   }
 
   :root[data-mode='day'] {
-    --bg: #f5f6f7;
-    --bg-soft: #ffffff;
+    --bg: #fbf9f5;
+    --bg-soft: #f3efe7;
     --surface: #ffffff;
-    --ink: #0b0b0f;
-    --muted: #5a5f66;
-    --border: #e4e5e8;
-    --pill-bg: #ffffff;
-    --pill-bg-hover: #ececee;
+    --ink: #1b2130;
+    --muted: #6b7280;
+    --border: #e7e2d8;
   }
 
   * { box-sizing: border-box; }
@@ -79,56 +74,24 @@
     outline-offset: 3px;
   }
 
-  /* ---------- Hero (nav lives inside it, sharing its background - the
-     two read as one continuous flat surface, the way bolt.eu's does) ---------- */
-
-  .hero {
-    position: relative;
-    overflow: hidden;
-  }
-
-  .sky {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    opacity: 0;
-    transition: opacity 0.8s ease;
-  }
-
-  .sky-night {
-    background:
-      radial-gradient(circle at 78% 0%, rgba(255, 255, 255, 0.05), transparent 45%),
-      linear-gradient(165deg, #0b0c0e 0%, #131418 100%);
-  }
-
-  .sky-day {
-    background:
-      radial-gradient(circle at 78% 0%, rgba(245, 166, 35, 0.08), transparent 45%),
-      linear-gradient(165deg, #f7f8f9 0%, #eef0f1 100%);
-  }
-
-  :root[data-mode='night'] .sky-night { opacity: 1; }
-  :root[data-mode='day'] .sky-day { opacity: 1; }
+  /* ---------- Nav ---------- */
 
   .nav {
-    position: relative;
-    z-index: 2;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 22px clamp(20px, 4vw, 48px);
+    padding: 22px clamp(20px, 4vw, 56px);
   }
 
   .nav-brand {
     display: flex;
     align-items: center;
     gap: 10px;
-    font-weight: 800;
-    font-size: 17px;
-    letter-spacing: -0.3px;
+    font-weight: 700;
+    font-size: 16px;
   }
 
-  .nav-brand img { width: 26px; height: 26px; border-radius: 7px; }
+  .nav-brand img { width: 28px; height: 28px; border-radius: 8px; }
 
   .nav-actions { display: flex; align-items: center; gap: 16px; }
 
@@ -138,13 +101,13 @@
     height: 30px;
     border-radius: 999px;
     border: 1px solid var(--border);
-    background: var(--pill-bg);
+    background: transparent;
     display: inline-flex;
     align-items: center;
     justify-content: space-between;
     padding: 0 7px;
     cursor: pointer;
-    transition: background-color 0.3s ease, border-color 0.3s ease;
+    transition: border-color 0.3s ease;
   }
 
   .mode-toggle svg {
@@ -173,38 +136,75 @@
   :root[data-mode='day'] .mode-toggle .thumb { transform: translateX(0); }
   :root[data-mode='night'] .mode-toggle .thumb { transform: translateX(26px); }
 
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 13px 24px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 14.5px;
+    border: none;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.3s ease;
+  }
+
+  .btn:hover { transform: translateY(-2px); }
+
+  .btn-primary {
+    background: var(--gold);
+    color: var(--navy-deep);
+    box-shadow: 0 8px 20px rgba(245, 166, 35, 0.24);
+  }
+
+  .btn-primary:hover { box-shadow: 0 12px 26px rgba(245, 166, 35, 0.34); }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1.5px solid var(--border);
+  }
+
+  .btn-secondary:hover { border-color: var(--gold); }
+
+  .btn-sm { padding: 11px 18px; font-size: 13.5px; }
+
   @media (max-width: 480px) {
     .nav-actions .btn-sm { display: none; }
   }
 
-  .hero-content {
-    position: relative;
-    z-index: 1;
-    max-width: 680px;
+  /* ---------- Hero: headline + CTA on the left, an animated live
+     route on the right - the literal mechanic of the product (a shop's
+     order finding a rider and reaching a door), not a decorative graphic. ---------- */
+
+  .hero {
+    max-width: 1180px;
     margin: 0 auto;
-    text-align: center;
-    padding: 56px 20px 96px;
+    padding: 28px clamp(20px, 4vw, 56px) 40px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 48px;
+    align-items: center;
   }
 
-  .hero h1 {
-    font-size: clamp(32px, 5.6vw, 58px);
+  .hero-copy h1 {
+    font-size: clamp(32px, 4vw, 46px);
     font-weight: 800;
-    letter-spacing: -1.6px;
-    line-height: 1.08;
-    color: var(--ink);
+    letter-spacing: -1.2px;
+    line-height: 1.12;
     animation: fade-in-up 0.8s ease both;
   }
 
-  .hero p.tagline {
-    margin: 20px auto 0;
-    font-size: clamp(14px, 2vw, 16.5px);
+  .hero-copy .tagline {
+    margin: 18px 0 0;
+    font-size: 16px;
     color: var(--muted);
-    max-width: 480px;
-    animation: fade-in-up 0.8s ease 0.12s both;
+    max-width: 46ch;
+    line-height: 1.6;
+    animation: fade-in-up 0.8s ease 0.1s both;
   }
 
   @keyframes fade-in-up {
-    from { opacity: 0; transform: translateY(16px); }
+    from { opacity: 0; transform: translateY(14px); }
     to   { opacity: 1; transform: translateY(0); }
   }
 
@@ -212,55 +212,84 @@
     display: flex;
     flex-wrap: wrap;
     gap: 12px;
-    justify-content: center;
     margin-top: 28px;
-    animation: fade-in-up 0.8s ease 0.24s both;
+    animation: fade-in-up 0.8s ease 0.2s both;
   }
-
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 13px 24px;
-    border-radius: 999px;
-    font-weight: 700;
-    font-size: 14.5px;
-    border: none;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.3s ease;
-    will-change: transform;
-  }
-
-  .btn:hover { transform: translateY(-2px); }
-
-  .btn-primary {
-    background: var(--gold);
-    color: #14141a;
-  }
-
-  .btn-primary:hover { background: var(--gold-light); }
-
-  .btn-secondary {
-    background: var(--pill-bg);
-    color: var(--ink);
-    border: 1px solid var(--border);
-  }
-
-  .btn-secondary:hover { background: var(--pill-bg-hover); }
-
-  .btn-sm { padding: 11px 20px; font-size: 13.5px; }
 
   .track-note {
-    margin-top: 20px;
-    font-size: 12.5px;
+    margin-top: 22px;
+    font-size: 13px;
     color: var(--muted);
-    animation: fade-in-up 0.8s ease 0.32s both;
+    animation: fade-in-up 0.8s ease 0.28s both;
+  }
+
+  /* ---------- The route map ---------- */
+
+  .route-panel {
+    position: relative;
+    border-radius: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 28px;
+    min-height: 340px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.5s ease, border-color 0.5s ease;
+  }
+
+  .route-panel svg { width: 100%; height: auto; max-width: 420px; }
+
+  .route-grid-line { stroke: var(--border); stroke-width: 1; }
+
+  .route-zone { fill: var(--gold); opacity: 0.07; }
+
+  .route-path {
+    fill: none;
+    stroke: var(--gold);
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-dasharray: 6 7;
+  }
+
+  .route-pin-dot { fill: var(--navy); }
+  :root[data-mode='night'] .route-pin-dot { fill: var(--ink); }
+
+  .route-pin-label {
+    font-family: 'Inter', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    fill: var(--ink);
+  }
+
+  .rider {
+    offset-path: path('M 46 250 C 120 90, 240 320, 374 96');
+    offset-rotate: 0deg;
+    animation: ride 7s linear infinite;
+  }
+
+  @keyframes ride {
+    0%   { offset-distance: 0%; }
+    100% { offset-distance: 100%; }
+  }
+
+  .rider circle { fill: var(--gold); }
+  .rider circle.ring { fill: none; stroke: var(--gold); stroke-width: 1.5; opacity: 0.4; }
+
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; }
+    .route-panel { order: -1; min-height: 260px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rider { animation: none; offset-distance: 42%; }
   }
 
   /* ---------- About ---------- */
 
   .about {
-    padding: 64px 20px;
-    background: var(--bg);
+    padding: 60px 20px;
+    background: var(--bg-soft);
     text-align: center;
     transition: background-color 0.5s ease;
   }
@@ -280,83 +309,93 @@
     line-height: 1.6;
   }
 
-  /* ---------- How it works: solid colour cards carrying the sequence,
-     standing in for the photography bolt.eu uses on its own service
-     cards (no product photography exists for this brand yet). ---------- */
+  .about a.foot-link { color: var(--ink); font-weight: 600; }
+  .about a.foot-link:hover { color: var(--gold); }
 
-  .services {
-    padding: 88px 20px;
-    background: var(--bg);
-    transition: background-color 0.5s ease;
-  }
+  /* ---------- How it works: a waybill strip - three stubs
+     separated by a perforated dashed edge, each stamped with its step. ---------- */
 
-  .services h2 {
-    text-align: center;
-    font-size: clamp(26px, 4.2vw, 36px);
+  .waybill-wrap { padding: 88px 20px; background: var(--bg); transition: background-color 0.5s ease; }
+
+  .waybill-head { text-align: center; max-width: 520px; margin: 0 auto 48px; }
+
+  .waybill-head h2 {
+    font-size: clamp(26px, 4vw, 34px);
     font-weight: 800;
     letter-spacing: -1px;
   }
 
-  .services-sub {
-    text-align: center;
+  .waybill-head p {
+    margin-top: 12px;
     color: var(--muted);
-    max-width: 480px;
-    margin: 14px auto 48px;
     font-size: 15px;
   }
 
-  .service-cards {
-    max-width: 1080px;
+  .waybill {
+    max-width: 1000px;
     margin: 0 auto;
     display: flex;
-    gap: 18px;
-    flex-wrap: wrap;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    overflow: hidden;
+    transition: background-color 0.5s ease, border-color 0.5s ease;
   }
 
-  .service-card {
-    flex: 1 1 260px;
-    min-height: 240px;
-    border-radius: 20px;
-    padding: 28px;
+  .stub {
+    flex: 1 1 0;
+    padding: 32px 26px;
+    position: relative;
+  }
+
+  .stub:not(:last-child) {
+    border-right: 2px dashed var(--border);
+  }
+
+  .stub .stamp {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 2px solid var(--gold);
+    color: var(--gold);
     display: flex;
-    flex-direction: column;
-    color: #fff;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 15px;
+    margin-bottom: 20px;
   }
 
-  .service-card svg {
-    width: 22px;
-    height: 22px;
-    margin-bottom: 56px;
-    opacity: 0.9;
-  }
+  .stub:nth-child(1) .stamp { transform: rotate(-6deg); }
+  .stub:nth-child(2) .stamp { transform: rotate(4deg); }
+  .stub:nth-child(3) .stamp { transform: rotate(-3deg); }
 
-  .service-card h3 {
-    font-size: 18.5px;
+  .stub h3 {
+    font-size: 16.5px;
     font-weight: 700;
     margin-bottom: 8px;
   }
 
-  .service-card p {
+  .stub p {
     font-size: 13.5px;
-    line-height: 1.55;
-    opacity: 0.82;
+    line-height: 1.6;
+    color: var(--muted);
     margin: 0;
   }
 
-  .card-a { background: linear-gradient(160deg, #16213e, #0c1327); }
-  .card-b { background: linear-gradient(160deg, #f5a623, #c9821a); color: #16213e; }
-  .card-b p { opacity: 0.75; }
-  .card-c { background: linear-gradient(160deg, #223259, #16213e); }
-
   @media (max-width: 720px) {
-    .service-card svg { margin-bottom: 32px; }
+    .waybill { flex-direction: column; }
+    .stub:not(:last-child) {
+      border-right: none;
+      border-bottom: 2px dashed var(--border);
+    }
   }
 
   /* ---------- Also included (quiet, no card chrome) ---------- */
 
   .included {
     padding: 80px 20px;
-    background: var(--bg);
+    background: var(--bg-soft);
     transition: background-color 0.5s ease;
   }
 
@@ -376,10 +415,7 @@
     gap: 36px 44px;
   }
 
-  .included-item {
-    display: flex;
-    gap: 16px;
-  }
+  .included-item { display: flex; gap: 16px; }
 
   .included-item .dot {
     flex: none;
@@ -390,11 +426,7 @@
     background: var(--gold);
   }
 
-  .included-item h3 {
-    font-size: 15.5px;
-    font-weight: 700;
-    margin-bottom: 5px;
-  }
+  .included-item h3 { font-size: 15.5px; font-weight: 700; margin-bottom: 5px; }
 
   .included-item p {
     font-size: 13.5px;
@@ -411,10 +443,9 @@
 
   .closing {
     padding: 72px 20px 88px;
-    background: var(--bg-soft);
+    background: var(--bg);
     text-align: center;
-    border-top: 1px solid var(--border);
-    transition: background-color 0.5s ease, border-color 0.5s ease;
+    transition: background-color 0.5s ease;
   }
 
   .closing h2 {
@@ -424,19 +455,20 @@
     margin-bottom: 26px;
   }
 
-  /* ---------- Footer: a fixed dark band regardless of day/night mode,
-     matching bolt.eu's own always-black footer. ---------- */
+  .closing .cta-row { justify-content: center; animation: none; }
+
+  /* ---------- Footer: a fixed deep-navy band regardless of day/night mode. ---------- */
 
   footer {
     padding: 40px 20px 44px;
-    background: #0b0c0e;
+    background: var(--navy-deep);
     text-align: center;
     font-size: 12.5px;
     line-height: 2;
-    color: rgba(244, 244, 245, 0.55);
+    color: rgba(243, 241, 236, 0.55);
   }
 
-  footer a.foot-link { color: rgba(244, 244, 245, 0.9); font-weight: 600; transition: color 0.2s ease; }
+  footer a.foot-link { color: rgba(243, 241, 236, 0.92); font-weight: 600; transition: color 0.2s ease; }
   footer a.foot-link:hover { color: var(--gold); }
 
   @media (prefers-reduced-motion: reduce) {
@@ -451,43 +483,41 @@
 </head>
 <body>
 
+  <nav class="nav" aria-label="Primary">
+    <div class="nav-brand">
+      <img src="../assets/assets/icon/icon.png" alt="" onerror="this.style.display='none'" />
+      <span>SuperDelivery</span>
+    </div>
+    <div class="nav-actions">
+      <button
+        class="mode-toggle"
+        id="modeToggle"
+        type="button"
+        aria-pressed="false"
+        aria-label="Switch between day and night background"
+      >
+        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"></circle>
+          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+        </svg>
+        <span class="thumb" aria-hidden="true"></span>
+        <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M20 14.5a8.5 8.5 0 1 1-9-9 7 7 0 0 0 9 9z"></path>
+        </svg>
+      </button>
+      <a class="btn btn-primary btn-sm" href="../vendor" target="_blank" rel="noopener">
+        Register your business
+      </a>
+    </div>
+  </nav>
+
   <section class="hero" id="top">
-    <div class="sky sky-night" aria-hidden="true"></div>
-    <div class="sky sky-day" aria-hidden="true"></div>
-
-    <nav class="nav" aria-label="Primary">
-      <div class="nav-brand">
-        <img src="../assets/assets/icon/icon.png" alt="" onerror="this.style.display='none'" />
-        <span>SuperDelivery</span>
-      </div>
-      <div class="nav-actions">
-        <button
-          class="mode-toggle"
-          id="modeToggle"
-          type="button"
-          aria-pressed="false"
-          aria-label="Switch between day and night background"
-        >
-          <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="4"></circle>
-            <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
-          </svg>
-          <span class="thumb" aria-hidden="true"></span>
-          <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M20 14.5a8.5 8.5 0 1 1-9-9 7 7 0 0 0 9 9z"></path>
-          </svg>
-        </button>
-        <a class="btn btn-primary btn-sm" href="../vendor" target="_blank" rel="noopener">
-          Register your business
-        </a>
-      </div>
-    </nav>
-
-    <div class="hero-content">
-      <h1>Tracking is the new waiting.</h1>
+    <div class="hero-copy">
+      <h1>Turn your shop into a delivery business.</h1>
       <p class="tagline">
-        SuperDelivery connects local vendors with nearby riders — from a
-        shareable order link to PIN-verified delivery at the door.
+        Share one link. A rider nearby picks it up, the order is tracked
+        live, and a PIN confirms it arrived - paid straight to your
+        Mobile Money.
       </p>
 
       <div class="cta-row">
@@ -503,6 +533,37 @@
         Already a customer? Use the tracking link your vendor sent you after
         you placed your order.
       </p>
+    </div>
+
+    <div class="route-panel" aria-hidden="true">
+      <svg viewBox="0 0 420 360" fill="none">
+        <line class="route-grid-line" x1="0" y1="60" x2="420" y2="60" />
+        <line class="route-grid-line" x1="0" y1="150" x2="420" y2="150" />
+        <line class="route-grid-line" x1="0" y1="240" x2="420" y2="240" />
+        <line class="route-grid-line" x1="0" y1="330" x2="420" y2="330" />
+        <line class="route-grid-line" x1="90" y1="0" x2="90" y2="360" />
+        <line class="route-grid-line" x1="210" y1="0" x2="210" y2="360" />
+        <line class="route-grid-line" x1="330" y1="0" x2="330" y2="360" />
+
+        <circle class="route-zone" cx="46" cy="250" r="90" />
+        <circle class="route-zone" cx="374" cy="96" r="90" />
+
+        <path class="route-path" d="M 46 250 C 120 90, 240 320, 374 96" />
+
+        <g class="rider">
+          <circle class="ring" r="12" />
+          <circle r="6" />
+        </g>
+
+        <g>
+          <circle class="route-pin-dot" cx="46" cy="250" r="7" />
+          <text class="route-pin-label" x="46" y="278" text-anchor="middle">Shop</text>
+        </g>
+        <g>
+          <circle class="route-pin-dot" cx="374" cy="96" r="7" />
+          <text class="route-pin-label" x="374" y="76" text-anchor="middle">Doorstep</text>
+        </g>
+      </svg>
     </div>
   </section>
 
@@ -520,39 +581,27 @@
     </p>
   </section>
 
-  <section class="services">
-    <h2>How it works</h2>
-    <p class="services-sub">
-      One link connects everyone - the vendor, the rider, and the customer.
-    </p>
+  <section class="waybill-wrap">
+    <div class="waybill-head">
+      <h2>One link, three people, no back and forth</h2>
+      <p>Everything after the link is handled - here's the whole trip.</p>
+    </div>
 
-    <div class="service-cards">
-      <div class="service-card card-a">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M9 17H7a5 5 0 0 1 0-10h2"></path>
-          <path d="M15 7h2a5 5 0 0 1 0 10h-2"></path>
-          <line x1="8" y1="12" x2="16" y2="12"></line>
-        </svg>
+    <div class="waybill">
+      <div class="stub">
+        <div class="stamp">1</div>
         <h3>Vendor shares a link</h3>
         <p>Register once and get a link that turns into a delivery form
           for your own customers - no account needed on either side.</p>
       </div>
-      <div class="service-card card-b">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="5.5" cy="18" r="2.5"></circle>
-          <circle cx="18.5" cy="18" r="2.5"></circle>
-          <path d="M5.5 18h4l3-7h4l2.2 5.2H18.5"></path>
-          <path d="M9 11h4"></path>
-        </svg>
+      <div class="stub">
+        <div class="stamp">2</div>
         <h3>Nearest rider gets it</h3>
         <p>Priced automatically from real road distance and matched to
           an available rider in the same zone the moment it's placed.</p>
       </div>
-      <div class="service-card card-c">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"></path>
-          <path d="M9 12l2 2 4-4"></path>
-        </svg>
+      <div class="stub">
+        <div class="stamp">3</div>
         <h3>Proof lands at the door</h3>
         <p>Customer and vendor both watch it live, and a one-time PIN
           confirms it actually arrived.</p>
@@ -601,10 +650,10 @@
   <section class="closing">
     <h2>Ready to get your customers a link?</h2>
     <div class="cta-row">
-      <a class="btn btn-primary btn-sm" href="../vendor" target="_blank" rel="noopener">
+      <a class="btn btn-primary" href="../vendor" target="_blank" rel="noopener">
         Register your business
       </a>
-      <a class="btn btn-secondary btn-sm" href="../login" target="_blank" rel="noopener">
+      <a class="btn btn-secondary" href="../login" target="_blank" rel="noopener">
         Driver and staff login
       </a>
     </div>

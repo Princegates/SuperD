@@ -70,4 +70,5 @@ supabase/.temp/
 # Claude Code skills installed locally via `npx skills add` - tooling
 # config for whoever's working in the repo, not part of the app itself.
 .claude/
+.agents/
 skills-lock.json

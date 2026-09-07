@@ -187,7 +187,7 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       ),
                       const SizedBox(height: 36),
                       Text(
-                        'Turn your shop into a delivery business.',
+                        'You run the business. You sell. We deliver.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: titleFontSize,

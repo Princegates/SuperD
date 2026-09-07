@@ -25,37 +25,33 @@ class WelcomeScreen extends StatefulWidget {
 }
 
 class _WelcomeScreenState extends State<WelcomeScreen>
-    with SingleTickerProviderStateMixin {
-  static const _capabilities = [
-    (Icons.bolt_outlined, 'Real-time dispatch'),
-    (Icons.map_outlined, 'Live tracking'),
-    (Icons.verified_outlined, 'Secure payments'),
-  ];
-
-  static const _relaySteps = [
+    with TickerProviderStateMixin {
+  static const _waybillSteps = [
     (
-      Icons.link,
-      'A vendor shares a link',
-      'One link goes out on WhatsApp, Instagram, or a storefront QR code '
-          '— no app download for the customer.',
+      'Vendor shares a link',
+      'Register once and get a link that turns into a delivery form for '
+          "your own customers - no account needed on either side.",
     ),
     (
-      Icons.two_wheeler_outlined,
-      'The nearest rider gets it',
-      'The order is matched to a rider already working that zone, so '
-          'pickup starts within minutes.',
+      'Nearest rider gets it',
+      'Priced automatically from real road distance and matched to an '
+          "available rider in the same zone the moment it's placed.",
     ),
     (
-      Icons.task_alt,
       'Proof lands at the door',
-      'A PIN confirms the handoff, and the vendor sees the delivery '
-          'update live, the moment it happens.',
+      'Customer and vendor both watch it live, and a one-time PIN '
+          'confirms it actually arrived.',
     ),
   ];
 
   /// Drives the drifting logo watermark behind the content - one slow,
   /// looping clock the whole page reads its position off of.
   late final AnimationController _driftController;
+
+  /// Drives the rider dot travelling the route in the hero panel below -
+  /// the Flutter counterpart to the CSS `offset-path` animation on
+  /// `web/welcome/index.html`'s own route illustration.
+  late final AnimationController _routeController;
 
   /// Defaults to the visitor's actual local time of day, like the web
   /// welcome page's toggle; the button below lets them override it.
@@ -70,11 +66,16 @@ class _WelcomeScreenState extends State<WelcomeScreen>
       vsync: this,
       duration: const Duration(seconds: 26),
     )..repeat();
+    _routeController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 7),
+    )..repeat();
   }
 
   @override
   void dispose() {
     _driftController.dispose();
+    _routeController.dispose();
     super.dispose();
   }
 
@@ -179,9 +180,14 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           ),
                         ],
                       ),
-                      const SizedBox(height: 48),
+                      const SizedBox(height: 28),
+                      _RouteMapPanel(
+                        controller: _routeController,
+                        palette: palette,
+                      ),
+                      const SizedBox(height: 36),
                       Text(
-                        'Tracking is the new waiting.',
+                        'Turn your shop into a delivery business.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
                           fontSize: titleFontSize,
@@ -193,9 +199,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'SuperDelivery connects local vendors with nearby '
-                        'riders — from a shareable order link to '
-                        'PIN-verified delivery at the door.',
+                        'Share one link. A rider nearby picks it up, the '
+                        'order is tracked live, and a PIN confirms it '
+                        'arrived - paid straight to your Mobile Money.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           color: palette.body,
@@ -203,27 +209,29 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                           height: 1.5,
                         ),
                       ),
-                      const SizedBox(height: 40),
+                      const SizedBox(height: 32),
                       Wrap(
                         alignment: WrapAlignment.center,
-                        spacing: 16,
-                        runSpacing: 16,
+                        spacing: 12,
+                        runSpacing: 12,
                         children: [
                           _AnimatedCta(
                             glowColor: AppTheme.accent,
-                            borderRadius: BorderRadius.circular(999),
+                            borderRadius: BorderRadius.circular(10),
                             child: FilledButton(
                               style: FilledButton.styleFrom(
                                 backgroundColor: AppTheme.accent,
                                 foregroundColor: Colors.black,
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 30,
-                                  vertical: 17,
+                                  horizontal: 26,
+                                  vertical: 15,
                                 ),
-                                shape: const StadiumBorder(),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                                 textStyle: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14.5,
                                 ),
                               ),
                               onPressed: () => _open(context, '/vendor'),
@@ -231,20 +239,25 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                             ),
                           ),
                           _AnimatedCta(
-                            glowColor: palette.secondaryText,
-                            borderRadius: BorderRadius.circular(999),
-                            child: FilledButton(
-                              style: FilledButton.styleFrom(
-                                backgroundColor: palette.secondaryBg,
-                                foregroundColor: palette.secondaryText,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 26,
-                                  vertical: 17,
+                            glowColor: palette.heading,
+                            borderRadius: BorderRadius.circular(10),
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: palette.heading,
+                                side: BorderSide(
+                                  color: palette.border,
+                                  width: 1.5,
                                 ),
-                                shape: const StadiumBorder(),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 15,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                                 textStyle: GoogleFonts.poppins(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 15,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 14.5,
                                 ),
                               ),
                               onPressed: () => _open(context, '/login'),
@@ -254,58 +267,54 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                         ],
                       ),
                       const SizedBox(height: 56),
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 32,
-                        runSpacing: 16,
-                        children: [
-                          for (final (icon, label) in _capabilities)
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(icon, size: 17, color: palette.muted),
-                                const SizedBox(width: 8),
-                                Text(
-                                  label,
-                                  style: GoogleFonts.inter(
-                                    color: palette.muted,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                              ],
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 56),
                       Text(
-                        'How it works',
+                        'One link, three people, no back and forth',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 19,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 21,
+                          letterSpacing: -0.5,
                           color: palette.heading,
                         ),
                       ),
+                      const SizedBox(height: 8),
+                      Text(
+                        "Everything after the link is handled - here's the "
+                        'whole trip.',
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.inter(
+                          color: palette.body,
+                          fontSize: 14,
+                        ),
+                      ),
                       const SizedBox(height: 24),
-                      Column(
-                        children: [
-                          for (
-                            var i = 0;
-                            i < _relaySteps.length;
-                            i++
-                          ) ...[
-                            _RelayStepRow(
-                              step: _relaySteps[i],
-                              palette: palette,
-                            ),
-                            if (i < _relaySteps.length - 1)
-                              const Padding(
-                                padding: EdgeInsets.only(left: 25),
-                                child: _DashedConnector(),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: palette.surface,
+                          border: Border.all(color: palette.border),
+                          borderRadius: BorderRadius.circular(18),
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 22,
+                          vertical: 8,
+                        ),
+                        child: Column(
+                          children: [
+                            for (
+                              var i = 0;
+                              i < _waybillSteps.length;
+                              i++
+                            ) ...[
+                              _WaybillStub(
+                                index: i + 1,
+                                step: _waybillSteps[i],
+                                palette: palette,
                               ),
+                              if (i < _waybillSteps.length - 1)
+                                _DashedDivider(color: palette.border),
+                            ],
                           ],
-                        ],
+                        ),
                       ),
                       const SizedBox(height: 48),
                       Text(
@@ -535,133 +544,267 @@ class _AnimatedCtaState extends State<_AnimatedCta> {
   }
 }
 
-/// One row of the "How it works" relay: a hexagonal, gold-gradient badge
-/// carrying the step's icon, next to its title and one-line description.
-/// The hexagon echoes the speed-line motif in the app mark rather than a
-/// plain numbered circle.
-class _RelayStepRow extends StatelessWidget {
-  const _RelayStepRow({required this.step, required this.palette});
+/// One stub of the "How it works" waybill: a stamped step number next to
+/// its title and description, echoing the perforated-ticket strip on
+/// `web/welcome/index.html`. Numbered because this genuinely is a
+/// 3-step sequence, not a decorative counter.
+class _WaybillStub extends StatelessWidget {
+  const _WaybillStub({
+    required this.index,
+    required this.step,
+    required this.palette,
+  });
 
-  final (IconData, String, String) step;
+  final int index;
+  final (String, String) step;
   final _Palette palette;
 
   @override
   Widget build(BuildContext context) {
-    final (icon, title, description) = step;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipPath(
-          clipper: const _HexBadgeClipper(),
-          child: Container(
-            width: 50,
-            height: 50,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  AppTheme.accent,
-                  AppTheme.accent.withValues(alpha: 0.7),
-                ],
+    final (title, description) = step;
+    // Alternates the stamp's tilt per step, like a hand-stamped ticket -
+    // matches the web page's :nth-child rotation.
+    final tilt = const [-0.10, 0.07, -0.05][(index - 1) % 3];
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Transform.rotate(
+            angle: tilt,
+            child: Container(
+              width: 32,
+              height: 32,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                border: Border.all(color: AppTheme.accent, width: 2),
+              ),
+              child: Text(
+                '$index',
+                style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                  color: AppTheme.accent,
+                ),
               ),
             ),
-            child: Icon(icon, color: Colors.black87, size: 22),
           ),
-        ),
-        const SizedBox(width: 18),
-        Expanded(
-          child: Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: GoogleFonts.poppins(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 15,
-                    color: palette.heading,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: GoogleFonts.inter(
-                    color: palette.body,
-                    fontSize: 13,
-                    height: 1.5,
-                  ),
-                ),
-              ],
+          const SizedBox(height: 14),
+          Text(
+            title,
+            style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w700,
+              fontSize: 15.5,
+              color: palette.heading,
             ),
           ),
-        ),
-      ],
+          const SizedBox(height: 6),
+          Text(
+            description,
+            style: GoogleFonts.inter(
+              color: palette.body,
+              fontSize: 13,
+              height: 1.55,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-/// A hexagon outline matching the app mark's speed-line badge shape, used
-/// to clip each relay step's icon container.
-class _HexBadgeClipper extends CustomClipper<Path> {
-  const _HexBadgeClipper();
+/// The perforated-looking dashed rule between waybill stubs.
+class _DashedDivider extends StatelessWidget {
+  const _DashedDivider({required this.color});
 
-  @override
-  Path getClip(Size size) {
-    final w = size.width;
-    final h = size.height;
-    return Path()
-      ..moveTo(w * 0.5, 0)
-      ..lineTo(w * 0.93, h * 0.25)
-      ..lineTo(w * 0.93, h * 0.75)
-      ..lineTo(w * 0.5, h)
-      ..lineTo(w * 0.07, h * 0.75)
-      ..lineTo(w * 0.07, h * 0.25)
-      ..close();
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
-}
-
-/// The short dashed line joining consecutive relay steps, echoing the
-/// dashed connector used between steps on the static marketing page.
-class _DashedConnector extends StatelessWidget {
-  const _DashedConnector();
+  final Color color;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 2,
-      height: 26,
-      child: CustomPaint(painter: _DashedConnectorPainter()),
+      height: 1,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return CustomPaint(
+            size: Size(constraints.maxWidth, 1),
+            painter: _DashedLinePainter(color: color),
+          );
+        },
+      ),
     );
   }
 }
 
-class _DashedConnectorPainter extends CustomPainter {
+class _DashedLinePainter extends CustomPainter {
+  _DashedLinePainter({required this.color});
+
+  final Color color;
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = AppTheme.accent.withValues(alpha: 0.4)
-      ..strokeWidth = 2;
-    const dashHeight = 4.0;
-    const dashSpace = 4.0;
-    var y = 0.0;
-    while (y < size.height) {
-      canvas.drawLine(
-        Offset(size.width / 2, y),
-        Offset(size.width / 2, y + dashHeight),
-        paint,
-      );
-      y += dashHeight + dashSpace;
+      ..color = color
+      ..strokeWidth = 1.5;
+    const dashWidth = 5.0;
+    const dashSpace = 5.0;
+    var x = 0.0;
+    while (x < size.width) {
+      canvas.drawLine(Offset(x, 0), Offset(x + dashWidth, 0), paint);
+      x += dashWidth + dashSpace;
     }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _DashedLinePainter oldDelegate) =>
+      oldDelegate.color != color;
+}
+
+/// The hero's live-route illustration: a shop pin and a doorstep pin
+/// joined by a dashed route, with a rider dot travelling it on a loop -
+/// the literal mechanic of the product (an order finding a nearby rider
+/// and reaching a door), matching the animated route on
+/// `web/welcome/index.html`'s own hero.
+class _RouteMapPanel extends StatelessWidget {
+  const _RouteMapPanel({required this.controller, required this.palette});
+
+  final AnimationController controller;
+  final _Palette palette;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 220,
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: palette.surface,
+        border: Border.all(color: palette.border),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) {
+          return CustomPaint(
+            size: Size.infinite,
+            painter: _RoutePainter(
+              t: controller.value,
+              gridColor: palette.border,
+              pinColor: palette.heading,
+              gold: AppTheme.accent,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _RoutePainter extends CustomPainter {
+  _RoutePainter({
+    required this.t,
+    required this.gridColor,
+    required this.pinColor,
+    required this.gold,
+  });
+
+  final double t;
+  final Color gridColor;
+  final Color pinColor;
+  final Color gold;
+
+  static const _p0 = Offset(30, 150);
+  static const _p1 = Offset(80, 40);
+  static const _p2 = Offset(160, 200);
+  static const _p3 = Offset(270, 50);
+
+  Offset _cubicBezier(double t) {
+    final mt = 1 - t;
+    final x = mt * mt * mt * _p0.dx +
+        3 * mt * mt * t * _p1.dx +
+        3 * mt * t * t * _p2.dx +
+        t * t * t * _p3.dx;
+    final y = mt * mt * mt * _p0.dy +
+        3 * mt * mt * t * _p1.dy +
+        3 * mt * t * t * _p2.dy +
+        t * t * t * _p3.dy;
+    return Offset(x, y);
+  }
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final gridPaint = Paint()
+      ..color = gridColor
+      ..strokeWidth = 1;
+    for (var x = 0.0; x < size.width; x += size.width / 4) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
+    }
+    for (var y = 0.0; y < size.height; y += size.height / 3) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
+    }
+
+    // The route itself is drawn in a fixed 300x200 space and centered
+    // within whatever the panel's actual size turns out to be, while the
+    // grid above already spans the full panel.
+    const contentWidth = 300.0;
+    const contentHeight = 200.0;
+    canvas.save();
+    canvas.translate(
+      (size.width - contentWidth) / 2,
+      (size.height - contentHeight) / 2,
+    );
+
+    final zonePaint = Paint()..color = gold.withValues(alpha: 0.07);
+    canvas.drawCircle(_p0, 70, zonePaint);
+    canvas.drawCircle(_p3, 70, zonePaint);
+
+    final pathPaint = Paint()
+      ..color = gold
+      ..strokeWidth = 2.5
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    const steps = 60;
+    for (var i = 0; i < steps; i += 2) {
+      final a = _cubicBezier(i / steps);
+      final b = _cubicBezier((i + 1) / steps);
+      canvas.drawLine(a, b, pathPaint);
+    }
+
+    final pinPaint = Paint()..color = pinColor;
+    canvas.drawCircle(_p0, 6, pinPaint);
+    canvas.drawCircle(_p3, 6, pinPaint);
+
+    final textStyle = TextStyle(
+      color: pinColor,
+      fontSize: 11,
+      fontWeight: FontWeight.w600,
+      fontFamily: 'Inter',
+    );
+    _drawLabel(canvas, 'Shop', _p0 + const Offset(0, 14), textStyle);
+    _drawLabel(canvas, 'Doorstep', _p3 + const Offset(0, -26), textStyle);
+
+    final riderCenter = _cubicBezier(t);
+    final ringPaint = Paint()
+      ..color = gold.withValues(alpha: 0.4)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    canvas.drawCircle(riderCenter, 11, ringPaint);
+    canvas.drawCircle(riderCenter, 5.5, Paint()..color = gold);
+    canvas.restore();
+  }
+
+  void _drawLabel(Canvas canvas, String text, Offset center, TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    painter.paint(canvas, center - Offset(painter.width / 2, 0));
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoutePainter oldDelegate) =>
+      oldDelegate.t != t;
 }
 
 /// The colors that flip between a light "day" look and a dark "night" one
@@ -673,48 +816,48 @@ class _DashedConnectorPainter extends CustomPainter {
 class _Palette {
   const _Palette({
     required this.background,
+    required this.surface,
+    required this.border,
     required this.heading,
     required this.body,
     required this.muted,
     required this.faint,
     required this.link,
-    required this.secondaryBg,
-    required this.secondaryText,
   });
 
   factory _Palette.of(bool isNight) {
     if (isNight) {
       return _Palette(
-        background: const Color(0xFF0B0C0E),
-        heading: Colors.white,
-        body: Colors.white.withValues(alpha: 0.78),
-        muted: Colors.white.withValues(alpha: 0.62),
-        faint: Colors.white.withValues(alpha: 0.45),
+        background: const Color(0xFF0F1424),
+        surface: const Color(0xFF182036),
+        border: Colors.white.withValues(alpha: 0.12),
+        heading: const Color(0xFFF3F1EC),
+        body: const Color(0xFFF3F1EC).withValues(alpha: 0.78),
+        muted: const Color(0xFFF3F1EC).withValues(alpha: 0.64),
+        faint: const Color(0xFFF3F1EC).withValues(alpha: 0.45),
         link: AppTheme.accent,
-        secondaryBg: Colors.white.withValues(alpha: 0.1),
-        secondaryText: Colors.white,
       );
     }
     return _Palette(
-      background: const Color(0xFFF5F6F7),
-      heading: const Color(0xFF0B0B0F),
+      background: const Color(0xFFFBF9F5),
+      surface: Colors.white,
+      border: const Color(0xFFE7E2D8),
+      heading: const Color(0xFF1B2130),
       body: Colors.grey.shade700,
-      muted: Colors.grey.shade600,
+      muted: const Color(0xFF6B7280),
       faint: Colors.grey.shade400,
       link: AppTheme.primary,
-      secondaryBg: Colors.white,
-      secondaryText: const Color(0xFF0B0B0F),
     );
   }
 
   final Color background;
+  final Color surface;
+  final Color border;
   final Color heading;
   final Color body;
   final Color muted;
   final Color faint;
   final Color link;
-  final Color secondaryBg;
-  final Color secondaryText;
 }
 
 /// The day/night switch itself - a small pill with a sliding sun/moon

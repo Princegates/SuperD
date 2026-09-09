@@ -2,8 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/providers/core_providers.dart';
+import '../../../core/theme/app_theme.dart';
+import '../../../data/repositories/customer_repository.dart'
+    show CustomerException;
 import '../../../models/customer.dart';
 import '../../../models/delivery.dart';
+import '../../../shared/utils/audit_log.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/status_badge.dart';
 import '../providers/console_providers.dart';
@@ -101,6 +106,61 @@ class _CustomerCard extends ConsumerWidget {
 
   final Customer customer;
 
+  Future<void> _erase(BuildContext context, WidgetRef ref) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Erase this customer?'),
+        content: Text(
+          "${customer.fullName}'s name, phone, and email will be removed "
+          "from every one of their past deliveries, and they'll disappear "
+          "from this list. This can't be undone. Blocked if they have a "
+          'delivery still in progress.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text(
+              'Erase permanently',
+              style: TextStyle(color: AppTheme.danger),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    try {
+      final erasedCount = await ref
+          .read(customerRepositoryProvider)
+          .eraseCustomer(customer.phone);
+      await logAuditEvent(
+        ref.read(supabaseClientProvider),
+        action: 'customer_erased',
+        entityType: 'customer',
+        entityId: customer.id,
+        summary:
+            "Erased ${customer.fullName}'s data from $erasedCount "
+            'delivery(ies)',
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Customer erased')),
+        );
+      }
+    } on CustomerException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Card(
@@ -172,6 +232,19 @@ class _CustomerCard extends ConsumerWidget {
                       },
                     );
                   },
+                ),
+                const Divider(height: 28),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () => _erase(context, ref),
+                    style: TextButton.styleFrom(
+                      foregroundColor: AppTheme.danger,
+                      padding: EdgeInsets.zero,
+                    ),
+                    icon: const Icon(Icons.person_off_outlined, size: 18),
+                    label: const Text('Erase this customer'),
+                  ),
                 ),
               ],
             ),

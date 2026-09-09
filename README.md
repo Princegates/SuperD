@@ -129,6 +129,7 @@ supabase/
     0079_terms_acceptance.sql                     adds vendors.terms_accepted_at/terms_version and profiles.terms_accepted_at/terms_version, set the moment a vendor/driver agrees to the Terms & Privacy Policy on their self-signup form - see "Terms & Privacy Policy" below
     0080_no_reassign_after_delivered.sql          enforce_delivery_update() now rejects any assigned_driver_id change once a delivery is already 'delivered', for every caller including a dispatcher/super admin from the Console - previously only a plain driver caller was blocked, so a completed delivery's driver record (what commission/payment settlement is tied to) could still be silently rewritten from the admin side
     0081_special_deliveries.sql                   adds deliveries.is_special, a label for a delivery a dispatcher/super admin creates by hand with its own manually-entered fee instead of the usual zone pricing - see "Special deliveries" below
+    0082_erase_customer.sql                       adds erase_customer(), a super-admin-only RPC that scrubs a customer's name/phone/email from every one of their deliveries and removes their customers directory row, blocked while any delivery for that phone is still in progress - see "Erasing a customer" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -2765,14 +2766,15 @@ See **Customer directory** below.
 Console > Customers is a super-admin-only lookup of every customer
 who's ever placed a delivery - name, email, phone, and their most
 recent drop-off address, with their full delivery history one tap
-away. Nothing about a customer's data is deleted or hidden from where
-it already lived (a delivery keeps its own `customer_name`/
+away. By default nothing about a customer's data is deleted or hidden
+from where it already lived (a delivery keeps its own `customer_name`/
 `customer_phone`/`customer_email`/`dropoff_address` exactly as before,
 still visible to a dispatcher one delivery at a time, same as always) -
 this is a second, aggregated front door onto the same information, for
 actual customer-service work (a repeat customer calls in, and you can
 pull up who they are and what they've ordered without knowing a
-tracking code).
+tracking code). A super admin can still choose to erase a customer
+outright - see **Erasing a customer** below.
 
 The `customers` table (`0055_customer_directory.sql`) is kept current
 automatically: an `after insert` trigger on `deliveries` upserts into
@@ -2787,6 +2789,31 @@ sees it, and explicitly not `is_auditor()` either, so an auditor's
 otherwise-broad read access doesn't extend here. A dispatcher or
 auditor querying the table directly gets an empty result, not an
 error, same as `audit_log` behaved before an auditor could read it.
+
+#### Erasing a customer
+
+"Erase this customer" on a customer's card (super-admin only) is a
+real data-deletion right, not just a directory removal - it exists
+because `kPolicySections`' "Your rights over your data" promises one
+under Ghana's Data Protection Act, 2012 (Act 843). Since `customers` is
+only ever a derived view rebuilt from `deliveries`, deleting a row
+there alone would do nothing lasting - the customer's real name/phone/
+email still live on every one of their delivery rows, and the
+directory entry would come straight back the next time that phone
+places an order. `erase_customer()` (`0082_erase_customer.sql`)
+scrubs the source instead: every delivery for that phone number has
+`customer_name` set to "Deleted customer" and `customer_phone`/
+`customer_email` cleared, then the now-stale `customers` row is
+deleted. Pickup/dropoff addresses, pricing, and payment history are
+left alone - that's operational/accounting record the same policy
+says may still be kept, not personal contact information.
+
+Blocked while any of the customer's deliveries are still in progress
+(not yet `delivered` or `cancelled`) - a driver mid-delivery still
+needs a working phone number and name to actually finish the job, the
+same shape as vendor deletion being blocked by delivery history: finish
+or cancel first, then erase. Logged to `audit_log` as
+`customer_erased`.
 
 ### Live driver tracking
 

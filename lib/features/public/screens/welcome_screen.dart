@@ -199,9 +199,9 @@ class _WelcomeScreenState extends State<WelcomeScreen>
                       ),
                       const SizedBox(height: 20),
                       Text(
-                        'Share one link. A rider nearby picks it up, the '
-                        'order is tracked live, and a PIN confirms it '
-                        'arrived - paid straight to your Mobile Money.',
+                        'Share one link. A nearby rider picks it up, the '
+                        'order is tracked live, and the customer confirms '
+                        'with a PIN when the rider delivers the package.',
                         textAlign: TextAlign.center,
                         style: GoogleFonts.inter(
                           color: palette.body,

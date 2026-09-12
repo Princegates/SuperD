@@ -12,9 +12,15 @@
 // Deploy with `supabase functions deploy notify-driver-notice`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+import { verifyWebhookSecret } from "../_shared/webhook_auth.ts";
 import { sendPushToProfile } from "../_shared/fcm.ts";
 
 Deno.serve(async (req) => {
+  // Reachable by anyone until this passes: these run with
+  // verify_jwt = false. See _shared/webhook_auth.ts.
+  const denied = verifyWebhookSecret(req);
+  if (denied) return denied;
+
   try {
     const payload = await req.json();
     // Only trust the notice id from the webhook payload - re-fetch

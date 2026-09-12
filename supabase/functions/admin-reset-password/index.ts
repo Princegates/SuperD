@@ -8,6 +8,7 @@
 // Deploy with `supabase functions deploy admin-reset-password`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { html } from "../_shared/html.ts";
 
 function randomPassword(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(12));
@@ -44,7 +45,7 @@ async function sendResetEmail(
         from: fromEmail,
         to: email,
         subject: "Your SuperD password was reset",
-        html: `
+        html: html`
           <p>Hi ${fullName},</p>
           <p>A super admin reset your SuperD account password.</p>
           <p><strong>Temporary password:</strong> ${tempPassword}</p>

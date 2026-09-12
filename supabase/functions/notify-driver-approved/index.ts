@@ -9,6 +9,8 @@
 // Deploy with `supabase functions deploy notify-driver-approved`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+import { html } from "../_shared/html.ts";
+import { verifyWebhookSecret } from "../_shared/webhook_auth.ts";
 import { sendSms } from "../_shared/sms.ts";
 
 async function sendEmail(
@@ -46,6 +48,11 @@ async function sendEmail(
 }
 
 Deno.serve(async (req) => {
+  // Reachable by anyone until this passes: these run with
+  // verify_jwt = false. See _shared/webhook_auth.ts.
+  const denied = verifyWebhookSecret(req);
+  if (denied) return denied;
+
   try {
     const payload = await req.json();
     // Only fire on the actual pending -> approved transition, not every
@@ -85,7 +92,7 @@ Deno.serve(async (req) => {
       sent = await sendEmail(
         driver.email,
         "Your SuperD driver account is approved",
-        `
+        html`
           <p>Hi ${driver.full_name},</p>
           <p>Good news - your SuperD driver account has been approved. You
           can now sign in to the app and start receiving deliveries.</p>

@@ -14,6 +14,7 @@
 // Deploy with `supabase functions deploy admin-resend-vendor-link`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { html } from "../_shared/html.ts";
 import { sendSms } from "../_shared/sms.ts";
 
 async function sendEmail(
@@ -134,7 +135,7 @@ Deno.serve(async (req) => {
     const sentEmail = await sendEmail(
       vendor.email as string,
       "Your SuperD delivery link",
-      `
+      html`
         <p>Hi ${vendor.vendor_name},</p>
         <p>Here's your customer link again - they'll use it to request a
         delivery from you:</p>

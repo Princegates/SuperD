@@ -10,6 +10,7 @@
 // Deploy with `supabase functions deploy admin-resend-tracking-link`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { html } from "../_shared/html.ts";
 import { sendSms } from "../_shared/sms.ts";
 
 async function sendEmail(
@@ -119,7 +120,7 @@ Deno.serve(async (req) => {
       sentEmail = await sendEmail(
         delivery.customer_email as string,
         `Track your delivery - order ${delivery.tracking_code}`,
-        `
+        html`
           <p>Hi ${delivery.customer_name},</p>
           <p>Here's your tracking link for order
           <strong>${delivery.tracking_code}</strong> again:</p>

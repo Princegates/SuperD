@@ -130,6 +130,7 @@ supabase/
     0080_no_reassign_after_delivered.sql          enforce_delivery_update() now rejects any assigned_driver_id change once a delivery is already 'delivered', for every caller including a dispatcher/super admin from the Console - previously only a plain driver caller was blocked, so a completed delivery's driver record (what commission/payment settlement is tied to) could still be silently rewritten from the admin side
     0081_special_deliveries.sql                   adds deliveries.is_special, a label for a delivery a dispatcher/super admin creates by hand with its own manually-entered fee instead of the usual zone pricing - see "Special deliveries" below
     0082_erase_customer.sql                       adds erase_customer(), a super-admin-only RPC that scrubs a customer's name/phone/email from every one of their deliveries and removes their customers directory row, blocked while any delivery for that phone is still in progress - see "Erasing a customer" below
+    0083_harden_profile_self_service_and_pin.sql  stops a driver self-approving their own pending account (profiles.is_active), granting themselves the daily-fee/commission bypass (payment_access_override_until) or re-rostering their own zone, and caps guesses at a delivery's completion PIN at 10 per hour per driver
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -750,6 +751,16 @@ this project's own database triggers (never an end-user client), and
 they don't trust the caller's identity anyway - each one re-fetches
 everything it emails fresh from the database by id. `supabase/config.toml`
 in this repo already has that configured:
+
+> **Required: set `WEBHOOK_SECRET` before this works.** With
+> `verify_jwt = false` these functions are reachable by anyone on the
+> internet. Re-fetching from the database stops a forged payload putting
+> made-up *content* in a message, but not replay: without a shared secret,
+> anyone who learns a delivery id can POST it back over and over and make
+> the app text and email the real customer, vendor and dispatchers on file
+> - every SMS billed to your Twilio account. Every notify-* function now
+> requires an `x-webhook-secret` header matching this secret, and returns
+> 503 until it's set. See **Webhook shared secret** below.
 
 ```toml
 [functions.notify-driver-application]
@@ -2056,6 +2067,45 @@ functions deploy <name>`). The tracking-link email/SMS also needs
 **Getting the link's domain right** below) - without it, the customer
 still gets a text, just without a link, since there'd be nothing valid to
 build one from.
+
+### Webhook shared secret (required)
+
+Every `notify-*` function runs with `verify_jwt = false`, which means the
+Supabase platform lets *anyone* call them. They only accept a request that
+carries an `x-webhook-secret` header matching the `WEBHOOK_SECRET` secret,
+and return `503` until you set one:
+
+```bash
+supabase secrets set WEBHOOK_SECRET="$(openssl rand -hex 32)"
+```
+
+Print the value (`supabase secrets list` won't show it - keep the output of
+the `openssl` command, or generate it separately and paste it) and add it
+as a header on **every** Database Webhook you create below:
+
+- **Header name**: `x-webhook-secret`
+- **Value**: the secret you just set
+
+On the `pg_net` fallback route, put it in the same `headers` jsonb the
+`Content-Type` goes in:
+
+```sql
+headers := jsonb_build_object(
+  'Content-Type', 'application/json',
+  'x-webhook-secret', 'the-secret-you-generated'
+)
+```
+
+This applies to `notify-delivery-events`, `notify-driver-application`,
+`notify-driver-approved`, `notify-vendor-registered` and
+`notify-driver-notice`. `paystack-daily-fee-webhook` is the exception -
+it's called by Paystack, not by your database, and authenticates with
+Paystack's own HMAC signature instead.
+
+Without this, anyone who learns a delivery id can replay it at the
+function and make your app text and email that delivery's real customer
+and vendor repeatedly, on your Twilio bill. Re-deploy the functions after
+setting the secret.
 
 ### 3. Create the Database Webhook
 

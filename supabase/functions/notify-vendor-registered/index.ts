@@ -11,6 +11,8 @@
 // Deploy with `supabase functions deploy notify-vendor-registered`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+import { html, raw } from "../_shared/html.ts";
+import { verifyWebhookSecret } from "../_shared/webhook_auth.ts";
 import { sendSms } from "../_shared/sms.ts";
 import { sendPushToProfile } from "../_shared/fcm.ts";
 
@@ -49,6 +51,11 @@ async function sendEmail(
 }
 
 Deno.serve(async (req) => {
+  // Reachable by anyone until this passes: these run with
+  // verify_jwt = false. See _shared/webhook_auth.ts.
+  const denied = verifyWebhookSecret(req);
+  if (denied) return denied;
+
   try {
     const payload = await req.json();
     // Only trust the vendor id from the webhook payload - re-fetch
@@ -85,7 +92,7 @@ Deno.serve(async (req) => {
       sentToVendor = await sendEmail(
         vendor.email,
         "Your SuperD delivery link",
-        `
+        html`
           <p>Hi ${vendor.vendor_name},</p>
           <p>You're registered on SuperD. Share this link with your
           customers - they'll use it to request a delivery from you:</p>
@@ -135,7 +142,7 @@ Deno.serve(async (req) => {
       sentToStaff = await sendEmail(
         staffEmails,
         "New vendor registered on SuperD",
-        `
+        html`
           <p>A new vendor has registered on SuperD:</p>
           <p>
             <strong>Name:</strong> ${vendor.vendor_name}<br>
@@ -143,7 +150,7 @@ Deno.serve(async (req) => {
           </p>
           ${
             link
-              ? `<p>Their link: <a href="${link}">${link}</a></p>`
+              ? raw(html`<p>Their link: <a href="${link}">${link}</a></p>`)
               : ""
           }
         `,

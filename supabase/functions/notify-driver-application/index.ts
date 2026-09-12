@@ -16,6 +16,8 @@
 // Deploy with `supabase functions deploy notify-driver-application`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+import { html } from "../_shared/html.ts";
+import { verifyWebhookSecret } from "../_shared/webhook_auth.ts";
 import { sendSms } from "../_shared/sms.ts";
 import { sendPushToProfile } from "../_shared/fcm.ts";
 
@@ -54,6 +56,11 @@ async function sendEmail(
 }
 
 Deno.serve(async (req) => {
+  // Reachable by anyone until this passes: these run with
+  // verify_jwt = false. See _shared/webhook_auth.ts.
+  const denied = verifyWebhookSecret(req);
+  if (denied) return denied;
+
   try {
     const payload = await req.json();
     // Only trust the profile id from the webhook payload - re-fetch
@@ -99,7 +106,7 @@ Deno.serve(async (req) => {
       sentToStaff = await sendEmail(
         staffEmails,
         "New driver application on SuperD",
-        `
+        html`
           <p>A new driver has applied to join SuperD:</p>
           <p>
             <strong>Name:</strong> ${applicant.full_name}<br>
@@ -131,7 +138,7 @@ Deno.serve(async (req) => {
       sentToApplicant = await sendEmail(
         [applicant.email as string],
         "We've received your SuperD driver application",
-        `
+        html`
           <p>Hi ${applicant.full_name},</p>
           <p>Thanks for applying to drive with SuperD. A dispatcher or admin
           will review your application shortly - we'll email you again once

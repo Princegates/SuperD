@@ -46,6 +46,8 @@
 // functions. Deploy with `supabase functions deploy notify-delivery-events`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { jsonResponse } from "../_shared/cors.ts";
+import { html, raw } from "../_shared/html.ts";
+import { verifyWebhookSecret } from "../_shared/webhook_auth.ts";
 import { sendSms } from "../_shared/sms.ts";
 import { sendPushToProfile } from "../_shared/fcm.ts";
 
@@ -112,6 +114,11 @@ async function isRepeatVendor(
 }
 
 Deno.serve(async (req) => {
+  // Reachable by anyone until this passes: these run with
+  // verify_jwt = false. See _shared/webhook_auth.ts.
+  const denied = verifyWebhookSecret(req);
+  if (denied) return denied;
+
   try {
     const payload = await req.json();
     // Only trust the delivery id (the event type, and old_record, to tell
@@ -254,7 +261,7 @@ Deno.serve(async (req) => {
         results.trackingEmail = await sendEmail(
           delivery.customer_email,
           `Track your delivery - order ${delivery.tracking_code}`,
-          `
+          html`
             <p>Hi ${delivery.customer_name},</p>
             <p>Your delivery (<strong>${delivery.tracking_code}</strong>) has
             been received. Track it any time here:</p>
@@ -289,7 +296,7 @@ Deno.serve(async (req) => {
           results.newOrderVendorEmail = await sendEmail(
             vendor.email,
             `New order received - ${delivery.tracking_code}`,
-            `
+            html`
               <p>Hi ${vendor.vendor_name},</p>
               <p>You've received a new order:</p>
               <p>
@@ -299,7 +306,7 @@ Deno.serve(async (req) => {
               </p>
               ${
               vendorOrdersLink
-                ? `<p>Track it any time here: <a href="${vendorOrdersLink}">${vendorOrdersLink}</a></p>`
+                ? raw(html`<p>Track it any time here: <a href="${vendorOrdersLink}">${vendorOrdersLink}</a></p>`)
                 : ""
             }
             `,
@@ -348,7 +355,7 @@ Deno.serve(async (req) => {
         results.assignedCustomerEmail = await sendEmail(
           delivery.customer_email,
           `A rider is on the way - order ${delivery.tracking_code}`,
-          `
+          html`
             <p>Hi ${delivery.customer_name},</p>
             <p>Your delivery (<strong>${delivery.tracking_code}</strong>) has
             been assigned to a rider:</p>
@@ -357,7 +364,7 @@ Deno.serve(async (req) => {
           }</p>
             ${
             supportPhone
-              ? `<p>If there's a problem with this delivery, call ${supportPhone}.</p>`
+              ? raw(html`<p>If there's a problem with this delivery, call ${supportPhone}.</p>`)
               : ""
           }
           `,
@@ -375,7 +382,7 @@ Deno.serve(async (req) => {
         results.assignedVendorEmail = await sendEmail(
           vendor.email,
           `Rider assigned - order ${delivery.tracking_code}`,
-          `
+          html`
             <p>Hi ${vendor.vendor_name},</p>
             <p>Order <strong>${delivery.tracking_code}</strong> for
             ${delivery.customer_name} has been assigned to a rider:</p>
@@ -384,7 +391,7 @@ Deno.serve(async (req) => {
           }</p>
             ${
             supportPhone
-              ? `<p>If there's a problem with this delivery, call ${supportPhone}.</p>`
+              ? raw(html`<p>If there's a problem with this delivery, call ${supportPhone}.</p>`)
               : ""
           }
           `,
@@ -424,7 +431,7 @@ Deno.serve(async (req) => {
         results.cancellationEmail = await sendEmail(
           adminAlertEmail,
           `Driver cancelled mid-trip - order ${delivery.tracking_code}`,
-          `
+          html`
             <p>${oldDriverName} cancelled order
             <strong>${delivery.tracking_code}</strong>
             (${delivery.customer_name}) after already picking it up.</p>
@@ -458,7 +465,7 @@ Deno.serve(async (req) => {
         results.pinEmail = await sendEmail(
           delivery.customer_email,
           `Your delivery PIN - order ${delivery.tracking_code}`,
-          `
+          html`
             <p>Hi ${delivery.customer_name},</p>
             <p>Your rider has picked up order
             <strong>${delivery.tracking_code}</strong> and is on the way.</p>
@@ -466,7 +473,7 @@ Deno.serve(async (req) => {
             <p style="font-size: 24px; font-weight: 700;">${pin}</p>
             ${
             supportPhone
-              ? `<p>If there's a problem with this delivery, call ${supportPhone}.</p>`
+              ? raw(html`<p>If there's a problem with this delivery, call ${supportPhone}.</p>`)
               : ""
           }
           `,

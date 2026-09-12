@@ -151,16 +151,25 @@ class DeliveryRepository {
   /// transition (see `enforce_delivery_update()` in
   /// `0056_delivery_completion_pin.sql`). Verifies [pin] against the
   /// value texted/emailed to the customer when the driver picked the
-  /// package up, throwing (via the RPC's own exception message) if it
-  /// doesn't match.
+  /// package up, throwing if it doesn't match.
+  ///
+  /// The RPC hands back a message rather than raising one, so that a wrong
+  /// guess still commits the row counting it - see the note in
+  /// `0083_harden_profile_self_service_and_pin.sql`. Null means it went
+  /// through; anything else is already worded for the driver, and is
+  /// rethrown as the [PostgrestException] this method's callers have
+  /// always caught.
   Future<void> completeDeliveryWithPin({
     required String deliveryId,
     required String pin,
   }) async {
-    await _client.rpc(
+    final message = await _client.rpc(
       'complete_delivery_with_pin',
       params: {'p_delivery_id': deliveryId, 'p_pin': pin},
     );
+    if (message != null && message.toString().trim().isNotEmpty) {
+      throw PostgrestException(message: message.toString());
+    }
   }
 
   /// Permanently erases the delivery record itself - not the same as

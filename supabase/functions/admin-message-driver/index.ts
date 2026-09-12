@@ -10,6 +10,7 @@
 // Deploy with `supabase functions deploy admin-message-driver`.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { corsHeaders, jsonResponse } from "../_shared/cors.ts";
+import { RawHtml, escapeHtml, html, raw } from "../_shared/html.ts";
 import { sendSms } from "../_shared/sms.ts";
 
 async function sendEmail(
@@ -47,12 +48,17 @@ async function sendEmail(
 }
 
 // A blank line becomes a paragraph break - the admin types plain text,
-// this is the only formatting a driver's message gets.
-function messageToHtml(message: string): string {
-  return message
-    .split(/\n{2,}/)
-    .map((para) => `<p>${para.replace(/\n/g, "<br>")}</p>`)
-    .join("\n");
+// this is the only formatting a driver's message gets. The text itself is
+// escaped first, so typing `<b>` or a link into the Console composer sends
+// those characters rather than markup; the <p>/<br> this adds around it is
+// marked raw so the email body template leaves it as markup.
+function messageToHtml(message: string): RawHtml {
+  return raw(
+    message
+      .split(/\n{2,}/)
+      .map((para) => `<p>${escapeHtml(para).replaceAll("\n", "<br>")}</p>`)
+      .join("\n"),
+  );
 }
 
 Deno.serve(async (req) => {
@@ -131,7 +137,7 @@ Deno.serve(async (req) => {
     const sentEmail = await sendEmail(
       driver.email as string,
       "Message from SuperD",
-      `
+      html`
         <p>Hi ${driver.full_name},</p>
         ${messageToHtml(message)}
       `,

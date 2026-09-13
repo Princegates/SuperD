@@ -35,6 +35,57 @@ if (hasReleaseKeystore) {
     keystorePropertiesFile.inputStream().use { keystoreProperties.load(it) }
 }
 
+// The debug fallback above is convenient and also the single easiest way
+// to waste a day before launch: `flutter build appbundle` succeeds, the
+// .aab looks finished, and the first thing that tells you otherwise is a
+// rejection from the Play Console. So a release build says out loud what
+// it is signing with, and a keystore that is configured but unusable
+// fails here rather than three steps later with a Gradle stack trace.
+//
+// Only release builds are checked. `flutter run` must keep working on a
+// machine that has never set a keystore up - that is what the fallback is
+// for.
+val isReleaseBuild = gradle.startParameter.taskNames.any {
+    it.contains("Release") || it.endsWith("release")
+}
+if (isReleaseBuild) {
+    if (!hasReleaseKeystore) {
+        // logger.error, not warn: `flutter build appbundle` passes Gradle
+        // -q unless it is running verbose, and quiet suppresses warn - so
+        // the one message that has to survive would be the one nobody
+        // sees. Nothing has failed here; the severity is about visibility.
+        logger.error(
+            "\n" +
+            "WARNING: no android/key.properties, so this release build is\n" +
+            "         signed with the DEBUG key. Google Play will refuse it,\n" +
+            "         and it is not safe to distribute - the debug key is the\n" +
+            "         same one shipped to every Flutter developer.\n" +
+            "         See \"Android release signing\" in the README.\n"
+        )
+    } else {
+        val missing = listOf("storeFile", "storePassword", "keyAlias", "keyPassword")
+            .filter { keystoreProperties.getProperty(it).isNullOrBlank() }
+        if (missing.isNotEmpty()) {
+            throw GradleException(
+                "android/key.properties is missing a value for: " +
+                missing.joinToString(", ") + ". Fill every field in - see " +
+                "android/key.properties.example."
+            )
+        }
+        // Resolved against android/app/, same as signingConfigs below does,
+        // which is the one thing people get wrong here: key.properties
+        // itself lives in android/, so a bare filename means android/app/.
+        val storeFile = file(keystoreProperties.getProperty("storeFile"))
+        if (!storeFile.exists()) {
+            throw GradleException(
+                "The keystore named in android/key.properties does not exist: " +
+                storeFile.absolutePath + ". storeFile is resolved relative to " +
+                "android/app/, so a bare filename means android/app/<name>."
+            )
+        }
+    }
+}
+
 // Push notifications (Firebase Cloud Messaging): the Google Services
 // plugin generates Android resources from google-services.json at build
 // time - only applied once that file actually exists, so a build without

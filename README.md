@@ -426,9 +426,26 @@ Fix this once, before your first real build:
    path relative to `android/app/` - just the filename if you copied the
    `.jks` in there directly).
 3. Build as usual - `flutter build appbundle --dart-define-from-file=env.json`
-   now signs with your real key automatically. Building before step 2
-   still works (falls back to the debug key with no error), but never
-   upload that output anywhere but your own test devices.
+   now signs with your real key automatically.
+
+Release builds check themselves, because the failure mode here is silent
+and expensive - an `.aab` that looks finished and gets rejected at upload:
+
+- **No `android/key.properties`** - the build still runs (that fallback is
+  what keeps `flutter run` working on a fresh clone) but prints a loud
+  warning saying it used the debug key. Never upload that output anywhere
+  but your own test devices.
+- **`key.properties` with a field left blank** - the build stops and names
+  the field.
+- **`storeFile` pointing at a keystore that is not there** - the build
+  stops and prints the absolute path it looked at, since the usual mistake
+  is forgetting that `storeFile` resolves relative to `android/app/` while
+  `key.properties` itself lives in `android/`.
+
+Debug builds are never checked. The warning is emitted at error level on
+purpose: `flutter build` runs Gradle with `-q`, which suppresses warnings,
+so a plain `logger.warn` would be invisible in the one situation it exists
+for.
 
 ### iOS export compliance
 

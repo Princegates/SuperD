@@ -11,12 +11,9 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/vehicle_type.dart';
 import '../../../models/vendor.dart';
-import '../../../shared/screens/location_picker_screen.dart';
-import '../../../shared/utils/geocode_search.dart';
 import '../../../shared/utils/ghana_phone.dart';
-import '../../../shared/utils/reverse_geocode.dart';
-import '../../../shared/widgets/address_autocomplete_field.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/location_field.dart';
 import '../../../shared/widgets/schedule_picker.dart';
 import '../../../shared/widgets/turnstile_widget.dart';
 import '../providers/public_providers.dart';
@@ -82,7 +79,6 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
 
   double? _lat;
   double? _lng;
-  bool _isGeocoding = false;
   bool _isSubmitting = false;
   String? _errorMessage;
   DeliveryQuote? _quote;
@@ -164,50 +160,15 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
     await _refreshEstimate();
   }
 
-  /// The customer picked one of the as-you-type suggestions instead of
-  /// using the map - same effect as [_pickLocation] once a point is
-  /// chosen, just skipping the map screen and reverse-geocode step since
-  /// the suggestion already carries both.
-  void _selectSuggestion(GeocodeResult result) {
+  /// Any of [LocationField]'s three routes to a coordinate lands here -
+  /// typed suggestion, the device's own position, or a pin on the map.
+  void _onLocationPicked(double lat, double lng) {
     setState(() {
-      _lat = result.location.latitude;
-      _lng = result.location.longitude;
+      _lat = lat;
+      _lng = lng;
       _roadDistanceKm = null;
     });
     unawaited(_refreshPricing());
-  }
-
-  Future<void> _pickLocation() async {
-    final initial = (_lat != null && _lng != null)
-        ? LatLng(_lat!, _lng!)
-        : null;
-    final picked = await Navigator.of(context).push<LatLng>(
-      MaterialPageRoute(
-        builder: (context) => LocationPickerScreen(
-          title: 'Where should it be delivered?',
-          initialCenter: initial,
-        ),
-      ),
-    );
-    if (picked == null) return;
-
-    setState(() {
-      _lat = picked.latitude;
-      _lng = picked.longitude;
-      _roadDistanceKm = null;
-      _isGeocoding = true;
-    });
-    unawaited(_refreshPricing());
-    final address = await reverseGeocode(picked.latitude, picked.longitude);
-    if (mounted) {
-      setState(() {
-        _addressController.text =
-            address ??
-            '${picked.latitude.toStringAsFixed(5)}, '
-                '${picked.longitude.toStringAsFixed(5)}';
-        _isGeocoding = false;
-      });
-    }
   }
 
   Future<void> _submit() async {
@@ -279,175 +240,114 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              'Ordering from ${widget.vendor.vendorName}',
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              "Fill in your details and we'll get a rider assigned to you.",
-              style: TextStyle(color: Colors.black54),
-            ),
-            const SizedBox(height: 24),
-            TextFormField(
-              controller: _nameController,
-              decoration: const InputDecoration(labelText: 'Your name'),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Required' : null,
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _phoneController,
-              keyboardType: TextInputType.phone,
-              decoration: const InputDecoration(labelText: 'Phone number'),
-              validator: GhanaPhone.validator(),
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                helperText:
-                    "So we can reach you by email on repeat orders instead "
-                    'of SMS',
-              ),
-              validator: (v) => (v == null || !v.contains('@'))
-                  ? 'Enter a valid email'
-                  : null,
-            ),
-            const SizedBox(height: 14),
-            AddressAutocompleteField(
-              controller: _addressController,
-              decoration: const InputDecoration(labelText: 'Delivery address'),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? 'Required' : null,
-              onPlaceSelected: _selectSuggestion,
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: _isGeocoding ? null : _pickLocation,
-                icon: _isGeocoding
-                    ? const SizedBox(
-                        height: 16,
-                        width: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.map_outlined, size: 18),
-                label: const Text('Or pin it on the map'),
-              ),
-            ),
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _packageController,
-              decoration: const InputDecoration(
-                labelText: 'What are we delivering? (optional)',
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Vehicle',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: Colors.grey.shade600,
-                letterSpacing: 0.3,
-              ),
-            ),
-            const SizedBox(height: 8),
-            DropdownButtonFormField<String>(
-              initialValue: _vehicleTypeId,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              hint: const Text('Loading...'),
-              items: [
-                for (final type in vehicleTypes)
-                  DropdownMenuItem(value: type.id, child: Text(type.name)),
+            _VendorHeader(vendorName: widget.vendor.vendorName),
+            const SizedBox(height: 20),
+            _FormStep(
+              step: 1,
+              title: 'Who should the rider call?',
+              children: [
+                TextFormField(
+                  controller: _nameController,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: const InputDecoration(
+                    labelText: 'Your name',
+                    prefixIcon: Icon(Icons.person_outline, size: 20),
+                  ),
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _phoneController,
+                  keyboardType: TextInputType.phone,
+                  decoration: const InputDecoration(
+                    labelText: 'Phone number',
+                    prefixIcon: Icon(Icons.call_outlined, size: 20),
+                    helperText: 'The rider calls this when they arrive',
+                  ),
+                  validator: GhanaPhone.validator(),
+                ),
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _emailController,
+                  keyboardType: TextInputType.emailAddress,
+                  decoration: const InputDecoration(
+                    labelText: 'Email',
+                    prefixIcon: Icon(Icons.mail_outline, size: 20),
+                    helperText: 'Where your tracking link goes',
+                  ),
+                  validator: (v) => (v == null || !v.contains('@'))
+                      ? 'Enter a valid email'
+                      : null,
+                ),
               ],
-              onChanged: vehicleTypes.isEmpty
-                  ? null
-                  : (value) {
-                      setState(() => _vehicleTypeId = value);
-                      unawaited(_refreshEstimate());
-                    },
+            ),
+            const SizedBox(height: 14),
+            _FormStep(
+              step: 2,
+              title: 'Where are we taking it?',
+              children: [
+                LocationField(
+                  controller: _addressController,
+                  label: 'Delivery address',
+                  mapTitle: 'Where should it be delivered?',
+                  helperText: "Can't name the street? Drop a pin instead",
+                  hasLocation: _lat != null && _lng != null,
+                  confirmedHint: 'Got it - your price is below',
+                  initialCenter: (_lat != null && _lng != null)
+                      ? LatLng(_lat!, _lng!)
+                      : null,
+                  onPicked: _onLocationPicked,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _FormStep(
+              step: 3,
+              title: 'What and when?',
+              children: [
+                TextFormField(
+                  controller: _packageController,
+                  decoration: const InputDecoration(
+                    labelText: 'What are we delivering?',
+                    prefixIcon: Icon(Icons.inventory_2_outlined, size: 20),
+                    helperText: 'Optional - helps the rider bring the right bag',
+                  ),
+                ),
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: _vehicleTypeId,
+                  decoration: const InputDecoration(
+                    labelText: 'Vehicle',
+                    prefixIcon: Icon(Icons.two_wheeler_outlined, size: 20),
+                    isDense: true,
+                  ),
+                  hint: const Text('Loading...'),
+                  items: [
+                    for (final type in vehicleTypes)
+                      DropdownMenuItem(value: type.id, child: Text(type.name)),
+                  ],
+                  onChanged: vehicleTypes.isEmpty
+                      ? null
+                      : (value) {
+                          setState(() => _vehicleTypeId = value);
+                          unawaited(_refreshEstimate());
+                        },
+                ),
+                const SizedBox(height: 16),
+                SchedulePicker(
+                  value: _scheduledAt,
+                  onChanged: (value) => setState(() => _scheduledAt = value),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
-            Text(
-              'When',
-              style: TextStyle(
-                fontSize: 12.5,
-                fontWeight: FontWeight.w700,
-                color: Colors.grey.shade600,
-                letterSpacing: 0.3,
-              ),
+            _PriceCard(
+              estimate: _estimate,
+              hasLocation: _lat != null && _lng != null,
             ),
-            const SizedBox(height: 8),
-            SchedulePicker(
-              value: _scheduledAt,
-              onChanged: (value) => setState(() => _scheduledAt = value),
-            ),
-            if (_estimate case final estimate?
-                when _lat != null && _lng != null) ...[
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppTheme.primary.withValues(alpha: 0.06),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.payments_outlined,
-                      size: 18,
-                      color: AppTheme.primary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        estimate.low == estimate.high
-                            ? 'Estimated price: ${estimate.currency} '
-                                  '${estimate.high.toStringAsFixed(2)}'
-                            : 'Estimated price: ${estimate.currency} '
-                                  '${estimate.low.toStringAsFixed(2)}–'
-                                  '${estimate.high.toStringAsFixed(2)}',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ] else if (_lat == null || _lng == null) ...[
-              const SizedBox(height: 14),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 18,
-                      color: Colors.grey.shade600,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Pin your delivery location on the map to see '
-                        'the price.',
-                        style: TextStyle(color: Colors.grey.shade700),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
               Text(
@@ -478,6 +378,214 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Who the customer is ordering from, said once and warmly. This page is
+/// often the first time someone has seen SuperD at all - they followed a
+/// link from a shop - so it opens by confirming they're in the right place
+/// rather than with a bare form.
+class _VendorHeader extends StatelessWidget {
+  const _VendorHeader({required this.vendorName});
+
+  final String vendorName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppTheme.primary.withValues(alpha: 0.12),
+            AppTheme.primary.withValues(alpha: 0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(9),
+            decoration: BoxDecoration(
+              color: AppTheme.primary.withValues(alpha: 0.14),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.storefront_outlined,
+              size: 20,
+              color: AppTheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  vendorName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 17,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Three quick steps and a rider is on the way.',
+                  style: TextStyle(fontSize: 12.5, color: Colors.grey.shade700),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// One numbered stage of the form. Three short steps read as less work
+/// than the same nine fields in one unbroken column, and the numbers give
+/// someone on a phone a sense of how much is left.
+class _FormStep extends StatelessWidget {
+  const _FormStep({
+    required this.step,
+    required this.title,
+    required this.children,
+  });
+
+  final int step;
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                height: 22,
+                width: 22,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  '$step',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11.5,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          ...children,
+        ],
+      ),
+    );
+  }
+}
+
+/// The price, which is the thing a customer actually wants to know and the
+/// reason the location question is worth answering properly. Shown as a
+/// real figure once there's a coordinate, and as a plain nudge before
+/// then - not an error, just the missing half of the trade.
+class _PriceCard extends StatelessWidget {
+  const _PriceCard({required this.estimate, required this.hasLocation});
+
+  final PriceEstimate? estimate;
+  final bool hasLocation;
+
+  @override
+  Widget build(BuildContext context) {
+    final showPrice = hasLocation && estimate != null;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: showPrice
+            ? AppTheme.primary.withValues(alpha: 0.08)
+            : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: showPrice
+              ? AppTheme.primary.withValues(alpha: 0.35)
+              : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            showPrice ? Icons.payments_outlined : Icons.location_searching,
+            size: 20,
+            color: showPrice ? AppTheme.primary : Colors.grey.shade600,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: showPrice
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Your delivery',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey.shade700,
+                        ),
+                      ),
+                      const SizedBox(height: 1),
+                      Text(
+                        estimate!.low == estimate!.high
+                            ? '${estimate!.currency} '
+                                  '${estimate!.high.toStringAsFixed(2)}'
+                            : '${estimate!.currency} '
+                                  '${estimate!.low.toStringAsFixed(2)} - '
+                                  '${estimate!.high.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 19,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                    ],
+                  )
+                : Text(
+                    'Set your delivery address above to see the price.',
+                    style: TextStyle(
+                      color: Colors.grey.shade700,
+                      fontSize: 12.5,
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }

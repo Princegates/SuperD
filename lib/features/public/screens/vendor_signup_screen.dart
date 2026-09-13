@@ -13,12 +13,9 @@ import '../../../data/repositories/vendor_repository.dart'
     show VendorSubscriptionException;
 import '../../../models/vendor.dart';
 import '../../../shared/legal/superd_legal_policy.dart';
-import '../../../shared/screens/location_picker_screen.dart';
-import '../../../shared/utils/geocode_search.dart';
 import '../../../shared/utils/ghana_phone.dart';
-import '../../../shared/utils/reverse_geocode.dart';
 import '../../../shared/utils/vendor_link.dart';
-import '../../../shared/widgets/address_autocomplete_field.dart';
+import '../../../shared/widgets/location_field.dart';
 import '../../../shared/widgets/terms_checkbox.dart';
 import '../../../shared/widgets/turnstile_widget.dart';
 import '../../admin/providers/admin_providers.dart';
@@ -43,7 +40,6 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
   String? _zoneId;
   double? _lat;
   double? _lng;
-  bool _isGeocoding = false;
   bool _isSubmitting = false;
   String? _errorMessage;
   VendorRegistration? _registration;
@@ -73,46 +69,13 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
     super.dispose();
   }
 
-  /// The vendor picked one of the as-you-type suggestions instead of using
-  /// the map - same effect as [_pickLocation] once a point is chosen, just
-  /// skipping the map screen and reverse-geocode step since the
-  /// suggestion already carries both.
-  void _selectSuggestion(GeocodeResult result) {
+  /// Any of [LocationField]'s three routes to a coordinate lands here -
+  /// typed suggestion, the device's own position, or a pin on the map.
+  void _onLocationPicked(double lat, double lng) {
     setState(() {
-      _lat = result.location.latitude;
-      _lng = result.location.longitude;
+      _lat = lat;
+      _lng = lng;
     });
-  }
-
-  Future<void> _pickLocation() async {
-    final initial = (_lat != null && _lng != null)
-        ? LatLng(_lat!, _lng!)
-        : null;
-    final picked = await Navigator.of(context).push<LatLng>(
-      MaterialPageRoute(
-        builder: (context) => LocationPickerScreen(
-          title: 'Your business location',
-          initialCenter: initial,
-        ),
-      ),
-    );
-    if (picked == null) return;
-
-    setState(() {
-      _lat = picked.latitude;
-      _lng = picked.longitude;
-      _isGeocoding = true;
-    });
-    final address = await reverseGeocode(picked.latitude, picked.longitude);
-    if (mounted) {
-      setState(() {
-        _locationController.text =
-            address ??
-            '${picked.latitude.toStringAsFixed(5)}, '
-                '${picked.longitude.toStringAsFixed(5)}';
-        _isGeocoding = false;
-      });
-    }
   }
 
   Future<void> _submit() async {
@@ -223,34 +186,22 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
                                 setState(() => _zoneId = value),
                           ),
                           const SizedBox(height: 14),
-                          AddressAutocompleteField(
+                          LocationField(
                             controller: _locationController,
-                            decoration: const InputDecoration(
-                              labelText: 'Exact location',
-                              helperText:
-                                  'Start typing, or pin it on the map below',
-                            ),
+                            label: 'Exact location',
+                            mapTitle: 'Your business location',
+                            helperText:
+                                'Riders collect from here, so make it the '
+                                'door they should walk up to',
+                            hasLocation: _lat != null && _lng != null,
+                            confirmedHint: 'Pickup point set',
+                            initialCenter: (_lat != null && _lng != null)
+                                ? LatLng(_lat!, _lng!)
+                                : null,
+                            onPicked: _onLocationPicked,
                             validator: (v) => (v == null || v.trim().isEmpty)
                                 ? 'Required'
                                 : null,
-                            onPlaceSelected: _selectSuggestion,
-                          ),
-                          const SizedBox(height: 8),
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              onPressed: _isGeocoding ? null : _pickLocation,
-                              icon: _isGeocoding
-                                  ? const SizedBox(
-                                      height: 16,
-                                      width: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.map_outlined, size: 18),
-                              label: const Text('Set location on map'),
-                            ),
                           ),
                           if (_errorMessage != null) ...[
                             const SizedBox(height: 12),

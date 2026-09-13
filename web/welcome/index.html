@@ -384,7 +384,6 @@
   .mast[data-past='true'] .btn-onink::before { background: rgba(10, 19, 38, .13); }
   :root[data-mode='night'] .mast[data-past='true'] .btn-onink { background: rgba(255, 255, 255, .1); }
 
-  .mast-mini { display: none; }
 
   /* ---------- the cover ---------- */
 
@@ -928,10 +927,14 @@
 
   @media (max-width: 780px) {
     .mast nav { display: none; }
-    .mast-in { height: 64px; }
+    /* With the nav collapsed the bar holds two things, so the mark and
+       name come down a step rather than sitting oversized in it. */
+    .mast-in { height: 64px; gap: .7rem; }
+    .brand { gap: .55rem; }
+    .brand-name { font-size: 1.1rem; }
+    .mark3d { width: 38px; height: 38px; }
+    .mode { width: 38px; height: 38px; }
     .cover { margin-top: -72px; padding-top: 72px; }
-    .mast-actions .btn:not(.mast-mini) { display: none; }
-    .mast-actions .btn.mast-mini { display: inline-flex; }
     .figures { grid-template-columns: 1fr; gap: 1.8rem; }
     .col-grid { grid-template-columns: 1fr; }
     .quote { max-width: none; }
@@ -970,8 +973,6 @@
         </svg>
       </button>
       <a class="btn btn-onink btn-sm" href="../login" target="_blank" rel="noopener">Log in</a>
-      <a class="btn btn-gold btn-sm" href="../vendor" target="_blank" rel="noopener">Start delivering</a>
-      <a class="btn btn-gold btn-sm mast-mini" href="../vendor" target="_blank" rel="noopener">Start</a>
     </div>
   </div>
 </header>

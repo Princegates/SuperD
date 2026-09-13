@@ -24,7 +24,6 @@ import '../../features/public/screens/customer_request_screen.dart';
 import '../../features/public/screens/track_order_screen.dart';
 import '../../features/public/screens/vendor_orders_screen.dart';
 import '../../features/public/screens/vendor_signup_screen.dart';
-import '../../features/public/screens/welcome_screen.dart';
 import '../../models/profile.dart';
 import '../../models/user_role.dart';
 import '../../models/vendor.dart';
@@ -65,14 +64,16 @@ final routerProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     // Web: no initialLocation, so go_router's own _effectiveInitialLocation()
-    // uses the platform's actual URL - the bare root ('/') then reaches the
-    // WelcomeScreen route below, which doesn't need the splash-then-redirect
-    // dance since it doesn't care about auth state at all.
+    // uses the platform's actual URL, which is what makes a deep link like
+    // '/v/<code>' survive a page load.
     //
-    // Native (Android/iOS): there's no real "current URL" to preserve, and
-    // this is the app's front door, not a marketing site - it should start
-    // straight at the splash-then-login/home flow like it always has,
-    // never at WelcomeScreen (see the '/' exemption below, also web-only).
+    // Native (Android/iOS): there's no real "current URL" to preserve, so
+    // start at the splash-then-login/home flow.
+    //
+    // In production the bare '/' never reaches this router at all - the
+    // marketing page is served there as static HTML (see web/_redirects).
+    // It can still be hit by `flutter run -d chrome`, so '/' remains a
+    // route below, forwarding into the app rather than 404ing.
     initialLocation: kIsWeb ? null : '/splash',
     refreshListenable: refresh,
     redirect: (context, state) {
@@ -98,13 +99,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       // for a completely anonymous visitor, so they're exempt from every
       // session/role check below.
       //
-      // The bare-root welcome screen is in this same exemption, but web
-      // only - it's this app's marketing front door there. Native builds
-      // have no such front door: '/' falls through to the normal
-      // auth/role redirect below, landing on splash-then-login/home
-      // exactly like every other route.
-      if ((kIsWeb && loc == '/') ||
-          loc == '/vendor' ||
+      // '/' used to be exempt here too, on web, because it rendered a
+      // marketing screen that ignored auth entirely. That screen is gone
+      // and the marketing page is static HTML now, so '/' is no longer a
+      // public page in the app - it just forwards into the normal
+      // auth/role flow like any other route.
+      if (loc == '/vendor' ||
           loc.startsWith('/v/') ||
           loc.startsWith('/vendor-orders/') ||
           loc.startsWith('/t/') ||
@@ -202,11 +202,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       return null;
     },
     routes: [
-      GoRoute(
-        path: '/',
-        pageBuilder: (context, state) =>
-            fadeSlidePage(key: state.pageKey, child: const WelcomeScreen()),
-      ),
+      // Kept purely so '/' resolves to something during local web
+      // development; in production Netlify serves the marketing page
+      // here and this is never reached.
+      GoRoute(path: '/', redirect: (context, state) => '/splash'),
       GoRoute(
         path: '/splash',
         pageBuilder: (context, state) =>

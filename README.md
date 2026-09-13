@@ -570,26 +570,35 @@ fixing, not silencing.
 
 ### Landing page
 
-The bare root (`/`) is `WelcomeScreen`
-(`lib/features/public/screens/welcome_screen.dart`) - the app's actual
-front door, shown before any session/role check runs (it's in the
-router's public-route exemption list alongside `/vendor` and the
-other no-login pages). It's what a visitor sees first at
-`https://your-domain.example/`, and identically the first thing you see
-running locally with `flutter run` - being a real route rather than a
-hosting-specific redirect trick, it behaves the same everywhere with no
-extra server config. It links into **Register your business**
-(`/vendor`) and **Staff & driver login** (`/login`).
+The bare root (`/`) serves `web/welcome/index.html` - a self-contained
+static page (no Flutter, no build step of its own). It is what a visitor
+sees first at `https://your-domain.example/`, and it links into
+**Register your business** (`/vendor`) and **Staff & driver login**
+(`/login`).
 
-`web/welcome/index.html` is a separate, small, self-contained static
-HTML page (no Flutter, no build step of its own, not the app's root) -
-covering the same two links plus a fuller features section, meant for
-linking from social media/ads/anywhere you'd rather send someone to a
-plain fast-loading page than the Flutter bundle. `flutter build web`
-copies it into `build/web/welcome/index.html` automatically since it
-lives under `web/`, reachable at `/welcome` once deployed - it needs no
-separate hosting step, but also isn't shown automatically; nothing
-routes there on its own.
+This used to be the other way round: `/` rendered a `WelcomeScreen` Dart
+widget while the static page sat unlinked at `/welcome`, and the two
+drifted into saying different things. The Dart screen has been deleted;
+`web/_redirects` rewrites `/` to the static page (forced, since an
+unforced rule loses to the real `build/web/index.html`), and `/welcome/`
+still resolves to the same file, so old links keep working.
+
+A marketing page is better served as static HTML anyway: it paints
+immediately and is indexable, where the Flutter root had to ship a
+multi-megabyte bundle before it could draw a headline. The trade is that
+the root is now a hosting rule rather than a route, so a host other than
+Netlify needs the equivalent rewrite - and `flutter run -d chrome`, which
+has no such rule, forwards `/` into the app's splash-then-login flow
+instead of showing the marketing page. Open `/welcome/` directly to see
+that page locally.
+
+`flutter build web` copies the page into `build/web/welcome/index.html`
+automatically, since it lives under `web/`. Its rider commission figures
+are filled in at runtime from `public_rider_terms()`
+(`0086_public_rider_terms.sql`), so the rate a super admin sets in
+Console > Settings is the one the site advertises; the placeholders that
+reach it are substituted by `netlify.toml` at deploy time, so no key is
+committed.
 
 ### Web dashboard is back-office only
 

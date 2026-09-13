@@ -16,6 +16,7 @@ import '../../../shared/utils/csv_export.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../admin/providers/admin_providers.dart';
 import '../providers/console_providers.dart';
+import '../../../shared/widgets/tile_grid.dart';
 
 /// Historical reporting with a date range, plus a CSV export of the
 /// underlying records for whatever range is selected - a complement to
@@ -178,32 +179,41 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                         onPressed: () => setState(() => _range = null),
                         child: const Text('Clear'),
                       ),
-                    OutlinedButton(
-                      // The app-wide OutlinedButton theme sets a
-                      // full-width minimum size (Size.fromHeight(52)) for
-                      // the common case of a lone button stretched across
-                      // a Column (forms, dialogs). Inside a plain Row like
-                      // this one, that same "infinite width" minimum
-                      // starves the sibling Expanded Text down to almost
-                      // nothing instead - it wraps one letter per line
-                      // rather than fitting "All time"/the date range.
-                      // Resetting it back to a normal compact size here
-                      // fixes that without touching the theme everywhere
-                      // else it's actually wanted.
-                      style: OutlinedButton.styleFrom(
-                        minimumSize: const Size(64, 40),
+                    // Flexible so the button gives ground rather than
+                    // pushing the Row over the edge: on a 320dp phone its
+                    // label alone is wider than what is left after the
+                    // icon and the date, which overflowed by 3 pixels.
+                    Flexible(
+                      child: OutlinedButton(
+                        // The app-wide OutlinedButton theme sets a
+                        // full-width minimum size (Size.fromHeight(52))
+                        // for the common case of a lone button stretched
+                        // across a Column (forms, dialogs). Inside a plain
+                        // Row like this one, that same "infinite width"
+                        // minimum starves the sibling Expanded Text down
+                        // to almost nothing instead - it wraps one letter
+                        // per line rather than fitting "All time"/the date
+                        // range. Resetting it back to a normal compact
+                        // size here fixes that without touching the theme
+                        // everywhere else it's actually wanted.
+                        style: OutlinedButton.styleFrom(
+                          minimumSize: const Size(64, 40),
+                        ),
+                        onPressed: _pickRange,
+                        child: const Text(
+                          'Choose range',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      onPressed: _pickRange,
-                      child: const Text('Choose range'),
                     ),
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
+            TileGrid(
+              maxColumns: 4,
               children: [
                 _StatTile(
                   label: 'Deliveries',
@@ -278,67 +288,86 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      for (final entry in zoneOrder)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 6),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  entry.key,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 13,
-                                  ),
+                      // Four columns of figures need about 440dp to stay
+                      // lined up, and a small phone leaves roughly 250
+                      // inside the card. Squeezing them would break the
+                      // alignment that makes a table worth reading, so the
+                      // table scrolls sideways in its own box instead - the
+                      // page itself never does.
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            for (final entry in zoneOrder)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 6,
+                                ),
+                                child: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 150,
+                                      child: Text(
+                                        entry.key,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 70,
+                                      child: Text(
+                                        '${entry.value.deliveries}',
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontFeatures: [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 110,
+                                      child: Text(
+                                        '$currency '
+                                        '${entry.value.fares.toStringAsFixed(2)}',
+                                        textAlign: TextAlign.right,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey.shade700,
+                                          fontFeatures: const [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    SizedBox(
+                                      width: 110,
+                                      child: Text(
+                                        '$currency '
+                                        '${entry.value.commission.toStringAsFixed(2)}',
+                                        textAlign: TextAlign.right,
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppTheme.success,
+                                          fontFeatures: [
+                                            FontFeature.tabularFigures(),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
-                              SizedBox(
-                                width: 70,
-                                child: Text(
-                                  '${entry.value.deliveries}',
-                                  textAlign: TextAlign.right,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontFeatures: [
-                                      FontFeature.tabularFigures(),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 110,
-                                child: Text(
-                                  '$currency '
-                                  '${entry.value.fares.toStringAsFixed(2)}',
-                                  textAlign: TextAlign.right,
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey.shade700,
-                                    fontFeatures: const [
-                                      FontFeature.tabularFigures(),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              SizedBox(
-                                width: 110,
-                                child: Text(
-                                  '$currency '
-                                  '${entry.value.commission.toStringAsFixed(2)}',
-                                  textAlign: TextAlign.right,
-                                  style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppTheme.success,
-                                    fontFeatures: [
-                                      FontFeature.tabularFigures(),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                          ],
                         ),
+                      ),
                       const SizedBox(height: 6),
                       Text(
                         'deliveries \u00b7 fares handled \u00b7 commission earned',
@@ -549,7 +578,6 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 160,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,

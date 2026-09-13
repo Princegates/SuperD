@@ -20,6 +20,7 @@ import '../../../models/zone.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../admin/providers/admin_providers.dart';
 import '../providers/console_providers.dart';
+import '../../../shared/widgets/tile_grid.dart';
 
 /// Reporting & analytics: delivery volume and outcomes, who's doing the
 /// work, and where - all computed client-side from data every dispatcher
@@ -119,9 +120,8 @@ class ConsoleOverviewTab extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Wrap(
-              spacing: 12,
-              runSpacing: 12,
+            TileGrid(
+              maxColumns: 4,
               children: [
                 _StatTile(
                   label: 'Total deliveries',
@@ -318,7 +318,6 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 160,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -755,9 +754,8 @@ class _StaffSummaryCard extends StatelessWidget {
       title: 'Staff',
       icon: Icons.contacts_outlined,
       iconColor: AppTheme.primary,
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
+      child: TileGrid(
+        minTileWidth: 120,
         children: [
           _MiniStat(
             label: 'Drivers',
@@ -816,9 +814,8 @@ class _VendorSummaryCard extends StatelessWidget {
       title: 'Vendors',
       icon: Icons.storefront_outlined,
       iconColor: AppTheme.success,
-      child: Wrap(
-        spacing: 12,
-        runSpacing: 12,
+      child: TileGrid(
+        minTileWidth: 120,
         children: [
           _MiniStat(
             label: 'Total',
@@ -914,7 +911,6 @@ class _MiniStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = color ?? AppTheme.primary;
     return Container(
-      width: 130,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: c.withValues(alpha: 0.08),

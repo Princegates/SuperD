@@ -529,9 +529,20 @@ class _CapacityBar extends StatelessWidget {
             ),
           ),
           if (stretched)
-            Text(
-              online == 0 ? 'nobody can take these' : 'queue is outpacing them',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            // Flexible, because this sits next to an Expanded that has
+            // already claimed the space: at its natural width on a small
+            // phone the two together are a rounding error wider than the
+            // row, which paints an overflow stripe across the banner.
+            Flexible(
+              child: Text(
+                online == 0
+                    ? 'nobody can take these'
+                    : 'queue is outpacing them',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.right,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              ),
             ),
         ],
       ),

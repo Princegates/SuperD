@@ -8,6 +8,7 @@ import '../../../models/delivery_status.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../providers/admin_providers.dart';
 import '../../../core/app_identity.dart';
+import '../../../shared/widgets/tile_grid.dart';
 
 /// One nav destination a [HomeScreen] can jump straight to, without either
 /// screen knowing about the other's internals - the shell hands down just
@@ -109,7 +110,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _TileGrid(
+            TileGrid(
               maxColumns: 3,
               children: [
                 _StatTile(
@@ -189,7 +190,7 @@ class HomeScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 12),
-            _TileGrid(
+            TileGrid(
               minTileWidth: 130,
               children: [
                 for (final link in quickLinks)
@@ -387,64 +388,6 @@ class _QuickLinkTile extends StatelessWidget {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Lays tiles out in equal columns that fit the screen they are on.
-///
-/// The tiles used to set their own width - 160 for a stat, 140 for a quick
-/// link - which is how the dashboard ended up one tile per row on a phone.
-/// A 360dp handset leaves 320dp inside the page's side padding, and two
-/// 160dp tiles plus the 12dp gap between them need 332. Twelve pixels
-/// short, so `Wrap` did the only thing it could and put each tile on a
-/// line of its own, running the summary off the bottom of the screen with
-/// half the width blank beside it.
-///
-/// So width is decided here, from the space actually available, and the
-/// tiles just fill what they are given. Two up on a phone, more as the
-/// window grows, and never a lone tile stranded on the last row of a
-/// six-tile grid.
-class _TileGrid extends StatelessWidget {
-  const _TileGrid({
-    required this.children,
-    this.minTileWidth = 150,
-    this.maxColumns = 4,
-  });
-
-  final List<Widget> children;
-
-  /// Narrower than this and a column is dropped. Set by what the content
-  /// needs to stay readable, not by what looks tidy empty.
-  final double minTileWidth;
-
-  /// Stops a wide desktop window spreading six tiles into one thin line.
-  final int maxColumns;
-
-  static const _spacing = 12.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final fits =
-            ((constraints.maxWidth + _spacing) / (minTileWidth + _spacing))
-                .floor();
-        // Two is the floor even on a very narrow screen: one tile per row
-        // is the layout this exists to prevent, and a slightly cramped
-        // pair still reads better than a column of six.
-        final columns = fits.clamp(2, maxColumns);
-        final width =
-            (constraints.maxWidth - _spacing * (columns - 1)) / columns;
-
-        return Wrap(
-          spacing: _spacing,
-          runSpacing: _spacing,
-          children: [
-            for (final child in children) SizedBox(width: width, child: child),
-          ],
-        );
-      },
     );
   }
 }

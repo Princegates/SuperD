@@ -69,11 +69,19 @@ class _DeliveryCardState extends State<DeliveryCard>
             children: [
               Row(
                 children: [
-                  Text(
-                    '#${delivery.trackingCode}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
+                  // Flexible: the code, its badges and the status badge are
+                  // all natural-width, so on a narrow phone they can add up
+                  // to more than the row has - the code is the part that can
+                  // give, since the badges are already short.
+                  Flexible(
+                    child: Text(
+                      '#${delivery.trackingCode}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.5,
+                      ),
                     ),
                   ),
                   if (delivery.autoAssigned) ...[

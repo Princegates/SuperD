@@ -408,6 +408,8 @@ class _CommissionTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final commissionState = ref.watch(myCommissionHistoryProvider);
     final dailyFeeState = ref.watch(myDailyFeeHistoryProvider);
+    final settings = ref.watch(appSettingsProvider).valueOrNull;
+    final rate = settings?.commissionPercentage ?? 0;
 
     return RefreshIndicator(
       onRefresh: () async {
@@ -444,7 +446,7 @@ class _CommissionTab extends ConsumerWidget {
                   for (final f in dailyFees)
                     (
                       f.createdAt,
-                      'Daily fee (${DateFormat('d MMM').format(f.feeDate)}) - ${f.status.label}',
+                      'Payment (${DateFormat('d MMM').format(f.feeDate)}) - ${f.status.label}',
                       f.amount,
                       f.currency,
                       f.status.color,
@@ -456,9 +458,13 @@ class _CommissionTab extends ConsumerWidget {
             padding: const EdgeInsets.all(16),
             children: [
               Text(
-                "What you've paid the platform - the per-delivery fee and/or "
-                'the daily fee, whichever apply. Both are collected together '
-                'once there\'s a balance to pay.',
+                rate > 0
+                    ? "What you've paid the platform - "
+                          '${rate.toStringAsFixed(rate == rate.roundToDouble() ? 0 : 2)}% '
+                          'of each completed delivery, collected together once '
+                          "there's a balance to pay."
+                    : "What you've paid the platform, collected together once "
+                          "there's a balance to pay.",
                 style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5),
               ),
               const SizedBox(height: 12),

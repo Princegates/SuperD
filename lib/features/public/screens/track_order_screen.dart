@@ -24,14 +24,6 @@ class TrackOrderScreen extends ConsumerWidget {
 
   final String trackingCode;
 
-  void _showTracking(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (context) => _LiveTrackingSheet(trackingCode: trackingCode),
-    );
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final orderState = ref.watch(trackedDeliveryProvider(trackingCode));
@@ -113,18 +105,34 @@ class TrackOrderScreen extends ConsumerWidget {
                                   : () => launchPhoneCall(order.driverPhone!),
                             ),
                           ],
+                          // The map goes on the page, not behind a
+                          // button. Someone waiting for a parcel should
+                          // not have to discover a control to see where
+                          // their rider is - that was the whole point of
+                          // sending them here.
                           if (canTrack) ...[
-                            const SizedBox(height: 12),
+                            const SizedBox(height: 14),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: MapPreview(
+                                pickup: LatLng(
+                                  order.driverLat!,
+                                  order.driverLng!,
+                                ),
+                                dropoff:
+                                    order.dropoffLat != null &&
+                                        order.dropoffLng != null
+                                    ? LatLng(
+                                        order.dropoffLat!,
+                                        order.dropoffLng!,
+                                      )
+                                    : null,
+                                height: 220,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
                             Row(
                               children: [
-                                OutlinedButton.icon(
-                                  onPressed: () => _showTracking(context),
-                                  icon: const Icon(
-                                    Icons.map_outlined,
-                                    size: 16,
-                                  ),
-                                  label: const Text('Track live'),
-                                ),
                                 // Only once the parcel is actually on the
                                 // bike. Before pickup the rider is heading
                                 // to the shop, so time-to-your-door would
@@ -132,8 +140,7 @@ class TrackOrderScreen extends ConsumerWidget {
                                 // the one it appears to answer.
                                 if (carryingIt &&
                                     order.dropoffLat != null &&
-                                    order.dropoffLng != null) ...[
-                                  const SizedBox(width: 10),
+                                    order.dropoffLng != null)
                                   Flexible(
                                     child: LiveEta(
                                       originLat: order.driverLat!,
@@ -144,7 +151,15 @@ class TrackOrderScreen extends ConsumerWidget {
                                           order.driverLocationUpdatedAt,
                                     ),
                                   ),
-                                ],
+                                const Spacer(),
+                                TextButton.icon(
+                                  onPressed: () => launchMapView(
+                                    lat: order.driverLat!,
+                                    lng: order.driverLng!,
+                                  ),
+                                  icon: const Icon(Icons.open_in_new, size: 15),
+                                  label: const Text('Open in Maps'),
+                                ),
                               ],
                             ),
                           ],
@@ -190,61 +205,6 @@ class TrackOrderScreen extends ConsumerWidget {
 /// the driver's position (and the order's status) update every ~5s while
 /// this sheet is open. Mirrors `_TrackingSheet` in vendor_orders_screen.dart,
 /// which does the same thing for a vendor watching one of their own orders.
-class _LiveTrackingSheet extends ConsumerWidget {
-  const _LiveTrackingSheet({required this.trackingCode});
-
-  final String trackingCode;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final order = ref.watch(trackedDeliveryProvider(trackingCode)).valueOrNull;
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'Tracking #$trackingCode',
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              order?.driverName != null
-                  ? '${order!.driverName} is on the way'
-                  : 'Waiting for a location update...',
-              style: TextStyle(color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 14),
-            if (order?.hasDriverLocation ?? false) ...[
-              MapPreview(
-                pickup: LatLng(order!.driverLat!, order.driverLng!),
-                dropoff: order.dropoffLat != null && order.dropoffLng != null
-                    ? LatLng(order.dropoffLat!, order.dropoffLng!)
-                    : null,
-                height: 260,
-              ),
-              const SizedBox(height: 10),
-              OutlinedButton.icon(
-                onPressed: () =>
-                    launchMapView(lat: order.driverLat!, lng: order.driverLng!),
-                icon: const Icon(Icons.open_in_new, size: 16),
-                label: const Text('Open in Google Maps'),
-              ),
-            ] else
-              const SizedBox(
-                height: 120,
-                child: Center(child: Text('No live location yet')),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 /// The delivery-completion PIN, shown once the rider has picked up the
 /// package - the same one already texted/emailed at that point (see the
 /// README's "Delivery-completion PIN" section), surfaced here too for a

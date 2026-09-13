@@ -6,6 +6,7 @@ import '../../features/admin/screens/admin_shell_screen.dart';
 import '../../features/admin/screens/create_delivery_screen.dart';
 import '../../features/admin/screens/delivery_detail_admin_screen.dart';
 import '../../features/admin/screens/staff_form_screen.dart';
+import '../../features/admin/screens/vendor_detail_screen.dart';
 import '../../features/admin/screens/vendor_form_screen.dart';
 import '../../features/auth/screens/change_password_screen.dart';
 import '../../features/auth/screens/forgot_password_screen.dart';
@@ -325,6 +326,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             pageBuilder: (context, state) => fadeSlidePage(
               key: state.pageKey,
               child: const VendorFormScreen(),
+            ),
+          ),
+          GoRoute(
+            path: 'vendors/view',
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: VendorDetailScreen(vendor: state.extra as Vendor),
             ),
           ),
           GoRoute(

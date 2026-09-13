@@ -6,7 +6,9 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/payment.dart';
 import '../../../models/payment_method.dart';
 import '../../../models/payment_status.dart';
+import '../../../shared/utils/csv_export.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/csv_export_button.dart';
 import '../providers/console_providers.dart';
 
 /// Fares across every delivery - grouped by currency (most self-hosted
@@ -59,6 +61,37 @@ class ConsoleFinanceTab extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: CsvExportButton(
+                filename: 'fares.csv',
+                label: 'Export fares',
+                csv: () => buildCsv<Payment>(
+                  headers: const [
+                    'Delivery',
+                    'Amount',
+                    'Currency',
+                    'Method',
+                    'Status',
+                    'Reference',
+                    'Recorded at',
+                    'Paid at',
+                  ],
+                  rows: payments,
+                  toRow: (p) => [
+                    p.deliveryId,
+                    p.amount.toStringAsFixed(2),
+                    p.currency,
+                    p.method.name,
+                    p.status.name,
+                    p.gatewayReference ?? '',
+                    p.createdAt.toIso8601String(),
+                    p.paidAt?.toIso8601String() ?? '',
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             for (final entry in byCurrency.entries)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),

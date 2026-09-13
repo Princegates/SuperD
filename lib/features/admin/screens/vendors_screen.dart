@@ -6,7 +6,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
-import '../../../data/repositories/vendor_repository.dart' show VendorLinkException;
+import '../../../data/repositories/vendor_repository.dart'
+    show VendorLinkException;
 import '../../../models/staff_permission.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/utils/audit_log.dart';
@@ -27,9 +28,10 @@ class VendorsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final vendorsState = ref.watch(vendorsProvider);
     final canManage =
-        ref.watch(currentProfileProvider).valueOrNull?.hasPermission(
-              StaffPermission.manageVendors,
-            ) ??
+        ref
+            .watch(currentProfileProvider)
+            .valueOrNull
+            ?.hasPermission(StaffPermission.manageVendors) ??
         false;
 
     return Scaffold(
@@ -140,9 +142,8 @@ class _VendorCard extends ConsumerWidget {
             '${channel == 'sms' ? 'SMS' : 'email'}',
       );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Link resent')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Link resent')));
       }
     } on VendorLinkException catch (e) {
       if (context.mounted) {
@@ -216,154 +217,160 @@ class _VendorCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final link = vendorLink(vendor.code);
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Cramming the name, both badges, and all four action icons
-            // into one Row left almost no width for the name on a phone
-            // screen - Flutter's Text falls back to wrapping one or two
-            // characters per line rather than overflowing horizontally.
-            // Splitting the badges onto the name's own row (still just an
-            // Expanded, a real bounded width) and giving the actions a
-            // separate Wrap underneath (so they can flow onto a second
-            // line instead of stealing space from the text above) fixes
-            // it the same way PersonCard already does for the identical
-            // problem on Team/Drivers.
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    vendor.vendorName,
-                    style: const TextStyle(fontWeight: FontWeight.w800),
-                  ),
-                ),
-                if (!vendor.isActive)
-                  Container(
-                    margin: const EdgeInsets.only(left: 8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color:
-                          (vendor.isPaymentPending
-                                  ? AppTheme.warning
-                                  : AppTheme.danger)
-                              .withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      // A vendor still owing their one-time subscription
-                      // fee (see 0074_vendor_subscriptions.sql) gets a
-                      // more specific badge than a plain "Inactive" -
-                      // this is a soft gate (the toggle below still
-                      // activates them regardless of payment), so it's
-                      // meant to explain *why* they're inactive, not just
-                      // that they are.
-                      vendor.isPaymentPending ? 'Payment pending' : 'Inactive',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: vendor.isPaymentPending
-                            ? AppTheme.warning
-                            : AppTheme.danger,
-                      ),
-                    ),
-                  ),
-                if (vendor.zoneName != null)
-                  Container(
-                    margin: const EdgeInsets.only(left: 8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryLight,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      vendor.zoneName!,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: AppTheme.primary,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            if (canManage) ...[
-              const SizedBox(height: 4),
-              Wrap(
-                alignment: WrapAlignment.end,
-                crossAxisAlignment: WrapCrossAlignment.center,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => context.push('/admin/vendors/view', extra: vendor),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Cramming the name, both badges, and all four action icons
+              // into one Row left almost no width for the name on a phone
+              // screen - Flutter's Text falls back to wrapping one or two
+              // characters per line rather than overflowing horizontally.
+              // Splitting the badges onto the name's own row (still just an
+              // Expanded, a real bounded width) and giving the actions a
+              // separate Wrap underneath (so they can flow onto a second
+              // line instead of stealing space from the text above) fixes
+              // it the same way PersonCard already does for the identical
+              // problem on Team/Drivers.
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    tooltip: 'Resend link via email',
-                    icon: const Icon(
-                      Icons.mark_email_unread_outlined,
-                      size: 20,
+                  Expanded(
+                    child: Text(
+                      vendor.vendorName,
+                      style: const TextStyle(fontWeight: FontWeight.w800),
                     ),
-                    onPressed: () => _resendLink(context, ref, 'email'),
                   ),
-                  IconButton(
-                    tooltip: 'Resend link via SMS',
-                    icon: const Icon(Icons.sms_outlined, size: 20),
-                    onPressed: () => _resendLink(context, ref, 'sms'),
-                  ),
-                  IconButton(
-                    tooltip: 'Edit vendor',
-                    icon: const Icon(Icons.edit_outlined, size: 20),
-                    onPressed: () =>
-                        context.push('/admin/vendors/edit', extra: vendor),
-                  ),
-                  IconButton(
-                    tooltip: vendor.isActive
-                        ? 'Deactivate link'
-                        : 'Activate link',
-                    icon: Icon(
-                      vendor.isActive
-                          ? Icons.toggle_on
-                          : Icons.toggle_off_outlined,
-                      size: 26,
-                      color: vendor.isActive
-                          ? AppTheme.success
-                          : Colors.black38,
+                  if (!vendor.isActive)
+                    Container(
+                      margin: const EdgeInsets.only(left: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            (vendor.isPaymentPending
+                                    ? AppTheme.warning
+                                    : AppTheme.danger)
+                                .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        // A vendor still owing their one-time subscription
+                        // fee (see 0074_vendor_subscriptions.sql) gets a
+                        // more specific badge than a plain "Inactive" -
+                        // this is a soft gate (the toggle below still
+                        // activates them regardless of payment), so it's
+                        // meant to explain *why* they're inactive, not just
+                        // that they are.
+                        vendor.isPaymentPending
+                            ? 'Payment pending'
+                            : 'Inactive',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: vendor.isPaymentPending
+                              ? AppTheme.warning
+                              : AppTheme.danger,
+                        ),
+                      ),
                     ),
-                    onPressed: () => _toggleActive(ref, context),
-                  ),
-                  IconButton(
-                    tooltip: 'Delete vendor',
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      size: 20,
-                      color: AppTheme.danger,
+                  if (vendor.zoneName != null)
+                    Container(
+                      margin: const EdgeInsets.only(left: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryLight,
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        vendor.zoneName!,
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppTheme.primary,
+                        ),
+                      ),
                     ),
-                    onPressed: () => _delete(context, ref),
-                  ),
                 ],
               ),
+              if (canManage) ...[
+                const SizedBox(height: 4),
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    IconButton(
+                      tooltip: 'Resend link via email',
+                      icon: const Icon(
+                        Icons.mark_email_unread_outlined,
+                        size: 20,
+                      ),
+                      onPressed: () => _resendLink(context, ref, 'email'),
+                    ),
+                    IconButton(
+                      tooltip: 'Resend link via SMS',
+                      icon: const Icon(Icons.sms_outlined, size: 20),
+                      onPressed: () => _resendLink(context, ref, 'sms'),
+                    ),
+                    IconButton(
+                      tooltip: 'Edit vendor',
+                      icon: const Icon(Icons.edit_outlined, size: 20),
+                      onPressed: () =>
+                          context.push('/admin/vendors/edit', extra: vendor),
+                    ),
+                    IconButton(
+                      tooltip: vendor.isActive
+                          ? 'Deactivate link'
+                          : 'Activate link',
+                      icon: Icon(
+                        vendor.isActive
+                            ? Icons.toggle_on
+                            : Icons.toggle_off_outlined,
+                        size: 26,
+                        color: vendor.isActive
+                            ? AppTheme.success
+                            : Colors.black38,
+                      ),
+                      onPressed: () => _toggleActive(ref, context),
+                    ),
+                    IconButton(
+                      tooltip: 'Delete vendor',
+                      icon: const Icon(
+                        Icons.delete_outline,
+                        size: 20,
+                        color: AppTheme.danger,
+                      ),
+                      onPressed: () => _delete(context, ref),
+                    ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 4),
+              Text(
+                vendor.email?.isNotEmpty == true
+                    ? '${vendor.phone} · ${vendor.email}'
+                    : vendor.phone,
+                style: const TextStyle(color: Colors.black54),
+              ),
+              const SizedBox(height: 10),
+              _LinkRow(link: link),
+              const SizedBox(height: 8),
+              Text(
+                "Private orders link (vendor only - never share with a customer):",
+                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              ),
+              const SizedBox(height: 4),
+              _LinkRow(link: vendorOrdersLink(vendor.ordersCode)),
             ],
-            const SizedBox(height: 4),
-            Text(
-              vendor.email?.isNotEmpty == true
-                  ? '${vendor.phone} · ${vendor.email}'
-                  : vendor.phone,
-              style: const TextStyle(color: Colors.black54),
-            ),
-            const SizedBox(height: 10),
-            _LinkRow(link: link),
-            const SizedBox(height: 8),
-            Text(
-              "Private orders link (vendor only - never share with a customer):",
-              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-            ),
-            const SizedBox(height: 4),
-            _LinkRow(link: vendorOrdersLink(vendor.ordersCode)),
-          ],
+          ),
         ),
       ),
     );

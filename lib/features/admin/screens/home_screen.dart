@@ -75,6 +75,9 @@ class HomeScreen extends ConsumerWidget {
                   _isToday(d.deliveredAt!),
             )
             .length;
+        final ridersOnline = drivers
+            .where((d) => d.isOnline && d.isActive)
+            .length;
         final activeDrivers = deliveries
             .where(
               (d) =>
@@ -130,9 +133,18 @@ class HomeScreen extends ConsumerWidget {
                   color: AppTheme.success,
                 ),
                 _StatTile(
-                  label: 'Active drivers',
+                  label: 'Carrying work',
                   value: '$activeDrivers/${drivers.length}',
                   color: AppTheme.neutral,
+                ),
+                // Distinct from the tile above: that counts riders with a
+                // job in hand, this counts who is available at all. A
+                // rider online with nothing to do is spare capacity; one
+                // who is offline is not there.
+                _StatTile(
+                  label: 'Riders online',
+                  value: '$ridersOnline',
+                  color: ridersOnline == 0 ? AppTheme.danger : AppTheme.success,
                 ),
               ],
             ),

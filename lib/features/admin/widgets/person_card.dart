@@ -29,6 +29,7 @@ class PersonCard extends StatelessWidget {
     this.onToggleFrozen,
     this.canManageDriver = true,
     this.rating,
+    this.workline,
   });
 
   final Profile person;
@@ -53,6 +54,11 @@ class PersonCard extends StatelessWidget {
   /// for a staff row, and for a driver nobody has rated yet - in both
   /// cases the badge is absent rather than showing a hopeful zero.
   final DriverRatingSummary? rating;
+
+  /// A one-line record of what this driver has actually done - completed
+  /// count, typical trip length, jobs handed back. Null for a staff row
+  /// and for a driver who has not run anything yet.
+  final String? workline;
 
   @override
   Widget build(BuildContext context) {
@@ -149,6 +155,19 @@ class PersonCard extends StatelessWidget {
                         ],
                       ),
                       const SizedBox(height: 2),
+                      if (workline case final line?)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 2),
+                          child: Text(
+                            line,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
                       Text(
                         person.phone?.isNotEmpty == true
                             ? '${person.email} · ${person.phone}'
@@ -437,10 +456,7 @@ class _ResetPasswordButton extends ConsumerWidget {
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: AppTheme.primary.withValues(alpha: 0.06),
                 borderRadius: BorderRadius.circular(10),
@@ -528,9 +544,8 @@ class _MessageDriverButton extends ConsumerWidget {
         ),
       );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Message sent')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('Message sent')));
       }
     } on StaffManagementException catch (e) {
       if (context.mounted) {
@@ -628,10 +643,8 @@ class _MessageDriverDialogState extends State<_MessageDriverDialog> {
         FilledButton(
           onPressed: _controller.text.trim().isEmpty
               ? null
-              : () => Navigator.of(context).pop((
-                  channel: _channel,
-                  message: _controller.text.trim(),
-                )),
+              : () => Navigator.of(context)
+                    .pop((channel: _channel, message: _controller.text.trim())),
           child: const Text('Send'),
         ),
       ],

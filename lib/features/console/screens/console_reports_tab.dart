@@ -94,6 +94,33 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
             .where((f) => _inRange(f.createdAt))
             .toList();
 
+        // Which zone each delivery belongs to, so a payment or a
+        // commission row - both of which only know their delivery - can
+        // be attributed to somewhere on the map.
+        final zoneOfDelivery = {
+          for (final d in allDeliveries)
+            d.id: d.zoneId == null
+                ? 'Unzoned'
+                : (zoneNames[d.zoneId] ?? 'Unknown zone'),
+        };
+        final zoneRows = <String, _ZoneRow>{};
+        for (final d in deliveries) {
+          zoneRows
+              .putIfAbsent(zoneOfDelivery[d.id] ?? 'Unzoned', _ZoneRow.new)
+              .deliveries++;
+        }
+        for (final p in filteredPayments) {
+          final row = zoneRows[zoneOfDelivery[p.deliveryId]];
+          if (row != null) row.fares += p.amount;
+        }
+        for (final c in filteredCommission) {
+          if (c.deliveryId == null) continue;
+          final row = zoneRows[zoneOfDelivery[c.deliveryId]];
+          if (row != null) row.commission += c.amount;
+        }
+        final zoneOrder = zoneRows.entries.toList()
+          ..sort((a, b) => b.value.deliveries.compareTo(a.value.deliveries));
+
         final delivered = deliveries
             .where((d) => d.status == DeliveryStatus.delivered)
             .length;
@@ -227,6 +254,106 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
               ],
             ),
             const SizedBox(height: 20),
+            if (zoneOrder.isNotEmpty) ...[
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'By zone',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w700,
+                          fontSize: 15,
+                        ),
+                      ),
+                      Text(
+                        'Where the work is, and what it earns. A zone with '
+                        'volume but little commission is being served at a '
+                        'rate that is not paying.',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      for (final entry in zoneOrder)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 6),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  entry.key,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 70,
+                                child: Text(
+                                  '${entry.value.deliveries}',
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 110,
+                                child: Text(
+                                  '$currency '
+                                  '${entry.value.fares.toStringAsFixed(2)}',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey.shade700,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                width: 110,
+                                child: Text(
+                                  '$currency '
+                                  '${entry.value.commission.toStringAsFixed(2)}',
+                                  textAlign: TextAlign.right,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w700,
+                                    color: AppTheme.success,
+                                    fontFeatures: [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'deliveries \u00b7 fares handled \u00b7 commission earned',
+                        textAlign: TextAlign.right,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -447,4 +574,12 @@ class _StatTile extends StatelessWidget {
       ),
     );
   }
+}
+
+/// One zone's line in the report: how much work happened there, what it
+/// was worth to the riders, and what it was worth to the business.
+class _ZoneRow {
+  int deliveries = 0;
+  double fares = 0;
+  double commission = 0;
 }

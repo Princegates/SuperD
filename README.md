@@ -602,6 +602,32 @@ Console > Settings is the one the site advertises; the placeholders that
 reach it are substituted by `netlify.toml` at deploy time, so no key is
 committed.
 
+### Managing the business from the dashboard
+
+Beyond dispatch, the admin side answers the questions a courier operator
+actually asks:
+
+- **Riders online vs work waiting** - a capacity strip above Deliveries,
+  and a "Riders online" tile on Home. Distinct from "Carrying work": a
+  rider online with nothing to do is spare capacity, one who is offline
+  is not there at all. The strip turns amber when the queue is outpacing
+  the riders (more than two waiting per rider, or any waiting with nobody
+  online).
+- **A vendor as a relationship** - tapping a vendor opens their volume,
+  commission earned, average fare and last order, with a marker when they
+  have gone quiet for a fortnight. Derived from data the admin already
+  streams, so it costs no extra query.
+- **Rider record** - each driver's row carries what they have completed,
+  their typical collection-to-handover time (median, so one forgotten
+  delivery does not skew the roster) and how many jobs they handed back,
+  alongside the customer rating.
+- **Zone economics** - Reports breaks volume, fares handled and
+  commission earned down by zone, so a zone with plenty of work but
+  little commission is visible as a rate that is not paying.
+- **CSV export** - Reports, Finance, Commission and Deliveries. The
+  Deliveries one exports what is on screen rather than the whole table,
+  so a filtered view exports the filter.
+
 ### Web dashboard is back-office only
 
 This is a dashboard for dispatchers and super admins, not a driver app -

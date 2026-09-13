@@ -8,8 +8,11 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
+import '../../../models/profile.dart';
 import '../../../models/staff_permission.dart';
+import '../../../shared/utils/csv_export.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/csv_export_button.dart';
 import '../../../shared/widgets/delivery_card.dart';
 import '../../../shared/widgets/staggered_list_item.dart';
 import '../providers/admin_providers.dart';
@@ -114,9 +117,10 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final canCreateDeliveries =
-        ref.watch(currentProfileProvider).valueOrNull?.hasPermission(
-              StaffPermission.createDeliveries,
-            ) ??
+        ref
+            .watch(currentProfileProvider)
+            .valueOrNull
+            ?.hasPermission(StaffPermission.createDeliveries) ??
         false;
     final deliveriesState = ref.watch(allDeliveriesProvider);
     final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
@@ -177,14 +181,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
       body: Column(
         children: [
           if (deliveriesState.valueOrNull case final all?) ...[
+            _CapacityBar(deliveries: all, drivers: drivers),
             ScheduledDeliveryBanner(deliveries: all),
             if (_stuck(all) case final stuck when stuck.isNotEmpty)
               _StuckBanner(
                 stuck: stuck,
                 // Jumping to the oldest one is the action every time, so
                 // the banner does it rather than describing it.
-                onOpen: () =>
-                    context.push('/admin/delivery/${stuck.first.id}'),
+                onOpen: () => context.push('/admin/delivery/${stuck.first.id}'),
               ),
           ],
           Padding(
@@ -211,6 +215,60 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
               ),
             ),
           ),
+          // Exports what is on screen, not the whole table: someone who
+          // has filtered to today's cancellations wants those, and
+          // handing them everything instead is a spreadsheet to redo.
+          if (deliveriesState.valueOrNull case final all?)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Builder(
+                  builder: (context) {
+                    final shown = all
+                        .where((d) => _filter == null || d.status == _filter)
+                        .where((d) => _matches(d, _query))
+                        .toList();
+                    return CsvExportButton(
+                      filename: 'deliveries.csv',
+                      label: shown.length == all.length
+                          ? 'Export all ${all.length}'
+                          : 'Export these ${shown.length}',
+                      enabled: shown.isNotEmpty,
+                      csv: () => buildCsv<Delivery>(
+                        headers: const [
+                          'Tracking code',
+                          'Status',
+                          'Customer',
+                          'Phone',
+                          'Pickup',
+                          'Drop-off',
+                          'Driver',
+                          'Created at',
+                          'Assigned at',
+                          'Picked up at',
+                          'Delivered at',
+                        ],
+                        rows: shown,
+                        toRow: (d) => [
+                          d.trackingCode,
+                          d.status.label,
+                          d.customerName,
+                          d.customerPhone ?? '',
+                          d.pickupAddress,
+                          d.dropoffAddress,
+                          driverNames[d.assignedDriverId] ?? '',
+                          d.createdAt.toIso8601String(),
+                          d.assignedAt?.toIso8601String() ?? '',
+                          d.pickedUpAt?.toIso8601String() ?? '',
+                          d.deliveredAt?.toIso8601String() ?? '',
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
           _StatusFilterBar(
             value: _filter,
             onChanged: (status) => setState(() => _filter = status),
@@ -408,6 +466,72 @@ class _StuckBanner extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Riders available against work waiting - the number that actually runs
+/// a dispatch desk, and the one thing the screen could not tell you.
+///
+/// "Waiting" is anything nobody has picked up yet: pending, plus assigned
+/// jobs the rider has not collected. Scheduled deliveries whose time has
+/// not come are excluded - they are not competing for a rider now.
+class _CapacityBar extends StatelessWidget {
+  const _CapacityBar({required this.deliveries, required this.drivers});
+
+  final List<Delivery> deliveries;
+  final List<Profile> drivers;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final online = drivers.where((d) => d.isOnline && d.isActive).length;
+    final waiting = deliveries.where((d) {
+      if (d.status != DeliveryStatus.pending &&
+          d.status != DeliveryStatus.assigned) {
+        return false;
+      }
+      if (d.scheduledAt case final at? when at.isAfter(now)) return false;
+      return true;
+    }).length;
+
+    // Nothing to say when there is no work and nobody on: that is a quiet
+    // afternoon, not a situation.
+    if (waiting == 0 && online == 0) return const SizedBox.shrink();
+
+    // One rider can reasonably carry a couple of jobs at once; beyond
+    // that the queue is growing faster than the road can clear it.
+    final stretched = online == 0 ? waiting > 0 : waiting > online * 2;
+    final colour = stretched ? AppTheme.warning : AppTheme.success;
+
+    return Container(
+      width: double.infinity,
+      color: colour.withValues(alpha: 0.08),
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Row(
+        children: [
+          Icon(Icons.groups_outlined, size: 18, color: colour),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              online == 0
+                  ? '$waiting waiting \u00b7 no riders online'
+                  : '$online ${online == 1 ? 'rider' : 'riders'} online '
+                        '\u00b7 $waiting waiting',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: colour,
+              ),
+            ),
+          ),
+          if (stretched)
+            Text(
+              online == 0 ? 'nobody can take these' : 'queue is outpacing them',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+            ),
+        ],
       ),
     );
   }

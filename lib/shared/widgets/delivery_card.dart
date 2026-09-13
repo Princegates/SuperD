@@ -94,10 +94,7 @@ class _DeliveryCardState extends State<DeliveryCard>
                 text: delivery.pickupAddress,
               ),
               const SizedBox(height: 4),
-              _AddressLine(
-                icon: Icons.place,
-                text: delivery.dropoffAddress,
-              ),
+              _AddressLine(icon: Icons.place, text: delivery.dropoffAddress),
               if (widget.trailingUnderAddress case final extra?) ...[
                 const SizedBox(height: 6),
                 extra,
@@ -162,10 +159,7 @@ class _DeliveryCardState extends State<DeliveryCard>
                   ),
                   Text(
                     timeLabel,
-                    style: TextStyle(
-                      color: Colors.grey.shade500,
-                      fontSize: 12,
-                    ),
+                    style: TextStyle(color: Colors.grey.shade500, fontSize: 12),
                   ),
                 ],
               ),

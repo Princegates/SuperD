@@ -6,7 +6,9 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/commission_payment.dart';
 import '../../../models/commission_status.dart';
+import '../../../shared/utils/csv_export.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/csv_export_button.dart';
 import '../../admin/providers/admin_providers.dart';
 import '../providers/console_providers.dart';
 
@@ -81,6 +83,35 @@ class ConsoleCommissionTab extends ConsumerWidget {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: CsvExportButton(
+                filename: 'commission.csv',
+                label: 'Export commission',
+                csv: () => buildCsv<CommissionPayment>(
+                  headers: const [
+                    'Driver',
+                    'Delivery',
+                    'Amount',
+                    'Currency',
+                    'Status',
+                    'Charged at',
+                    'Paid at',
+                  ],
+                  rows: records,
+                  toRow: (r) => [
+                    driverNames[r.driverId] ?? r.driverId,
+                    r.deliveryId ?? '',
+                    r.amount.toStringAsFixed(2),
+                    r.currency,
+                    r.status.name,
+                    r.createdAt.toIso8601String(),
+                    r.paidAt?.toIso8601String() ?? '',
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             for (final entry in byCurrency.entries)
               Padding(
                 padding: const EdgeInsets.only(bottom: 16),
@@ -219,7 +250,8 @@ class _CurrencySummary extends StatelessWidget {
               runSpacing: 12,
               children: [
                 _AmountTile(
-                  label: 'Earned in ${DateFormat.MMMM().format(DateTime.now())}',
+                  label:
+                      'Earned in ${DateFormat.MMMM().format(DateTime.now())}',
                   amount: _earnedThisMonth,
                   currency: currency,
                   color: AppTheme.primary,

@@ -909,6 +909,7 @@
     font-size: .85rem;
     color: rgba(244, 243, 239, .5);
   }
+  .col-links { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; }
   .col-bottom a:hover { color: var(--gold-2); }
 
   /* ---------- narrower ---------- */
@@ -1400,7 +1401,10 @@
     </div>
     <div class="col-bottom">
       <span>&copy; <span id="yr">2026</span> Anknovate IT Services. All rights reserved.</span>
-      <a href="/legal/terms" target="_blank" rel="noopener">Terms &amp; Privacy Policy</a>
+      <span class="col-links">
+        <a href="/legal/terms" target="_blank" rel="noopener">Terms &amp; Privacy Policy</a>
+        <a href="/delete-data/">Delete your data</a>
+      </span>
     </div>
   </div>
 </footer>

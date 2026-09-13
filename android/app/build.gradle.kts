@@ -108,8 +108,15 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.superd.superd"
+        // Permanent once published: Google Play binds a listing to this
+        // forever, and changing it means a new listing with zero installs.
+        // Reverse-DNS on the domain we actually own, per the convention.
+        //
+        // Deliberately not the same as `namespace` above, which is only the
+        // Kotlin package MainActivity lives in and has no bearing on the
+        // store identity - leaving it alone avoids moving source files for
+        // no gain.
+        applicationId = "com.superdeliverygh.app"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

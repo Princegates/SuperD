@@ -151,7 +151,7 @@ supabase/
     paystack-daily-fee-charge/     Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Paystack
     paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee or vendor subscription charge resolves - one function, since Paystack only supports one webhook URL per account (public, no Supabase session)
     paystack-vendor-subscription-charge/   Edge Function: charges a vendor's Mobile Money wallet for their one-time subscription fee via Paystack (public, no Supabase session)
-    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, both customer + vendor when a driver is assigned (plus a push to the driver), and the customer's delivery PIN on pickup
+    notify-delivery-events/        Edge Function: texts/emails the customer a tracking link and the vendor a new-order notice at creation, both customer + vendor when a driver is assigned (plus a push to the driver), the customer's delivery PIN on pickup, and - email only - a rating request once it is delivered
     notify-vendor-registered/      Edge Function: texts/emails a vendor their link when they register, and staff too (plus a push to staff)
     notify-driver-application/     Edge Function: emails staff (not SMS - see below) and texts/emails the applicant when a driver signs themselves up (plus a push to staff)
     notify-driver-notice/          Edge Function: pushes a Console > Notices post to its target driver, or every active driver if it's a broadcast
@@ -1927,9 +1927,9 @@ itself, outside the remounted widget tree.
 Adding a 7th theme is a matter of adding one more `ThemePreset` entry to
 `kThemePresets` - nothing else needs to change.
 
-## Delivery notifications (tracking link + new order + driver assigned + cancellation alert + delivery PIN)
+## Delivery notifications (tracking link + new order + driver assigned + cancellation alert + delivery PIN + rating request)
 
-One Edge Function, `notify-delivery-events`, handles four separate
+One Edge Function, `notify-delivery-events`, handles five separate
 moments in a delivery's life - both by SMS via
 [Hubtel](https://hubtel.com), and by email via
 [Resend](https://resend.com) wherever an address is on file:

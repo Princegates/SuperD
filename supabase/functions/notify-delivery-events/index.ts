@@ -159,8 +159,17 @@ Deno.serve(async (req) => {
       oldStatus !== "picked_up" &&
       newStatus === "picked_up";
 
+    // Same shape test as the others. Confirmed against the database
+    // below before anything is sent, since this one invites the customer
+    // to rate their rider and a forged payload should not be able to ask
+    // for that at an arbitrary moment.
+    const isDelivered = !isInsert &&
+      oldStatus !== "delivered" &&
+      newStatus === "delivered";
+
     if (
-      !isInsert && !isNewAssignment && !isDriverCancellation && !isPickedUp
+      !isInsert && !isNewAssignment && !isDriverCancellation && !isPickedUp &&
+      !isDelivered
     ) {
       // An update that didn't touch assigned_driver_id or reach
       // picked_up (payment recorded, notes, ...) - nothing any of the
@@ -175,7 +184,7 @@ Deno.serve(async (req) => {
     const { data: delivery, error: deliveryError } = await admin
       .from("deliveries")
       .select(
-        "tracking_code, customer_name, customer_phone, customer_email, pickup_address, dropoff_address, assigned_driver_id, vendor_id",
+        "tracking_code, customer_name, customer_phone, customer_email, pickup_address, dropoff_address, assigned_driver_id, vendor_id, status",
       )
       .eq("id", deliveryId)
       .single();
@@ -474,6 +483,66 @@ Deno.serve(async (req) => {
             ${
             supportPhone
               ? raw(html`<p>If there's a problem with this delivery, call ${supportPhone}.</p>`)
+              : ""
+          }
+          `,
+        );
+      }
+    }
+
+    // 5. Delivered - ask the customer how the rider did.
+    //
+    // The tracking page has carried a star rating since
+    // 0034_notifications_tracking_ratings.sql, but it only appears once
+    // the delivery is complete, and the only link a customer ever got
+    // was sent at creation. So rating meant keeping that message and
+    // thinking to reopen it afterwards, which nobody does - the table
+    // had not a single row. This is the missing half: the link arrives
+    // when they have just met the rider, which is when someone will
+    // actually say something.
+    //
+    // Email only, deliberately. It costs nothing per send, where an SMS
+    // on every completed delivery would roughly double the per-delivery
+    // messaging bill for a nice-to-have.
+    if (isDelivered && delivery.customer_email) {
+      // The payload said delivered; the database has to agree before we
+      // send anything, per this function's own rule about forged calls.
+      if (delivery.status !== "delivered") {
+        results.ratingEmailSkipped = true;
+      } else {
+        let riderName: string | null = null;
+        if (delivery.assigned_driver_id) {
+          const { data: rider } = await admin
+            .from("profiles")
+            .select("full_name")
+            .eq("id", delivery.assigned_driver_id)
+            .maybeSingle();
+          riderName = (rider?.full_name as string | undefined) ?? null;
+        }
+        const trackingLink = base
+          ? `${base}/t/${delivery.tracking_code}`
+          : null;
+
+        results.ratingEmail = await sendEmail(
+          delivery.customer_email,
+          `Delivered - how did we do? Order ${delivery.tracking_code}`,
+          html`
+            <p>Hi ${delivery.customer_name},</p>
+            <p>Order <strong>${delivery.tracking_code}</strong> has been
+            delivered${riderName ? ` by ${riderName}` : ""}. Thank you for
+            using SuperDelivery.</p>
+            ${
+            trackingLink
+              ? raw(html`
+                <p>How did it go? Rating takes a second and tells us which
+                riders to keep sending you.</p>
+                <p><a href="${trackingLink}">Rate this delivery</a></p>
+              `)
+              : ""
+          }
+            ${
+            supportPhone
+              ? raw(html`<p>If something was wrong with this delivery, call ${supportPhone}.</p>`)
               : ""
           }
           `,

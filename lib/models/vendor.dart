@@ -164,6 +164,12 @@ class VendorDelivery {
   final String dropoffAddress;
   final double? dropoffLat;
   final double? dropoffLng;
+
+  /// Where the rider collects - the shop the customer ordered from.
+  /// Present since 0088; lets the tracking page time the leg before
+  /// pickup as well as the one after.
+  final double? pickupLat;
+  final double? pickupLng;
   final String? driverName;
   final String? driverPhone;
   final double? driverLat;
@@ -192,6 +198,8 @@ class VendorDelivery {
     required this.createdAt,
     this.dropoffLat,
     this.dropoffLng,
+    this.pickupLat,
+    this.pickupLng,
     this.driverName,
     this.driverPhone,
     this.driverLat,
@@ -214,6 +222,8 @@ class VendorDelivery {
       dropoffLng: (map['dropoff_lng'] as num?)?.toDouble(),
       driverName: map['driver_name'] as String?,
       driverPhone: map['driver_phone'] as String?,
+      pickupLat: (map['pickup_lat'] as num?)?.toDouble(),
+      pickupLng: (map['pickup_lng'] as num?)?.toDouble(),
       driverLat: (map['driver_lat'] as num?)?.toDouble(),
       driverLng: (map['driver_lng'] as num?)?.toDouble(),
       driverLocationUpdatedAt: map['driver_location_updated_at'] == null

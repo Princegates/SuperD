@@ -51,10 +51,19 @@ class TrackOrderScreen extends ConsumerWidget {
                     status != DeliveryStatus.delivered &&
                     status != DeliveryStatus.cancelled &&
                     order.hasDriverLocation;
+                // Which leg the rider is on decides what an ETA even
+                // means: before collection it is time to the shop, after
+                // it is time to the door. Both are worth knowing, and
+                // "assigned" is when someone watches this page hardest.
                 final carryingIt =
-                    order.hasDriverLocation &&
-                    (status == DeliveryStatus.pickedUp ||
-                        status == DeliveryStatus.inTransit);
+                    status == DeliveryStatus.pickedUp ||
+                    status == DeliveryStatus.inTransit;
+                final etaDestLat = carryingIt
+                    ? order.dropoffLat
+                    : order.pickupLat;
+                final etaDestLng = carryingIt
+                    ? order.dropoffLng
+                    : order.pickupLng;
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
                   child: Card(
@@ -133,22 +142,18 @@ class TrackOrderScreen extends ConsumerWidget {
                             const SizedBox(height: 10),
                             Row(
                               children: [
-                                // Only once the parcel is actually on the
-                                // bike. Before pickup the rider is heading
-                                // to the shop, so time-to-your-door would
-                                // be answering a different question than
-                                // the one it appears to answer.
-                                if (carryingIt &&
-                                    order.dropoffLat != null &&
-                                    order.dropoffLng != null)
+                                if (etaDestLat != null && etaDestLng != null)
                                   Flexible(
                                     child: LiveEta(
                                       originLat: order.driverLat!,
                                       originLng: order.driverLng!,
-                                      destLat: order.dropoffLat!,
-                                      destLng: order.dropoffLng!,
+                                      destLat: etaDestLat,
+                                      destLng: etaDestLng,
                                       positionUpdatedAt:
                                           order.driverLocationUpdatedAt,
+                                      label: carryingIt
+                                          ? 'Arriving in about'
+                                          : 'Collecting in about',
                                     ),
                                   ),
                                 const Spacer(),

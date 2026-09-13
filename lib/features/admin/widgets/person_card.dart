@@ -8,6 +8,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/profile_repository.dart'
     show StaffManagementException;
+import '../../../models/delivery_rating.dart';
 import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/utils/audit_log.dart';
@@ -27,6 +28,7 @@ class PersonCard extends StatelessWidget {
     required this.onDelete,
     this.onToggleFrozen,
     this.canManageDriver = true,
+    this.rating,
   });
 
   final Profile person;
@@ -46,6 +48,11 @@ class PersonCard extends StatelessWidget {
   /// for a staff row, where [isSuperAdmin] alone still decides. Defaults
   /// true so TeamScreen's usage (staff rows only) doesn't need to pass it.
   final bool canManageDriver;
+
+  /// What this driver's customers have scored them, if anyone has. Null
+  /// for a staff row, and for a driver nobody has rated yet - in both
+  /// cases the badge is absent rather than showing a hopeful zero.
+  final DriverRatingSummary? rating;
 
   @override
   Widget build(BuildContext context) {
@@ -122,6 +129,22 @@ class PersonCard extends StatelessWidget {
                               color: person.isOnline
                                   ? AppTheme.success
                                   : Colors.grey.shade500,
+                            ),
+                          // Colour carries the judgement, so a weak
+                          // average is visible while scanning the roster
+                          // rather than only on reading the number. The
+                          // count comes with it because 2.0 from one
+                          // annoyed customer is not 2.0 from thirty.
+                          if (rating case final r?)
+                            PersonStatusBadge(
+                              label:
+                                  '\u2605 ${r.average.toStringAsFixed(1)}'
+                                  '  (${r.count})',
+                              color: r.average >= 4.5
+                                  ? AppTheme.success
+                                  : r.average >= 3.5
+                                  ? AppTheme.warning
+                                  : AppTheme.danger,
                             ),
                         ],
                       ),

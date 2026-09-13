@@ -12,6 +12,7 @@ import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/settings_repository.dart';
 import '../../data/repositories/vehicle_type_repository.dart';
+import '../../data/repositories/rating_repository.dart';
 import '../../data/repositories/vendor_repository.dart';
 import '../../models/app_settings.dart';
 import '../../models/driver_daily_fee_tier.dart';
@@ -59,6 +60,10 @@ final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
 
 final commissionRepositoryProvider = Provider<CommissionRepository>((ref) {
   return CommissionRepository(ref.watch(supabaseClientProvider));
+});
+
+final ratingRepositoryProvider = Provider<RatingRepository>((ref) {
+  return RatingRepository(ref.watch(supabaseClientProvider));
 });
 
 final driverDailyFeeRepositoryProvider = Provider<DriverDailyFeeRepository>((

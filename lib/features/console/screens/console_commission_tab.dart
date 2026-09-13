@@ -174,6 +174,21 @@ class _CurrencySummary extends StatelessWidget {
       .where((r) => r.status == status)
       .fold(0.0, (sum, r) => sum + r.amount);
 
+  /// Charged this calendar month, whatever its status since - the
+  /// closest thing to "what the business earned in September", where the
+  /// tiles below answer "and how much of it has actually arrived".
+  double get _earnedThisMonth {
+    final now = DateTime.now();
+    return records
+        .where(
+          (r) =>
+              r.status != CommissionStatus.waived &&
+              r.createdAt.year == now.year &&
+              r.createdAt.month == now.month,
+        )
+        .fold(0.0, (sum, r) => sum + r.amount);
+  }
+
   @override
   Widget build(BuildContext context) {
     final due = _sum(CommissionStatus.due);
@@ -190,11 +205,25 @@ class _CurrencySummary extends StatelessWidget {
               currency,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
             ),
+            const SizedBox(height: 2),
+            // Said plainly, because Finance shows a much larger number
+            // that is not the business's money - see that tab's own note.
+            Text(
+              'Commission is the business\u2019s income. Fares belong to '
+              'the rider.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
+                _AmountTile(
+                  label: 'Earned in ${DateFormat.MMMM().format(DateTime.now())}',
+                  amount: _earnedThisMonth,
+                  currency: currency,
+                  color: AppTheme.primary,
+                ),
                 _AmountTile(
                   label: 'Outstanding',
                   amount: due,

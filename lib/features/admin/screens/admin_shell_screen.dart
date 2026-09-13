@@ -182,6 +182,12 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     return Consumer(
       builder: (context, ref, _) {
         final myRole = ref.watch(currentProfileProvider).valueOrNull?.role;
+        // Riders pay commission only now, so the daily fee is off (no
+        // tiers configured). Showing the section anyway advertises a
+        // charge nobody makes. Keyed off the tiers themselves rather
+        // than a flag, so it comes back on its own if one is ever set.
+        final dailyFeeInUse =
+            ref.watch(dailyFeeTiersProvider).valueOrNull?.isNotEmpty ?? false;
 
         // The full delivery list re-emits on every change - diffing by id
         // tells apart a genuinely new order (never seen this id before)
@@ -237,7 +243,9 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
 
         final restOfSections = [
           for (final section in _restOfSections)
-            if (section.visibleTo(myRole)) section,
+            if (section.visibleTo(myRole) &&
+                (dailyFeeInUse || section.label != 'Daily Fees'))
+              section,
         ];
 
         void goToLabel(String label) {

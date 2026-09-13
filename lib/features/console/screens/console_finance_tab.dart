@@ -9,9 +9,18 @@ import '../../../models/payment_status.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../providers/console_providers.dart';
 
-/// Revenue and payment reconciliation across every delivery - grouped by
-/// currency (most self-hosted instances only ever use one, but nothing
-/// here assumes that), by status, and by method.
+/// Fares across every delivery - grouped by currency (most self-hosted
+/// instances only ever use one, but nothing here assumes that), by
+/// status, and by method.
+///
+/// Explicitly NOT the business's revenue, despite being the biggest
+/// number in the app. Riders take payment from customers directly; the
+/// business never handles a fare, and there is no customer-facing
+/// payment gateway - the only Paystack flows charge riders and vendors.
+/// So these are volumes: what was priced and delivered, and the base the
+/// commission is a percentage of. Actual income is in Commission, and
+/// the note below says so on the screen, because a column headed
+/// "Collected" invites exactly the wrong reading at month end.
 class ConsoleFinanceTab extends ConsumerWidget {
   const ConsoleFinanceTab({super.key});
 
@@ -66,7 +75,7 @@ class ConsoleFinanceTab extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Collected by method',
+                        'Fares by method',
                         style: TextStyle(
                           fontWeight: FontWeight.w700,
                           fontSize: 15,
@@ -154,19 +163,25 @@ class _CurrencySummary extends StatelessWidget {
               currency,
               style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
             ),
+            const SizedBox(height: 2),
+            Text(
+              'Money riders take from customers, not business income. '
+              'See Commission for what the business earns.',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+            ),
             const SizedBox(height: 12),
             Wrap(
               spacing: 12,
               runSpacing: 12,
               children: [
                 _AmountTile(
-                  label: 'Collected',
+                  label: 'Fares settled',
                   amount: paid,
                   currency: currency,
                   color: AppTheme.success,
                 ),
                 _AmountTile(
-                  label: 'Outstanding',
+                  label: 'Not confirmed',
                   amount: pending,
                   currency: currency,
                   color: AppTheme.warning,

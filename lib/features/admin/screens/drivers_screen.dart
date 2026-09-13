@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/profile_repository.dart';
+import '../../../models/delivery_rating.dart';
 import '../../../models/driver_vehicle_type.dart';
 import '../../../models/profile.dart';
 import '../../../models/staff_permission.dart';
@@ -181,6 +182,9 @@ class DriversScreen extends ConsumerWidget {
     final canManageDrivers =
         myProfile?.hasPermission(StaffPermission.manageDrivers) ?? false;
     final driversAsync = ref.watch(driversListProvider);
+    final ratings =
+        ref.watch(driverRatingSummaryProvider).valueOrNull ?? const {};
+    final poorRatings = ref.watch(poorRatingsProvider).valueOrNull ?? const [];
 
     return Scaffold(
       floatingActionButton: canManageDrivers
@@ -222,6 +226,8 @@ class DriversScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              if (poorRatings.isNotEmpty)
+                _PoorRatings(ratings: poorRatings, drivers: drivers),
               for (final type in [...order, null])
                 if (byType[type] case final group? when group.isNotEmpty) ...[
                   Padding(
@@ -241,6 +247,7 @@ class DriversScreen extends ConsumerWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: PersonCard(
                         person: driver,
+                        rating: ratings[driver.id],
                         isMe: driver.id == myProfile?.id,
                         isSuperAdmin: isSuperAdmin,
                         canManageDriver: canManageDrivers,
@@ -257,6 +264,102 @@ class DriversScreen extends ConsumerWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+/// Recent ratings of three or below, above the roster.
+///
+/// Customers have been leaving these since 0034 and no screen has ever
+/// shown them. They sit here rather than in a tab of their own because
+/// the answer to a bad rating is almost always a conversation with the
+/// driver, whose row is directly underneath.
+class _PoorRatings extends StatelessWidget {
+  const _PoorRatings({required this.ratings, required this.drivers});
+
+  final List<DeliveryRating> ratings;
+  final List<Profile> drivers;
+
+  String _driverName(String id) {
+    for (final driver in drivers) {
+      if (driver.id == id) return driver.displayName;
+    }
+    return 'Unknown driver';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      color: AppTheme.danger.withValues(alpha: 0.06),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.sentiment_dissatisfied_outlined,
+                  size: 18,
+                  color: AppTheme.danger,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  ratings.length == 1
+                      ? '1 poor rating'
+                      : '${ratings.length} poor ratings',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.danger,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            for (final rating in ratings.take(5))
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${'\u2605' * rating.rating}'
+                      '${'\u2606' * (5 - rating.rating)}'
+                      '  ${_driverName(rating.driverId)}',
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    // The comment is the whole point; a bare score says
+                    // someone was unhappy but never why.
+                    if (rating.comment case final comment?)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '\u201c$comment\u201d',
+                          style: TextStyle(
+                            fontSize: 12.5,
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey.shade700,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            if (ratings.length > 5)
+              Padding(
+                padding: const EdgeInsets.only(top: 4, bottom: 4),
+                child: Text(
+                  'and ${ratings.length - 5} more',
+                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

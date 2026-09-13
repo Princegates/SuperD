@@ -3,6 +3,7 @@ import 'package:latlong2/latlong.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../models/delivery.dart';
+import '../../../models/delivery_rating.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
 import '../../../models/vendor.dart';
@@ -15,6 +16,22 @@ final allDeliveriesProvider = StreamProvider<List<Delivery>>((ref) {
 
 final driversListProvider = FutureProvider<List<Profile>>((ref) {
   return ref.watch(profileRepositoryProvider).fetchDrivers();
+});
+
+/// What customers think of each driver, keyed by driver id.
+///
+/// Customers have been rating drivers since 0034 and nothing has ever
+/// read it back. Empty for a driver calling this themselves - the RLS
+/// policy on delivery_ratings only admits a dispatcher or above.
+final driverRatingSummaryProvider =
+    FutureProvider<Map<String, DriverRatingSummary>>((ref) {
+      return ref.watch(ratingRepositoryProvider).fetchSummary();
+    });
+
+/// Recent ratings of three or below, newest first - the ones that
+/// describe a problem rather than confirm things went fine.
+final poorRatingsProvider = FutureProvider<List<DeliveryRating>>((ref) {
+  return ref.watch(ratingRepositoryProvider).fetchRecent(onlyPoor: true);
 });
 
 /// Every driver's live position, for the Live Map. Kept separate from

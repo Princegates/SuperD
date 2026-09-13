@@ -1,6 +1,13 @@
 [build]
-  command = "rm -rf _flutter && git clone https://github.com/flutter/flutter.git -b stable --depth 1 _flutter && export PATH=\"$PATH:$PWD/_flutter/bin\" && flutter config --no-analytics && flutter build web --no-web-resources-cdn --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY --dart-define=TURNSTILE_SITE_KEY=$TURNSTILE_SITE_KEY"
+  command = "rm -rf _flutter && git clone https://github.com/flutter/flutter.git -b stable --depth 1 _flutter && export PATH=\"$PATH:$PWD/_flutter/bin\" && flutter config --no-analytics && flutter build web --no-web-resources-cdn --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY --dart-define=TURNSTILE_SITE_KEY=$TURNSTILE_SITE_KEY && sed -i \"s|__SUPABASE_URL__|$SUPABASE_URL|g; s|__SUPABASE_ANON_KEY__|$SUPABASE_ANON_KEY|g\" build/web/welcome/index.html"
   publish = "build/web"
+
+# The welcome page ships with __SUPABASE_URL__/__SUPABASE_ANON_KEY__
+# placeholders and the sed above fills them in from the same env vars the
+# Flutter build already uses, so the anon key reaches the deployed page
+# without ever being committed. The page reads the live rider commission
+# rate through them (public_rider_terms(), 0086); if the substitution
+# never happens the page keeps the figures written into its own markup.
 
 [build.environment]
   # SUPABASE_URL/SUPABASE_ANON_KEY/TURNSTILE_SITE_KEY are meant to be

@@ -29,7 +29,7 @@
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>SuperDelivery Ghana</title>
-<meta name="description" content="Same-day courier across Greater Accra. Vendors share one link, a nearby rider collects, and the customer confirms with a PIN at the door. Live tracking, Mobile Money, road-distance pricing." />
+<meta name="description" content="Same-day courier across Greater Accra. Vendors share one link, a nearby rider collects, and the customer confirms with a PIN at the door. Live tracking, PIN-confirmed handover, road-distance pricing." />
 <meta property="og:title" content="SuperDelivery — Delivering More. Connecting Better." />
 <meta property="og:description" content="Same-day courier across Greater Accra. One link from your shop to your customer's door, tracked the whole way." />
 <meta property="og:type" content="website" />
@@ -577,7 +577,7 @@
 
   .figures {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: clamp(1.5rem, 3vw, 3rem);
   }
   .figure dt {
@@ -917,7 +917,6 @@
     .cover-in, .feature, .fare-wrap, .backcover { grid-template-columns: 1fr; }
     .feature.reverse .feature-copy { order: 0; }
     .trio { grid-template-columns: 1fr; }
-    .figures { grid-template-columns: 1fr 1fr; }
     .opener { grid-template-columns: 1fr; }
     .stack { transform: none; min-height: 0; }
     .plane { position: relative; inset: auto; width: auto !important; transform: none !important; animation: none; }
@@ -1020,7 +1019,7 @@
           <article class="plane plane-fare">
             <span class="tiny">Fare, quoted up front</span>
             <div class="fare-big">GH&#8373;14.60</div>
-            <p class="fare-sub">6.4 km by road &middot; paid by Mobile Money</p>
+            <p class="fare-sub">6.4 km by road, quoted before the rider sets off</p>
           </article>
 
           <article class="plane plane-pin">
@@ -1036,10 +1035,9 @@
   <section class="spread spread-tight on-ink band-800">
     <div class="shell">
       <dl class="figures">
-        <div class="figure rise"><dt>10</dt><dd>dispatch zones covered across Greater Accra and Tema</dd></div>
-        <div class="figure rise" style="--d:110ms"><dt>1</dt><dd>link to share &mdash; your customer installs nothing at all</dd></div>
-        <div class="figure rise" style="--d:220ms"><dt>3</dt><dd>ways to pay: Mobile Money, card, or cash at the door</dd></div>
-        <div class="figure rise" style="--d:330ms"><dt>4</dt><dd>digits from the customer are what closes a delivery</dd></div>
+        <div class="figure rise"><dt data-count="10">10</dt><dd>dispatch zones covered across Greater Accra and Tema</dd></div>
+        <div class="figure rise" style="--d:110ms"><dt data-count="1">1</dt><dd>link to share &mdash; your customer installs nothing at all</dd></div>
+        <div class="figure rise" style="--d:220ms"><dt data-count="4">4</dt><dd>digits from the customer are what closes a delivery</dd></div>
       </dl>
     </div>
   </section>
@@ -1310,7 +1308,7 @@
         </details>
         <details class="rise" style="--d:120ms">
           <summary>How do I get paid, and how does the rider?</summary>
-          <p>Customers pay by Mobile Money or card through Paystack, or in cash at the door &mdash; you choose what you accept. Riders are paid the fare less a flat <span data-rate="pct">12</span>% commission per ride, settled in the app &mdash; there is no daily fee and nothing to pay on a day they do not ride.</p>
+          <p>Your customer settles the delivery fare with the rider directly at the door, in cash or by Mobile Money between the two of them &mdash; SuperDelivery does not sit in the middle of it, and there is no gateway for you to set up. The rider keeps that fare less a flat <span data-rate="pct">12</span>% commission, which they pay us in the app; there is no daily fee and nothing owed on a day they do not ride.</p>
         </details>
         <details class="rise" style="--d:180ms">
           <summary>What stops a rider marking a parcel delivered when it is not?</summary>
@@ -1484,22 +1482,61 @@
 
     // Entrances. Anything still armed after three seconds is released
     // regardless, so nothing can be left invisible by a missed callback.
+    // Figures count up as their band arrives. Only ever called under the
+    // same guard as the entrances, so a visitor who asked for less motion
+    // just reads the number that was already in the markup.
+    var countUp = function (root) {
+      root.querySelectorAll('[data-count]').forEach(function (el) {
+        if (el.dataset.counted) return;
+        el.dataset.counted = '1';
+        var target = parseFloat(el.getAttribute('data-count'));
+        if (!isFinite(target)) return;
+        var began = null;
+        var duration = 900;
+        el.textContent = '0';
+        var tick = function (now) {
+          if (began === null) began = now;
+          var progress = Math.min((now - began) / duration, 1);
+          // Ease out: quick off the mark, settling onto the figure
+          // rather than stopping dead on it.
+          var eased = 1 - Math.pow(1 - progress, 3);
+          el.textContent = String(Math.round(target * eased));
+          if (progress < 1) {
+            requestAnimationFrame(tick);
+          } else {
+            el.textContent = String(target);
+          }
+        };
+        requestAnimationFrame(tick);
+      });
+    };
+
     var armed = document.querySelectorAll('.rise, .rise-3d');
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
         if (!e.isIntersecting) return;
         e.target.classList.add('in');
+        countUp(e.target);
         io.unobserve(e.target);
       });
     }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
     var vh = window.innerHeight || 800;
     armed.forEach(function (el) {
       // Already in view at load: no entrance to wait for.
-      if (el.getBoundingClientRect().top < vh) el.classList.add('in');
-      else io.observe(el);
+      if (el.getBoundingClientRect().top < vh) {
+        el.classList.add('in');
+        countUp(el);
+      } else {
+        io.observe(el);
+      }
     });
     setTimeout(function () {
-      armed.forEach(function (el) { el.classList.add('in'); });
+      armed.forEach(function (el) {
+        el.classList.add('in');
+        el.querySelectorAll('[data-count]').forEach(function (n) {
+          if (!n.dataset.counted) n.textContent = n.getAttribute('data-count');
+        });
+      });
     }, 1500);
 
     // Pointer parallax. Cards lean toward the cursor on their own axis;

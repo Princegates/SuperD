@@ -1888,6 +1888,42 @@ that re-applies RLS from scratch instead of relying on the realtime stream
 noticing on its own. No other status change on this screen needs this -
 only reject/cancel ever touch `assigned_driver_id`.
 
+## Clearing test data
+
+`supabase/maintenance/clear_test_data.sql` removes pre-launch test orders
+from production. It is kept out of `supabase/migrations` deliberately so
+nothing can apply it on its own, and **as committed it deletes nothing** -
+the scope in its STEP 1 is a placeholder that matches no real delivery.
+Nothing happens until someone edits that scope and runs it by hand.
+
+Why it exists: test orders left in production are not inert. They are
+counted in Console > Overview's completion rate, in the zone economics, in
+every vendor's "deliveries sent", and in Finance's commission totals, so a
+first real month gets measured against orders that never happened.
+
+The file walks through it in five steps - define the scope once as a view,
+read what is in it, read what goes with it, delete inside one transaction,
+verify. Two things it handles that a hand-written `delete` usually misses:
+
+- `commission_payments.delivery_id` is `set null`, not `cascade`, so
+  deleting a delivery leaves its commission behind as revenue with nothing
+  under it. Those rows go first.
+- The scope is a view over `deliveries`, so the deliveries have to be
+  deleted **last** - anything still referring to them afterwards would
+  match an empty view and quietly do nothing.
+
+**It never deletes an account.** There is no `delete from public.profiles`
+or `delete from auth.users` in it, and none should be added. Deleting your
+last super admin locks you out of the Console with no way back in through
+the app; STEP 4 re-counts the accounts to show none went missing. Retire a
+test rider with `is_active = false` instead.
+
+Customers are the other exception: erase them from **Console > Customers**,
+not from SQL. `erase_customer()` requires a signed-in super admin and the
+SQL editor has no signed-in user, so it refuses there - and it does more
+than delete a row, scrubbing the customer's name, phone and email off the
+deliveries themselves.
+
 ## Failed deliveries
 
 Rejecting, cancelling and failing are three different things, and the app

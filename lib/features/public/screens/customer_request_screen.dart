@@ -107,6 +107,11 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   /// falls back to straight-line distance, computed server-side.
   double? _roadDistanceKm;
 
+  /// How long Google says the ride takes, from the same Directions call
+  /// that priced it. Null until a drop-off is picked, and whenever the
+  /// route lookup fails - the price still works without it.
+  int? _rideMinutes;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -135,9 +140,11 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
     }
   }
 
-  /// Fetches the real road distance from the vendor to [_lat]/[_lng] (via
-  /// Google Directions, see `VendorRepository.fetchRoadDistanceKm`), then
-  /// refreshes the price estimate with it. Silently does nothing if
+  /// Fetches the real driving route from the vendor to [_lat]/[_lng] (via
+  /// Google Directions, see `VendorRepository.fetchRoadRoute`), then
+  /// refreshes the price estimate with its distance. The same call also
+  /// yields the driving time, which is what lets the quote say how long
+  /// the ride takes as well as what it costs. Silently does nothing if
   /// either the vendor or the drop-off has no coordinates - pricing just
   /// uses the server's straight-line fallback in that case.
   Future<void> _refreshPricing() async {
@@ -147,15 +154,20 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
         _lng != null &&
         vendorLat != null &&
         vendorLng != null) {
-      final distanceKm = await ref
+      final route = await ref
           .read(vendorRepositoryProvider)
-          .fetchRoadDistanceKm(
+          .fetchRoadRoute(
             originLat: vendorLat,
             originLng: vendorLng,
             destLat: _lat!,
             destLng: _lng!,
           );
-      if (mounted) setState(() => _roadDistanceKm = distanceKm);
+      if (mounted) {
+        setState(() {
+          _roadDistanceKm = route?.distanceKm;
+          _rideMinutes = route?.durationMinutes;
+        });
+      }
     }
     await _refreshEstimate();
   }
@@ -167,6 +179,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
       _lat = lat;
       _lng = lng;
       _roadDistanceKm = null;
+      _rideMinutes = null;
     });
     unawaited(_refreshPricing());
   }
@@ -346,6 +359,7 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
             const SizedBox(height: 16),
             _PriceCard(
               estimate: _estimate,
+              rideMinutes: _rideMinutes,
               hasLocation: _lat != null && _lng != null,
             ),
             if (_errorMessage != null) ...[
@@ -517,10 +531,29 @@ class _FormStep extends StatelessWidget {
 /// real figure once there's a coordinate, and as a plain nudge before
 /// then - not an error, just the missing half of the trade.
 class _PriceCard extends StatelessWidget {
-  const _PriceCard({required this.estimate, required this.hasLocation});
+  const _PriceCard({
+    required this.estimate,
+    required this.hasLocation,
+    this.rideMinutes,
+  });
 
   final PriceEstimate? estimate;
   final bool hasLocation;
+
+  /// Driving time for the same route the price was worked out from, when
+  /// Directions gave one. "How long?" is the other half of the question
+  /// someone asks before confirming, and it costs no extra lookup.
+  final int? rideMinutes;
+
+  /// Minutes up to an hour, then hours and minutes - "about 95 minutes"
+  /// is a number to decode rather than read.
+  static String _rideTime(int minutes) {
+    if (minutes < 60) return '$minutes min';
+    final hours = minutes ~/ 60;
+    final rest = minutes % 60;
+    if (rest == 0) return hours == 1 ? '1 hour' : '$hours hours';
+    return '${hours}h ${rest}min';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -555,7 +588,10 @@ class _PriceCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Your delivery',
+                        rideMinutes == null
+                            ? 'Your delivery'
+                            : 'Your delivery \u00b7 about '
+                                  '${_rideTime(rideMinutes!)} on the road',
                         style: TextStyle(
                           fontSize: 11.5,
                           color: Colors.grey.shade700,

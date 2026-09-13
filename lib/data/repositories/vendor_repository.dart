@@ -346,13 +346,16 @@ class VendorRepository {
     return PriceEstimate.fromMap(rows.first as Map<String, dynamic>);
   }
 
-  /// The real driving distance (km) between two points, via Google's
-  /// Directions API - called through the `get-road-distance` Edge
-  /// Function so the Directions API key never ships to any client. Null
-  /// on any failure (no route, network error, key not configured) so
-  /// callers fall back to the server's own straight-line calculation -
-  /// see `0028_road_distance_pricing.sql`.
-  Future<double?> fetchRoadDistanceKm({
+  /// The real driving route between two points - distance and time - via
+  /// Google's Directions API, called through the `get-road-distance` Edge
+  /// Function so the Directions API key never ships to any client.
+  ///
+  /// Null on any failure (no route, network error, key not configured, the
+  /// function not deployed) so callers fall back to the server's own
+  /// straight-line calculation - see `0028_road_distance_pricing.sql`.
+  /// Either field can also be null on its own if Directions answered
+  /// without it.
+  Future<RoadRoute?> fetchRoadRoute({
     required double originLat,
     required double originLng,
     required double destLat,
@@ -369,7 +372,10 @@ class VendorRepository {
         },
       );
       final data = response.data as Map<String, dynamic>;
-      return (data['distanceKm'] as num?)?.toDouble();
+      final km = (data['distanceKm'] as num?)?.toDouble();
+      final minutes = (data['durationMinutes'] as num?)?.toInt();
+      if (km == null && minutes == null) return null;
+      return RoadRoute(distanceKm: km, durationMinutes: minutes);
     } catch (_) {
       return null;
     }
@@ -508,4 +514,15 @@ class VendorSubscriptionException implements Exception {
 
   @override
   String toString() => message;
+}
+
+/// What Google's Directions API says about driving one leg: how far, and
+/// how long. Either half can be absent - a route with no duration is
+/// still worth pricing, and an ETA with no distance is still worth
+/// showing someone who is waiting.
+class RoadRoute {
+  const RoadRoute({this.distanceKm, this.durationMinutes});
+
+  final double? distanceKm;
+  final int? durationMinutes;
 }

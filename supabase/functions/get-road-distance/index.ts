@@ -1,4 +1,5 @@
-// Returns the real driving distance (km) between two points via Google's
+// Returns the real driving distance (km) and driving time (minutes)
+// between two points via Google's
 // Directions API, for delivery pricing (see submit_delivery_request /
 // get_delivery_price_estimate in 0028_road_distance_pricing.sql). Called
 // directly by the customer request form - no login needed, but the
@@ -58,15 +59,25 @@ Deno.serve(async (req) => {
       // fail soft. The caller falls back to straight-line distance, same
       // as before this feature existed.
       console.error(`get-road-distance: Directions API status ${data.status}`);
-      return jsonResponse({ distanceKm: null });
+      return jsonResponse({ distanceKm: null, durationMinutes: null });
     }
 
-    const meters = data.routes[0]?.legs?.[0]?.distance?.value;
+    const leg = data.routes[0]?.legs?.[0];
+    const meters = leg?.distance?.value;
     if (typeof meters !== "number") {
-      return jsonResponse({ distanceKm: null });
+      return jsonResponse({ distanceKm: null, durationMinutes: null });
     }
 
-    return jsonResponse({ distanceKm: meters / 1000 });
+    // Directions returns the driving time in the same leg we were already
+    // reading the distance from, so an ETA costs no extra call and no
+    // extra quota - it was being thrown away. Rounded to the minute
+    // because a courier ETA claiming seconds would be false precision.
+    const seconds = leg?.duration?.value;
+    const durationMinutes = typeof seconds === "number"
+      ? Math.max(1, Math.round(seconds / 60))
+      : null;
+
+    return jsonResponse({ distanceKm: meters / 1000, durationMinutes });
   } catch (e) {
     return jsonResponse(
       { error: e instanceof Error ? e.message : String(e) },

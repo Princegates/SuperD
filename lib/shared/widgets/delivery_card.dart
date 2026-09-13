@@ -13,6 +13,7 @@ class DeliveryCard extends StatefulWidget {
     required this.onTap,
     this.subtitle,
     this.fareText,
+    this.trailingUnderAddress,
   });
 
   final Delivery delivery;
@@ -24,6 +25,12 @@ class DeliveryCard extends StatefulWidget {
   /// Optional fare amount (e.g. "GHS 43.10") shown next to the customer/time
   /// row - used by the driver's "My Rides" screen; omitted everywhere else.
   final String? fareText;
+
+  /// Optional widget tucked under the drop-off line - the driver's own
+  /// list puts a live ETA there. A slot rather than an ETA parameter,
+  /// because this card is shared with the admin views, which have no
+  /// business knowing where any particular rider is.
+  final Widget? trailingUnderAddress;
 
   @override
   State<DeliveryCard> createState() => _DeliveryCardState();
@@ -91,6 +98,10 @@ class _DeliveryCardState extends State<DeliveryCard>
                 icon: Icons.place,
                 text: delivery.dropoffAddress,
               ),
+              if (widget.trailingUnderAddress case final extra?) ...[
+                const SizedBox(height: 6),
+                extra,
+              ],
               if (scheduledAt != null) ...[
                 const SizedBox(height: 8),
                 Row(

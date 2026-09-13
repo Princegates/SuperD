@@ -13,6 +13,7 @@ import '../../../models/daily_fee_status.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
+import '../../../shared/widgets/live_eta.dart';
 import '../../../shared/widgets/account_menu_button.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/delivery_card.dart';
@@ -538,6 +539,13 @@ class _DeliveryList extends ConsumerWidget {
                       delivery: delivery,
                       onTap: () =>
                           context.push('/driver/delivery/${delivery.id}'),
+                      // Where the rider is heading next depends on
+                      // whether they have the parcel yet: the shop until
+                      // they collect it, the customer afterwards. Their
+                      // own last reported position is the origin, so the
+                      // same number they see is the one the customer is
+                      // looking at.
+                      trailingUnderAddress: _etaFor(ref, delivery),
                     ),
                   ),
                   const SizedBox(height: 10),
@@ -581,6 +589,33 @@ class _DeliveryList extends ConsumerWidget {
       },
     );
   }
+}
+
+/// A live ETA for the leg the rider is actually on, or nothing when the
+/// pieces for an honest one are missing - no coordinates for the target,
+/// or no recent position of their own.
+Widget? _etaFor(WidgetRef ref, Delivery delivery) {
+  final me = ref.watch(currentProfileProvider).valueOrNull;
+  final fromLat = me?.lastLat;
+  final fromLng = me?.lastLng;
+  if (fromLat == null || fromLng == null) return null;
+
+  final headingToCustomer =
+      delivery.status == DeliveryStatus.pickedUp ||
+      delivery.status == DeliveryStatus.inTransit;
+  final toLat = headingToCustomer ? delivery.dropoffLat : delivery.pickupLat;
+  final toLng = headingToCustomer ? delivery.dropoffLng : delivery.pickupLng;
+  if (toLat == null || toLng == null) return null;
+
+  return LiveEta(
+    originLat: fromLat,
+    originLng: fromLng,
+    destLat: toLat,
+    destLng: toLng,
+    positionUpdatedAt: me?.locationUpdatedAt,
+    label: headingToCustomer ? 'Drop-off in about' : 'Pickup in about',
+    compact: true,
+  );
 }
 
 class _SectionHeader extends StatelessWidget {

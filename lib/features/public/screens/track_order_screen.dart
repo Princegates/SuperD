@@ -7,6 +7,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/vendor.dart';
+import '../../../shared/widgets/live_eta.dart';
 import '../../../shared/utils/navigation_launcher.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/map_preview.dart';
@@ -58,6 +59,10 @@ class TrackOrderScreen extends ConsumerWidget {
                     status != DeliveryStatus.delivered &&
                     status != DeliveryStatus.cancelled &&
                     order.hasDriverLocation;
+                final carryingIt =
+                    order.hasDriverLocation &&
+                    (status == DeliveryStatus.pickedUp ||
+                        status == DeliveryStatus.inTransit);
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
                   child: Card(
@@ -110,13 +115,37 @@ class TrackOrderScreen extends ConsumerWidget {
                           ],
                           if (canTrack) ...[
                             const SizedBox(height: 12),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: OutlinedButton.icon(
-                                onPressed: () => _showTracking(context),
-                                icon: const Icon(Icons.map_outlined, size: 16),
-                                label: const Text('Track live'),
-                              ),
+                            Row(
+                              children: [
+                                OutlinedButton.icon(
+                                  onPressed: () => _showTracking(context),
+                                  icon: const Icon(
+                                    Icons.map_outlined,
+                                    size: 16,
+                                  ),
+                                  label: const Text('Track live'),
+                                ),
+                                // Only once the parcel is actually on the
+                                // bike. Before pickup the rider is heading
+                                // to the shop, so time-to-your-door would
+                                // be answering a different question than
+                                // the one it appears to answer.
+                                if (carryingIt &&
+                                    order.dropoffLat != null &&
+                                    order.dropoffLng != null) ...[
+                                  const SizedBox(width: 10),
+                                  Flexible(
+                                    child: LiveEta(
+                                      originLat: order.driverLat!,
+                                      originLng: order.driverLng!,
+                                      destLat: order.dropoffLat!,
+                                      destLng: order.dropoffLng!,
+                                      positionUpdatedAt:
+                                          order.driverLocationUpdatedAt,
+                                    ),
+                                  ),
+                                ],
+                              ],
                             ),
                           ],
                           if (order.completionPin != null) ...[

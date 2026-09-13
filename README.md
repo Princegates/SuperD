@@ -147,7 +147,7 @@ supabase/
     admin-resend-vendor-link/      Edge Function: re-sends a vendor's own link via SMS or email (caller picks one), on demand, from Console > Vendors
     admin-message-driver/          Edge Function: sends one driver a free-form message via SMS or email (caller picks one), from Console/Admin > Drivers
     admin-resend-tracking-link/    Edge Function: re-sends a delivery's tracking link (SMS/email) to its customer on demand, from a delivery's detail page
-    get-road-distance/             Edge Function: real road distance between two points (Google Directions), server-side only
+    get-road-distance/             Edge Function: real road distance AND driving time between two points (Google Directions), server-side only - the distance prices the delivery, the time is the ETA shown to the rider and to the customer waiting
     paystack-daily-fee-charge/     Edge Function: charges a driver's Mobile Money wallet for today's platform fee via Paystack
     paystack-daily-fee-webhook/    Edge Function: Paystack's callback once a daily-fee or vendor subscription charge resolves - one function, since Paystack only supports one webhook URL per account (public, no Supabase session)
     paystack-vendor-subscription-charge/   Edge Function: charges a vendor's Mobile Money wallet for their one-time subscription fee via Paystack (public, no Supabase session)
@@ -156,7 +156,7 @@ supabase/
     notify-driver-application/     Edge Function: emails staff (not SMS - see below) and texts/emails the applicant when a driver signs themselves up (plus a push to staff)
     notify-driver-notice/          Edge Function: pushes a Console > Notices post to its target driver, or every active driver if it's a broadcast
     notify-driver-approved/        Edge Function: texts/emails a driver once their signup is approved
-    get-road-distance/             Edge Function: real driving distance via Google Directions, for pricing
+    get-road-distance/             Edge Function: real driving distance and time via Google Directions - pricing, and the live ETA
 ```
 
 ## 1. Stand up Supabase

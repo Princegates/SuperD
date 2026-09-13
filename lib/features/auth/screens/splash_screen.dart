@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/glow_orbs_background.dart';
 import '../../../shared/widgets/shimmer_text.dart';
+import '../../../core/app_identity.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -154,7 +155,7 @@ class _SplashScreenState extends State<SplashScreen>
                     child: Column(
                       children: [
                         ShimmerText(
-                          text: 'SuperD',
+                          text: kAppName,
                           highlightColor: AppTheme.accent,
                           style: const TextStyle(
                             fontSize: 26,

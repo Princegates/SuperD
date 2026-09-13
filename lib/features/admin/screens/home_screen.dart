@@ -7,6 +7,7 @@ import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../providers/admin_providers.dart';
+import '../../../core/app_identity.dart';
 
 /// One nav destination a [HomeScreen] can jump straight to, without either
 /// screen knowing about the other's internals - the shell hands down just
@@ -232,7 +233,7 @@ class _BrandHeader extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'SuperD',
+              kAppName,
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w800,

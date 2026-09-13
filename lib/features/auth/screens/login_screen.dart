@@ -12,6 +12,7 @@ import '../../../models/user_role.dart';
 import '../../../shared/widgets/fade_slide_in.dart';
 import '../../../shared/widgets/glow_orbs_background.dart';
 import '../../../shared/widgets/shake_x.dart';
+import '../../../core/app_identity.dart';
 
 /// Labels shown on the login tabs - cosmetic only, the real role always
 /// comes from the database. No "Admin" tab: a super admin still signs in
@@ -124,7 +125,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         setState(
           () => _errorMessage =
               "Driver accounts can't sign in from this dashboard. Please "
-              'use the SuperD mobile app instead.',
+              'use the $kAppName mobile app instead.',
         );
         ref.read(driverWebBlockedProvider.notifier).state = false;
       }
@@ -190,8 +191,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                             const SizedBox(height: 4),
                             Text(
                               kIsWeb
-                                  ? 'Sign in to the SuperD dashboard'
-                                  : 'Sign in to SuperD as a '
+                                  ? 'Sign in to the $kAppName dashboard'
+                                  : 'Sign in to $kAppName as a '
                                         '${_loginTabLabels[_selectedTab]}',
                               textAlign: TextAlign.center,
                               style: TextStyle(color: Colors.grey.shade600),

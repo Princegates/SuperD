@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/legal/superd_legal_policy.dart';
+import '../../../core/app_identity.dart';
 
 /// Renders [kPolicySections] - the one Terms of Service & Privacy Policy
 /// document both the vendor and driver signup screens link to before
@@ -22,7 +23,7 @@ class PolicyScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 40),
               children: [
                 Text(
-                  '$kOperatorLegalName - SuperD',
+                  '$kOperatorLegalName - $kAppName',
                   style: const TextStyle(
                     fontWeight: FontWeight.w800,
                     fontSize: 20,

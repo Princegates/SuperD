@@ -21,6 +21,7 @@ import '../../../shared/widgets/staggered_list_item.dart';
 import '../providers/driver_providers.dart';
 import '../widgets/daily_fee_banner.dart';
 import '../widgets/driver_notice_banner.dart';
+import '../../../core/app_identity.dart';
 
 class DriverDashboardScreen extends ConsumerStatefulWidget {
   const DriverDashboardScreen({super.key});
@@ -108,7 +109,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         title: const Text('Keep sharing location in the background?'),
         content: const Text(
           'Right now dispatch and customers only see your position while '
-          'SuperD is open on screen. To keep sharing it while the app is '
+          '$kAppName is open on screen. To keep sharing it while the app is '
           'in the background or your phone is locked, allow location '
           'access "All the time" in Settings.',
         ),
@@ -145,7 +146,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
         intervalDuration: const Duration(seconds: 15),
         foregroundNotificationConfig: backgroundAllowed
             ? const ForegroundNotificationConfig(
-                notificationTitle: 'SuperD',
+                notificationTitle: kAppName,
                 notificationText: 'Sharing your location with dispatch',
                 enableWakeLock: true,
               )

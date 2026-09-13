@@ -6,6 +6,7 @@ import 'core/config/env.dart';
 import 'core/providers/core_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/app_identity.dart';
 
 class SuperDApp extends ConsumerWidget {
   const SuperDApp({super.key});
@@ -14,7 +15,7 @@ class SuperDApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     if (!Env.isConfigured) {
       return MaterialApp(
-        title: 'SuperD',
+        title: kAppName,
         theme: AppTheme.light,
         home: const _MissingConfigScreen(),
       );
@@ -63,7 +64,7 @@ class SuperDApp extends ConsumerWidget {
     // survives the remount and the user stays on the same screen.
     return MaterialApp.router(
       key: ValueKey('theme-$themeKey'),
-      title: 'SuperD',
+      title: kAppName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: router,
@@ -86,7 +87,7 @@ class _MissingConfigScreen extends StatelessWidget {
               const Icon(Icons.settings_outlined, size: 48, color: Colors.grey),
               const SizedBox(height: 16),
               const Text(
-                'SuperD is not configured yet',
+                '$kAppName is not configured yet',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),

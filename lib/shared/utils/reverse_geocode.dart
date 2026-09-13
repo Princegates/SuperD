@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../core/app_identity.dart';
+
 /// Turns coordinates into a human-readable address using OpenStreetMap's
 /// free Nominatim service (no API key). Returns null on any failure so
 /// callers can fall back to showing the raw coordinates instead.
@@ -13,7 +15,10 @@ Future<String?> reverseGeocode(double lat, double lng) async {
       'lon': lng.toString(),
     });
     final response = await http
-        .get(uri, headers: {'User-Agent': 'SuperD courier app (self-hosted)'})
+        .get(
+          uri,
+          headers: {'User-Agent': '$kAppName courier app (self-hosted)'},
+        )
         .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) return null;
 

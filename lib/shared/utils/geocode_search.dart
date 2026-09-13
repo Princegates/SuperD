@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:latlong2/latlong.dart';
 
+import '../../core/app_identity.dart';
+
 /// One address match from [searchAddress].
 class GeocodeResult {
   const GeocodeResult({required this.displayName, required this.location});
@@ -29,7 +31,10 @@ Future<List<GeocodeResult>> searchAddress(String query) async {
       'limit': '5',
     });
     final response = await http
-        .get(uri, headers: {'User-Agent': 'SuperD courier app (self-hosted)'})
+        .get(
+          uri,
+          headers: {'User-Agent': '$kAppName courier app (self-hosted)'},
+        )
         .timeout(const Duration(seconds: 8));
     if (response.statusCode != 200) return const [];
 

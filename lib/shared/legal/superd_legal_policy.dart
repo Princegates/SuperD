@@ -1,4 +1,4 @@
-/// SuperD's Terms of Service & Privacy Policy - the single document a
+/// SuperDelivery's Terms of Service & Privacy Policy - the single document
 /// vendor or driver agrees to before their signup form will submit (see
 /// `PolicyScreen`, and the "I agree" checkbox on `VendorSignupScreen`/
 /// `DriverSignupScreen`).
@@ -18,8 +18,10 @@
 /// binding, final agreement.
 library;
 
-const String kTermsVersion = '1.2';
-const String kTermsEffectiveDate = '2 September 2026';
+import '../../core/app_identity.dart';
+
+const String kTermsVersion = '1.3';
+const String kTermsEffectiveDate = '13 September 2026';
 const String kOperatorLegalName = 'Anknovate IT Services';
 const String kOperatorContactEmail = 'info@anknovate.com';
 const String kOperatorContactPhone = '+233 55 355 2693';
@@ -37,9 +39,10 @@ class PolicySection {
 const List<PolicySection> kPolicySections = [
   PolicySection(
     'Introduction and acceptance',
-    'SuperD (the "Platform") is a delivery-coordination service operated '
-        'by $kOperatorLegalName ("SuperD", "we", "us", or "our"), connecting '
-        'businesses that need deliveries made ("Vendors") with independent '
+    '$kAppName (the "Platform") is a delivery-coordination service '
+        'operated by $kOperatorLegalName ("$kAppName", "we", "us", or "our"), '
+        'connecting businesses that need deliveries made ("Vendors") with '
+        'independent '
         'delivery riders ("Drivers") through customers who place requests '
         '("Customers").\n\n'
         'This document is a single agreement covering both our Terms of '
@@ -182,7 +185,7 @@ const List<PolicySection> kPolicySections = [
   PolicySection(
     'Package restrictions and maximum value',
     'Every delivery submitted through the Platform is subject to a '
-        'maximum declared value of GH₵200. Do not use SuperD to send an '
+        'maximum declared value of GH₵200. Do not use $kAppName to send an '
         'item worth more than this - arrange your own transport or '
         'insured courier for anything more valuable. If a lost or damaged '
         'package turns out to have been worth more, our liability (see '
@@ -198,7 +201,7 @@ const List<PolicySection> kPolicySections = [
         '- Illegal items or controlled substances of any kind\n\n'
         'A Vendor or Customer who submits a prohibited item, or '
         'misrepresents a package\'s value or contents, does so at their '
-        'own risk - SuperD and the Driver carrying it bear no liability '
+        'own risk - $kAppName and the Driver carrying it bear no liability '
         'for it, and we may refuse or abandon such a delivery without '
         'refund.',
   ),
@@ -234,7 +237,7 @@ const List<PolicySection> kPolicySections = [
   ),
   PolicySection(
     'Independent contractor status',
-    'A Driver on SuperD is an independent contractor, not an employee, '
+    'A Driver on $kAppName is an independent contractor, not an employee, '
         'agent, or partner of $kOperatorLegalName. You choose whether to go '
         'online, which deliveries to accept, and how to carry them out, '
         'within the bounds of applicable law and this agreement. You are '

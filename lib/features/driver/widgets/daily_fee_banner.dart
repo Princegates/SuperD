@@ -6,32 +6,57 @@ import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/driver_daily_fee_repository.dart';
 import '../../../models/daily_fee_status.dart';
 
-/// Shown at the top of the driver dashboard whenever today's tiered
-/// platform fee (Console > Settings > Driver daily fee) and/or
-/// per-delivery commission still due (see
-/// `0050_bundle_commission_with_daily_fee.sql`) add up to a balance still
-/// owed - the UI side of a hard block enforced in the database (see
-/// `0037_tiered_daily_fee.sql`): a driver in this state simply cannot be
-/// given a new delivery, so this exists to make the reason obvious and
-/// give them a way to fix it on the spot. [feeAmount] is the combined
-/// live balance still due - not necessarily the full tier amount, it can
-/// shrink to 0 after a partial payment, or grow again after crossing into
-/// a higher tier or completing another delivery. [commissionDueAmount] is
-/// how much of that total is per-delivery commission rather than today's
-/// tier - shown as a breakdown so it stays visible as its own count even
-/// though it's paid together with the daily fee.
-class DailyFeeBanner extends StatelessWidget {
-  const DailyFeeBanner({
+/// Opens the Mobile Money / manual-reference sheet for settling today's
+/// balance - today's tiered platform fee (Console > Settings > Driver
+/// daily fee) plus any per-delivery commission still due (see
+/// `0050_bundle_commission_with_daily_fee.sql`), paid together.
+///
+/// This used to be a full banner pinned to the top of the driver
+/// dashboard: a heading, a breakdown line, an explanation and a
+/// full-width button, all in a coloured block. Accurate, but it pushed
+/// the deliveries - the thing a driver actually opens the app for - most
+/// of the way down the screen, and it sat there for the whole shift.
+/// [DriverBalanceChip] carries the same information in one line now, and
+/// this is what it opens.
+///
+/// [feeAmount] is the combined live balance still due - not necessarily
+/// the full tier amount, since it shrinks after a partial payment and
+/// grows again on crossing into a higher tier or completing another
+/// delivery.
+Future<void> showDailyFeePaymentSheet(
+  BuildContext context, {
+  required double feeAmount,
+  required String currency,
+  required String? driverPhone,
+}) {
+  return showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    builder: (context) => _DailyFeePaymentSheet(
+      feeAmount: feeAmount,
+      currency: currency,
+      driverPhone: driverPhone,
+    ),
+  );
+}
+
+/// The one-line stand-in for that old banner: what's owed, and a tap
+/// straight into the payment sheet. Colour still carries the urgency
+/// (amber while a payment is being confirmed, red when it's blocking new
+/// work), because this is a real hard block in the database - a driver
+/// who owes from a previous day cannot be assigned anything (see
+/// `0037_tiered_daily_fee.sql`), and hiding that would just leave them
+/// wondering why the work dried up.
+class DriverBalanceChip extends StatelessWidget {
+  const DriverBalanceChip({
     super.key,
     required this.feeAmount,
-    required this.commissionDueAmount,
     required this.currency,
     required this.status,
     required this.driverPhone,
   });
 
   final double feeAmount;
-  final double commissionDueAmount;
   final String currency;
 
   /// Null means no attempt has been made yet today.
@@ -40,75 +65,45 @@ class DailyFeeBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = status == DailyFeeStatus.pending
-        ? AppTheme.warning
-        : AppTheme.danger;
-    final message = switch (status) {
-      DailyFeeStatus.pending =>
-        "Payment pending - check your phone to approve it. This updates "
-            'automatically once confirmed.',
-      DailyFeeStatus.failed =>
-        "Today's payment didn't go through - try again below.",
-      _ =>
-        "You haven't paid today's commission yet - pay to receive new "
-            'deliveries.',
-    };
+    final pending = status == DailyFeeStatus.pending;
+    final color = pending ? AppTheme.warning : AppTheme.danger;
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: color.withValues(alpha: 0.1),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Material(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(999),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () => showDailyFeePaymentSheet(
+          context,
+          feeAmount: feeAmount,
+          currency: currency,
+          driverPhone: driverPhone,
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 5, 8, 5),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                Icons.account_balance_wallet_outlined,
+                pending ? Icons.hourglass_top : Icons.account_balance_wallet,
+                size: 14,
                 color: color,
-                size: 18,
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  "Today's commission: $currency "
-                  '${feeAmount.toStringAsFixed(2)}',
-                  style: TextStyle(fontWeight: FontWeight.w700, color: color),
+              const SizedBox(width: 5),
+              Text(
+                pending
+                    ? 'Confirming $currency ${feeAmount.toStringAsFixed(2)}'
+                    : 'Pay $currency ${feeAmount.toStringAsFixed(2)}',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12,
+                  color: color,
                 ),
               ),
+              Icon(Icons.chevron_right, size: 15, color: color),
             ],
           ),
-          if (commissionDueAmount > 0) ...[
-            const SizedBox(height: 2),
-            Text(
-              'Includes $currency ${commissionDueAmount.toStringAsFixed(2)} '
-              'in per-delivery commission',
-              style: TextStyle(color: color, fontSize: 11.5),
-            ),
-          ],
-          const SizedBox(height: 4),
-          Text(message, style: TextStyle(color: color, fontSize: 12.5)),
-          const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
-            child: FilledButton(
-              onPressed: () => showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                builder: (context) => _DailyFeePaymentSheet(
-                  feeAmount: feeAmount,
-                  currency: currency,
-                  driverPhone: driverPhone,
-                ),
-              ),
-              child: Text(
-                status == DailyFeeStatus.pending
-                    ? 'Pay a different way'
-                    : 'Pay now',
-              ),
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

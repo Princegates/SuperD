@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../models/daily_fee_status.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
@@ -230,21 +231,19 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
       ),
       body: Column(
         children: [
-          if (profile != null) _AvailabilityBar(profile: profile),
-          _RevenueStrip(amount: todaysRevenue, currency: currency ?? 'GHS'),
+          _DriverHeader(
+            profile: profile,
+            revenue: todaysRevenue,
+            currency: currency ?? 'GHS',
+            balanceDue: totalCommissionDue,
+            commissionDueAmount: commissionDueAmount,
+            feeStatus: latestAttempt?.status,
+          ),
           if (profile?.isFrozen ?? false) const _FrozenBanner(),
           if (notices.isNotEmpty) ...[
             const SizedBox(height: 10),
             DriverNoticeList(notices: notices),
           ],
-          if (totalCommissionDue > 0)
-            DailyFeeBanner(
-              feeAmount: totalCommissionDue,
-              commissionDueAmount: commissionDueAmount,
-              currency: currency ?? 'GHS',
-              status: latestAttempt?.status,
-              driverPhone: profile?.phone,
-            ),
           if (dailyFeeOn && freeDayBalance > 0)
             _FreeDayBalanceStrip(balance: freeDayBalance),
           Expanded(child: _DeliveryList(deliveries: deliveries)),
@@ -254,86 +253,161 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   }
 }
 
-/// A driver's own "available for new deliveries" toggle - purely
-/// informational for dispatch/auto-assignment, not an access control (see
-/// `is_online` in `0025_driver_categories_and_status.sql`).
-class _AvailabilityBar extends ConsumerWidget {
-  const _AvailabilityBar({required this.profile});
+/// The whole status header: availability, the day's earnings, and the
+/// balance chip when something is owed - one block, two lines.
+///
+/// These were separate stacked bands (an availability bar, a revenue
+/// strip, and a four-row commission banner with its own full-width
+/// button). Each was reasonable alone; together they filled most of a
+/// small phone before a single delivery appeared, on the one screen a
+/// driver works from all day. Everything still here, in a fifth of the
+/// height.
+class _DriverHeader extends ConsumerWidget {
+  const _DriverHeader({
+    required this.profile,
+    required this.revenue,
+    required this.currency,
+    required this.balanceDue,
+    required this.commissionDueAmount,
+    required this.feeStatus,
+  });
 
-  final Profile profile;
+  final Profile? profile;
+  final double revenue;
+  final String currency;
+  final double balanceDue;
+  final double commissionDueAmount;
+  final DailyFeeStatus? feeStatus;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final owing = balanceDue > 0;
+    // Only spelled out while it's actually blocking. Once a payment is in
+    // flight the chip's own "Confirming ..." says everything useful, and a
+    // driver who owes nothing doesn't need a line about it at all.
+    final blockedNote = owing && feeStatus != DailyFeeStatus.pending
+        ? (feeStatus == DailyFeeStatus.failed
+              ? "Last payment didn't go through - tap to try again"
+              : 'Pay to keep receiving new deliveries')
+        : null;
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: profile.isOnline
-          ? AppTheme.success.withValues(alpha: 0.08)
-          : Colors.grey.shade100,
-      child: Row(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 2, 12, 8),
+      color: AppTheme.primary.withValues(alpha: 0.05),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(
-            Icons.circle,
-            size: 10,
-            color: profile.isOnline ? AppTheme.success : Colors.grey.shade400,
+          if (profile != null) _AvailabilityRow(profile: profile!),
+          Row(
+            children: [
+              // Not const: AppTheme.primary is theme-selectable, unlike
+              // the fixed status colors (success/warning/danger/neutral).
+              Icon(Icons.payments_outlined, size: 15, color: AppTheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: InkWell(
+                  onTap: () => context.push('/driver/earnings'),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            'Today: $currency ${revenue.toStringAsFixed(2)}',
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12.5,
+                              color: AppTheme.primary,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          size: 16,
+                          color: Colors.grey.shade500,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              if (owing)
+                DriverBalanceChip(
+                  feeAmount: balanceDue,
+                  currency: currency,
+                  status: feeStatus,
+                  driverPhone: profile?.phone,
+                ),
+            ],
           ),
-          const SizedBox(width: 8),
-          Text(
-            profile.isOnline
-                ? 'Online - available for deliveries'
-                : 'Offline - not receiving new deliveries',
-            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-          ),
-          const Spacer(),
-          Switch(
-            value: profile.isOnline,
-            onChanged: (value) => ref
-                .read(profileRepositoryProvider)
-                .setOnline(profile.id, value),
-          ),
+          if (blockedNote != null)
+            Padding(
+              padding: const EdgeInsets.only(left: 23, top: 1),
+              child: Text(
+                commissionDueAmount > 0
+                    ? '$blockedNote \u00b7 includes $currency '
+                          '${commissionDueAmount.toStringAsFixed(2)} '
+                          'per-delivery commission'
+                    : blockedNote,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.danger.withValues(alpha: 0.9),
+                ),
+              ),
+            ),
         ],
       ),
     );
   }
 }
 
-/// A live running total of what this driver has collected today - see
-/// [todaysRevenueProvider]. Always shown (even at zero, so it's obvious
-/// this is a live counter and not just missing) and tappable straight
-/// into [EarningsScreen] for the daily/weekly/monthly/yearly breakdown
-/// and commission payment history.
-class _RevenueStrip extends StatelessWidget {
-  const _RevenueStrip({required this.amount, required this.currency});
+/// A driver's own "available for new deliveries" toggle - purely
+/// informational for dispatch/auto-assignment, not an access control (see
+/// `is_online` in `0025_driver_categories_and_status.sql`).
+class _AvailabilityRow extends ConsumerWidget {
+  const _AvailabilityRow({required this.profile});
 
-  final double amount;
-  final String currency;
+  final Profile profile;
 
   @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: () => context.push('/driver/earnings'),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        color: AppTheme.primary.withValues(alpha: 0.05),
-        child: Row(
-          children: [
-            // Not const: AppTheme.primary is theme-selectable, unlike the
-            // fixed status colors (success/warning/danger/neutral).
-            Icon(Icons.payments_outlined, size: 16, color: AppTheme.primary),
-            const SizedBox(width: 8),
-            Text(
-              "Today's revenue: $currency ${amount.toStringAsFixed(2)}",
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 12.5,
-                color: AppTheme.primary,
-              ),
-            ),
-            const Spacer(),
-            Icon(Icons.chevron_right, size: 18, color: Colors.grey.shade500),
-          ],
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Row(
+      children: [
+        Icon(
+          Icons.circle,
+          size: 9,
+          color: profile.isOnline ? AppTheme.success : Colors.grey.shade400,
         ),
-      ),
+        const SizedBox(width: 8),
+        // Expanded, not Spacer: at 360dp this label and the switch don't
+        // both fit, and an unconstrained Text in a Row overflows rather
+        // than wrapping or truncating.
+        Expanded(
+          child: Text(
+            profile.isOnline
+                ? 'Online - available for deliveries'
+                : 'Offline - not receiving new deliveries',
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 12.5,
+              color: profile.isOnline ? AppTheme.success : Colors.grey.shade600,
+            ),
+          ),
+        ),
+        Transform.scale(
+          scale: 0.8,
+          child: Switch(
+            value: profile.isOnline,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged: (value) => ref
+                .read(profileRepositoryProvider)
+                .setOnline(profile.id, value),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -408,6 +482,11 @@ class _FreeDayBalanceStrip extends StatelessWidget {
   }
 }
 
+/// How much of the finished pile the dashboard shows before handing off
+/// to My Rides. Enough to confirm "yes, that one went through" without
+/// the day's history crowding out the work still to do.
+const _recentlyCompletedCount = 3;
+
 class _DeliveryList extends ConsumerWidget {
   const _DeliveryList({required this.deliveries});
 
@@ -464,10 +543,16 @@ class _DeliveryList extends ConsumerWidget {
                   const SizedBox(height: 10),
                 ],
               ],
+              // Just the last few. A driver's whole history belongs on My
+              // Rides, which already splits it into Upcoming/Completed/
+              // Cancelled - repeating all of it here buried the active
+              // work under a scroll of jobs already done, which is the
+              // wrong way round for the screen they work from.
               if (finished.isNotEmpty) ...[
                 const SizedBox(height: 12),
-                _SectionHeader('Completed'),
-                for (final (index, delivery) in finished.indexed) ...[
+                _SectionHeader('Recently completed'),
+                for (final (index, delivery)
+                    in finished.take(_recentlyCompletedCount).indexed) ...[
                   StaggeredListItem(
                     index: active.length + index,
                     child: DeliveryCard(
@@ -478,6 +563,17 @@ class _DeliveryList extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                 ],
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () => context.push('/driver/rides'),
+                    icon: const Icon(Icons.receipt_long_outlined, size: 16),
+                    label: Text(
+                      finished.length > _recentlyCompletedCount
+                          ? 'See all ${finished.length} in My rides'
+                          : 'See all in My rides',
+                    ),
+                  ),
+                ),
               ],
             ],
           ),

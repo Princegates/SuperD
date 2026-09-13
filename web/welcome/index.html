@@ -3,692 +3,1584 @@
 <head>
 <meta charset="utf-8" />
 <script>
-  // Set the day/night background mode before first paint, so there's no
-  // flash of the wrong theme while the rest of the page loads. Defaults to
-  // the visitor's actual local time of day; a manual toggle overrides that
-  // and is remembered for next time.
+  // Pick the ground before first paint so there's no flash of the wrong
+  // one. Order matters: an explicit choice the visitor made, then what
+  // their OS asks for, then the actual time of day in Accra terms.
   (function () {
     try {
       var saved = localStorage.getItem('superd-theme-mode');
+      var stamped = document.documentElement.getAttribute('data-theme');
+      if (stamped === 'dark') { saved = 'night'; }
+      else if (stamped === 'light') { saved = 'day'; }
       if (saved !== 'day' && saved !== 'night') {
-        var hour = new Date().getHours();
-        saved = (hour >= 6 && hour < 18) ? 'day' : 'night';
+        if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          saved = 'night';
+        } else {
+          var hour = new Date().getHours();
+          saved = (hour >= 6 && hour < 18) ? 'day' : 'night';
+        }
       }
       document.documentElement.setAttribute('data-mode', saved);
     } catch (e) {
-      document.documentElement.setAttribute('data-mode', 'night');
+      document.documentElement.setAttribute('data-mode', 'day');
     }
   })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>SuperDelivery — Delivering More. Connecting Better.</title>
-<meta name="description" content="SuperDelivery is the delivery management platform for local businesses - connecting vendors, dispatchers, and riders from order to doorstep." />
+<title>SuperDelivery Ghana</title>
+<meta name="description" content="Same-day courier across Accra. Vendors share one link, a nearby rider collects, and the customer confirms with a PIN at the door. Live tracking, Mobile Money, road-distance pricing." />
+<meta property="og:title" content="SuperDelivery — Delivering More. Connecting Better." />
+<meta property="og:description" content="Same-day courier across Accra. One link from your shop to your customer's door, tracked the whole way." />
+<meta property="og:type" content="website" />
+<meta property="og:url" content="https://superdeliverygh.com/welcome/" />
+<meta name="theme-color" content="#0B1730" />
 <link rel="icon" href="../favicon.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
 <style>
-  :root {
-    --navy: #16213e;
-    --navy-deep: #0e1730;
-    --gold: #f5a623;
-    --gold-light: #ffc864;
+  /* ============================================================
+     SuperDelivery — the waybill.
 
-    /* Night is the base palette; the day block below overrides it. */
-    --bg: #0f1424;
-    --bg-soft: #141a2e;
-    --surface: #182036;
-    --ink: #f3f1ec;
-    --muted: rgba(243, 241, 236, 0.64);
-    --border: rgba(255, 255, 255, 0.12);
+     The whole page is built as the docket a courier actually carries:
+     perforated edges, a monospace reference in the corner of each
+     section, dashed tear-lines between them. Every other courier site
+     is a stock photo of a van; this is the paperwork of the job.
+     ============================================================ */
+
+  :root {
+    /* Brand, straight off the logo mark. */
+    --navy-900: #0b1730;
+    --navy-800: #101f3d;
+    --navy-700: #16294f;
+    --gold: #f5a623;
+    --gold-warm: #ffcb57;
+    --gold-deep: #c47f12;
+    --go: #2e9e6b;
+
+    /* Light ground. Warm, biased toward the gold - a neutral that was
+       chosen rather than inherited from a framework's grey ramp. */
+    --bg: #f8f4eb;
+    --bg-sunk: #efe8da;
+    --surface: #ffffff;
+    --ink: #131a2a;
+    --ink-soft: #55607a;
+    --rule: #e2d9c6;
+    --rule-strong: #cfc2a6;
+    --hero-ink: #f6f2e8;
+
+    --shadow-card: 0 1px 2px rgba(11, 23, 48, .06), 0 12px 28px -18px rgba(11, 23, 48, .35);
+    --shadow-lift: 0 2px 6px rgba(11, 23, 48, .08), 0 26px 50px -28px rgba(11, 23, 48, .45);
+
+    --step--1: clamp(.78rem, .76rem + .1vw, .84rem);
+    --step-0: clamp(1rem, .97rem + .16vw, 1.09rem);
+    --step-1: clamp(1.2rem, 1.13rem + .34vw, 1.42rem);
+    --step-2: clamp(1.5rem, 1.36rem + .68vw, 2rem);
+    --step-3: clamp(1.85rem, 1.6rem + 1.1vw, 2.55rem);
+    --step-4: clamp(2.3rem, 1.85rem + 2.1vw, 3.6rem);
+
+    --gutter: clamp(1.25rem, .6rem + 2.6vw, 3.5rem);
+    --shell: 1240px;
   }
 
-  :root[data-mode='day'] {
-    --bg: #fbf9f5;
-    --bg-soft: #f3efe7;
-    --surface: #ffffff;
-    --ink: #1b2130;
-    --muted: #6b7280;
-    --border: #e7e2d8;
+  :root[data-mode='night'] {
+    --bg: #0b1730;
+    --bg-sunk: #08111f;
+    --surface: #101f3d;
+    --ink: #f3f1ec;
+    --ink-soft: #9aa6c0;
+    --rule: rgba(255, 255, 255, .13);
+    --rule-strong: rgba(255, 255, 255, .24);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, .5), 0 14px 30px -20px rgba(0, 0, 0, .8);
+    --shadow-lift: 0 2px 8px rgba(0, 0, 0, .55), 0 30px 60px -30px rgba(0, 0, 0, .9);
   }
 
   * { box-sizing: border-box; }
 
   html { scroll-behavior: smooth; }
+  section[id], main[id] { scroll-margin-top: 96px; }
 
   body {
     margin: 0;
-    font-family: 'Inter', system-ui, sans-serif;
     background: var(--bg);
     color: var(--ink);
+    font-family: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: var(--step-0);
+    line-height: 1.62;
+    -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
-    transition: background-color 0.5s ease, color 0.5s ease;
+    transition: background-color .45s ease, color .45s ease;
   }
 
-  h1, h2, h3 { font-family: 'Poppins', 'Inter', sans-serif; margin: 0; }
+  h1, h2, h3, h4 {
+    font-family: 'Sora', 'Manrope', system-ui, sans-serif;
+    margin: 0;
+    line-height: 1.12;
+    letter-spacing: -.021em;
+    text-wrap: balance;
+  }
 
+  p { margin: 0; }
+  img { max-width: 100%; display: block; }
   a { color: inherit; text-decoration: none; }
 
-  a:focus-visible, button:focus-visible {
-    outline: 2px solid var(--gold);
+  a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 2.5px solid var(--gold);
     outline-offset: 3px;
+    border-radius: 4px;
   }
 
-  /* ---------- Nav ---------- */
-
-  .nav {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 22px clamp(20px, 4vw, 56px);
+  .shell {
+    width: 100%;
+    max-width: var(--shell);
+    margin-inline: auto;
+    padding-inline: var(--gutter);
   }
 
-  .nav-brand {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    font-weight: 700;
-    font-size: 16px;
+  /* Monospace reference marks - the docket numbers. Used as real
+     section labels, so the numbering means something (order of the
+     journey) rather than decorating. */
+  .ref {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
+    font-size: var(--step--1);
+    font-weight: 600;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+  }
+  :root[data-mode='night'] .ref { color: var(--gold); }
+
+  .lede {
+    color: var(--ink-soft);
+    font-size: var(--step-1);
+    max-width: 62ch;
   }
 
-  .nav-brand img { width: 28px; height: 28px; border-radius: 8px; }
-
-  .nav-actions { display: flex; align-items: center; gap: 16px; }
-
-  .mode-toggle {
-    position: relative;
-    width: 56px;
-    height: 30px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    background: transparent;
-    display: inline-flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 7px;
-    cursor: pointer;
-    transition: border-color 0.3s ease;
-  }
-
-  .mode-toggle svg {
-    position: relative;
-    z-index: 1;
-    width: 14px;
-    height: 14px;
-    color: var(--muted);
-    transition: color 0.3s ease;
-  }
-
-  :root[data-mode='day'] .mode-toggle .icon-sun { color: var(--navy); }
-  :root[data-mode='night'] .mode-toggle .icon-moon { color: var(--gold-light); }
-
-  .mode-toggle .thumb {
-    position: absolute;
-    top: 3px;
-    left: 3px;
-    width: 22px;
-    height: 22px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, var(--gold), var(--gold-light));
-    transition: transform 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-
-  :root[data-mode='day'] .mode-toggle .thumb { transform: translateX(0); }
-  :root[data-mode='night'] .mode-toggle .thumb { transform: translateX(26px); }
+  /* ---------- buttons ---------- */
 
   .btn {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 13px 24px;
-    border-radius: 10px;
-    font-weight: 700;
-    font-size: 14.5px;
-    border: none;
-    transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.3s ease;
+    justify-content: center;
+    gap: .55rem;
+    padding: .95rem 1.6rem;
+    border-radius: 999px;
+    border: 1.5px solid transparent;
+    font-family: 'Sora', sans-serif;
+    font-weight: 600;
+    font-size: .97rem;
+    cursor: pointer;
+    transition: transform .18s cubic-bezier(.2,.8,.3,1), box-shadow .18s ease,
+                background-color .18s ease, border-color .18s ease, color .18s ease;
   }
-
   .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(0); }
 
   .btn-primary {
     background: var(--gold);
-    color: var(--navy-deep);
-    box-shadow: 0 8px 20px rgba(245, 166, 35, 0.24);
+    color: #22160a;
+    box-shadow: 0 10px 24px -12px rgba(245, 166, 35, .85);
   }
+  .btn-primary:hover { background: var(--gold-warm); box-shadow: 0 16px 32px -14px rgba(245, 166, 35, .95); }
 
-  .btn-primary:hover { box-shadow: 0 12px 26px rgba(245, 166, 35, 0.34); }
-
-  .btn-secondary {
-    background: transparent;
+  .btn-ghost {
+    border-color: var(--rule-strong);
     color: var(--ink);
-    border: 1.5px solid var(--border);
+    background: transparent;
+  }
+  .btn-ghost:hover { border-color: var(--gold); color: var(--gold-deep); }
+  :root[data-mode='night'] .btn-ghost:hover { color: var(--gold); }
+
+  .btn-onhero {
+    border-color: rgba(246, 242, 232, .34);
+    color: var(--hero-ink);
+    background: rgba(246, 242, 232, .06);
+  }
+  .btn-onhero:hover { border-color: var(--gold); color: var(--gold-warm); background: rgba(245, 166, 35, .1); }
+
+  .btn-sm { padding: .6rem 1.15rem; font-size: .88rem; }
+
+  /* ---------- nav ---------- */
+
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    transition: background-color .3s ease, border-color .3s ease, box-shadow .3s ease;
+    border-bottom: 1px solid transparent;
+  }
+  .nav-in {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    height: 78px;
+  }
+  .brand { display: flex; align-items: center; gap: .7rem; margin-right: auto; }
+  .brand img { width: 40px; height: 40px; border-radius: 10px; }
+  .brand-name {
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    font-size: 1.14rem;
+    letter-spacing: -.02em;
+    line-height: 1.05;
+    color: var(--hero-ink);
+    transition: color .3s ease;
+  }
+  .brand-tag {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .62rem;
+    letter-spacing: .17em;
+    text-transform: uppercase;
+    color: var(--gold);
+    display: block;
   }
 
-  .btn-secondary:hover { border-color: var(--gold); }
-
-  .btn-sm { padding: 11px 18px; font-size: 13.5px; }
-
-  @media (max-width: 480px) {
-    .nav-actions .btn-sm { display: none; }
+  .nav-links { display: flex; gap: 1.9rem; align-items: center; }
+  .nav-links a {
+    font-size: .93rem;
+    font-weight: 500;
+    color: rgba(246, 242, 232, .78);
+    position: relative;
+    padding-block: .3rem;
+    transition: color .2s ease;
   }
+  .nav-links a::after {
+    content: '';
+    position: absolute;
+    left: 0; right: 100%; bottom: 0;
+    height: 1.5px;
+    background: var(--gold);
+    transition: right .25s cubic-bezier(.2,.8,.3,1);
+  }
+  .nav-links a:hover { color: var(--hero-ink); }
+  .nav-links a:hover::after { right: 0; }
 
-  /* ---------- Hero: headline + CTA on the left, an animated live
-     route on the right - the literal mechanic of the product (a shop's
-     order finding a rider and reaching a door), not a decorative graphic. ---------- */
+  .nav-actions { display: flex; align-items: center; gap: .7rem; }
+
+  .mode-toggle {
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    border: 1.5px solid rgba(246, 242, 232, .28);
+    background: transparent;
+    color: var(--hero-ink);
+    cursor: pointer;
+    transition: border-color .2s ease, color .2s ease, transform .3s ease;
+  }
+  .mode-toggle:hover { border-color: var(--gold); color: var(--gold); transform: rotate(-18deg); }
+  .mode-toggle .moon { display: none; }
+  :root[data-mode='night'] .mode-toggle .sun { display: none; }
+  :root[data-mode='night'] .mode-toggle .moon { display: block; }
+
+  /* Once the navy hero has scrolled past, the bar takes the page ground
+     and the type flips to page ink. */
+  .nav[data-stuck='true'] {
+    background: var(--bg);
+    background: color-mix(in srgb, var(--bg) 90%, transparent);
+    backdrop-filter: blur(16px) saturate(140%);
+    border-bottom-color: var(--rule);
+  }
+  .nav[data-stuck='true'] .brand-name { color: var(--ink); }
+  .nav[data-stuck='true'] .nav-links a { color: var(--ink-soft); }
+  .nav[data-stuck='true'] .nav-links a:hover { color: var(--ink); }
+  .nav[data-stuck='true'] .mode-toggle { border-color: var(--rule-strong); color: var(--ink-soft); }
+  .nav[data-stuck='true'] .mode-toggle:hover { border-color: var(--gold); color: var(--gold-deep); }
+  .nav[data-stuck='true'] .btn-onhero { border-color: var(--rule-strong); color: var(--ink); background: transparent; }
+
+  .nav-burger { display: none; }
+
+  /* ---------- hero ---------- */
 
   .hero {
-    max-width: 1180px;
-    margin: 0 auto;
-    padding: 28px clamp(20px, 4vw, 56px) 40px;
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 48px;
-    align-items: center;
-  }
-
-  .hero-copy h1 {
-    font-size: clamp(32px, 4vw, 46px);
-    font-weight: 800;
-    letter-spacing: -1.2px;
-    line-height: 1.12;
-    animation: fade-in-up 0.8s ease both;
-  }
-
-  .hero-copy .tagline {
-    margin: 18px 0 0;
-    font-size: 16px;
-    color: var(--muted);
-    max-width: 46ch;
-    line-height: 1.6;
-    animation: fade-in-up 0.8s ease 0.1s both;
-  }
-
-  @keyframes fade-in-up {
-    from { opacity: 0; transform: translateY(14px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-
-  .cta-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin-top: 28px;
-    animation: fade-in-up 0.8s ease 0.2s both;
-  }
-
-  .track-note {
-    margin-top: 22px;
-    font-size: 13px;
-    color: var(--muted);
-    animation: fade-in-up 0.8s ease 0.28s both;
-  }
-
-  /* ---------- The route map ---------- */
-
-  .route-panel {
     position: relative;
-    border-radius: 24px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    padding: 28px;
-    min-height: 340px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background-color 0.5s ease, border-color 0.5s ease;
+    background: var(--navy-900);
+    color: var(--hero-ink);
+    margin-top: -78px;
+    padding-top: 78px;
+    overflow: hidden;
+  }
+  /* A dispatcher's grid, not a stock photo. */
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(246, 242, 232, .055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(246, 242, 232, .055) 1px, transparent 1px);
+    background-size: 68px 68px;
+    -webkit-mask-image: radial-gradient(120% 90% at 30% 20%, #000 25%, transparent 78%);
+    mask-image: radial-gradient(120% 90% at 30% 20%, #000 25%, transparent 78%);
+    pointer-events: none;
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    right: -14%; top: -30%;
+    width: 780px; height: 780px;
+    background: radial-gradient(circle, rgba(245, 166, 35, .2), transparent 62%);
+    pointer-events: none;
   }
 
-  .route-panel svg { width: 100%; height: auto; max-width: 420px; }
+  .hero-in {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1.04fr .96fr;
+    gap: clamp(2rem, 4vw, 4.5rem);
+    align-items: center;
+    padding-block: clamp(3.5rem, 7vw, 6.5rem) clamp(4rem, 7vw, 7rem);
+  }
 
-  .route-grid-line { stroke: var(--border); stroke-width: 1; }
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: .6rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .74rem;
+    font-weight: 600;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--gold-warm);
+    border: 1px solid rgba(245, 166, 35, .35);
+    background: rgba(245, 166, 35, .08);
+    padding: .42rem .9rem;
+    border-radius: 999px;
+  }
+  .pulse {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--go);
+    box-shadow: 0 0 0 0 rgba(46, 158, 107, .75);
+    animation: pulse 2.4s infinite;
+  }
+  @keyframes pulse {
+    70% { box-shadow: 0 0 0 9px rgba(46, 158, 107, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(46, 158, 107, 0); }
+  }
 
-  .route-zone { fill: var(--gold); opacity: 0.07; }
-
-  .route-path {
+  .hero h1 {
+    font-size: var(--step-4);
+    font-weight: 800;
+    letter-spacing: -.035em;
+    margin-top: 1.5rem;
+  }
+  .hero h1 em {
+    font-style: normal;
+    color: var(--gold);
+    position: relative;
+    white-space: nowrap;
+  }
+  /* A hand-drawn underline, the way a dispatcher rings the destination. */
+  .hero h1 em svg {
+    position: absolute;
+    left: 0; right: 0; bottom: -.16em;
+    width: 100%; height: .3em;
+    overflow: visible;
+  }
+  .hero h1 em path {
     fill: none;
     stroke: var(--gold);
-    stroke-width: 2.5;
+    stroke-width: 5;
     stroke-linecap: round;
-    stroke-dasharray: 6 7;
+    opacity: .55;
+    stroke-dasharray: 420;
+    stroke-dashoffset: 420;
+    animation: draw 1.1s .35s cubic-bezier(.2,.8,.3,1) forwards;
+  }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  .hero-lede {
+    margin-top: 1.5rem;
+    font-size: var(--step-1);
+    color: rgba(246, 242, 232, .76);
+    max-width: 46ch;
   }
 
-  .route-pin-dot { fill: var(--navy); }
-  :root[data-mode='night'] .route-pin-dot { fill: var(--ink); }
+  .hero-cta { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 2.2rem; }
 
-  .route-pin-label {
-    font-family: 'Inter', sans-serif;
-    font-size: 11px;
+  .hero-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1.6rem 2.6rem;
+    margin-top: 3rem;
+    padding-top: 1.9rem;
+    border-top: 1px dashed rgba(246, 242, 232, .2);
+  }
+  .hero-meta div { min-width: 0; }
+  .hero-meta dt {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .68rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: rgba(246, 242, 232, .5);
+  }
+  .hero-meta dd {
+    margin: .35rem 0 0;
+    font-family: 'Sora', sans-serif;
     font-weight: 600;
-    fill: var(--ink);
+    font-size: 1.02rem;
+    color: var(--hero-ink);
   }
 
-  .rider {
-    offset-path: path('M 46 250 C 120 90, 240 320, 374 96');
-    offset-rotate: 0deg;
-    animation: ride 7s linear infinite;
-  }
-
-  @keyframes ride {
-    0%   { offset-distance: 0%; }
-    100% { offset-distance: 100%; }
-  }
-
-  .rider circle { fill: var(--gold); }
-  .rider circle.ring { fill: none; stroke: var(--gold); stroke-width: 1.5; opacity: 0.4; }
-
-  @media (max-width: 860px) {
-    .hero { grid-template-columns: 1fr; }
-    .route-panel { order: -1; min-height: 260px; }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .rider { animation: none; offset-distance: 42%; }
-  }
-
-  /* ---------- About ---------- */
-
-  .about {
-    padding: 60px 20px;
-    background: var(--bg-soft);
-    text-align: center;
-    transition: background-color 0.5s ease;
-  }
-
-  .about h2 {
-    font-size: clamp(21px, 3.6vw, 26px);
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    margin-bottom: 14px;
-  }
-
-  .about p {
-    color: var(--muted);
-    max-width: 640px;
-    margin: 0 auto;
-    font-size: 15px;
-    line-height: 1.6;
-  }
-
-  .about a.foot-link { color: var(--ink); font-weight: 600; }
-  .about a.foot-link:hover { color: var(--gold); }
-
-  /* ---------- How it works: a waybill strip - three stubs
-     separated by a perforated dashed edge, each stamped with its step. ---------- */
-
-  .waybill-wrap { padding: 88px 20px; background: var(--bg); transition: background-color 0.5s ease; }
-
-  .waybill-head { text-align: center; max-width: 520px; margin: 0 auto 48px; }
-
-  .waybill-head h2 {
-    font-size: clamp(26px, 4vw, 34px);
-    font-weight: 800;
-    letter-spacing: -1px;
-  }
-
-  .waybill-head p {
-    margin-top: 12px;
-    color: var(--muted);
-    font-size: 15px;
-  }
+  /* ---------- the hero waybill ---------- */
 
   .waybill {
-    max-width: 1000px;
-    margin: 0 auto;
-    display: flex;
     background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 18px;
-    overflow: hidden;
-    transition: background-color 0.5s ease, border-color 0.5s ease;
-  }
-
-  .stub {
-    flex: 1 1 0;
-    padding: 32px 26px;
+    color: var(--ink);
+    border-radius: 6px;
+    box-shadow: var(--shadow-lift);
     position: relative;
+    /* Slight rotation: paper set down on a desk, not a UI screenshot. */
+    transform: rotate(-1.1deg);
+  }
+  :root[data-mode='night'] .waybill { border: 1px solid var(--rule); }
+  :root[data-mode='night'] .waybill-head { background: var(--navy-700); }
+
+  .waybill-head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.15rem 1.4rem;
+    background: var(--navy-800);
+    color: var(--hero-ink);
+    border-radius: 6px 6px 0 0;
+  }
+  .waybill-head strong {
+    font-family: 'Sora', sans-serif;
+    font-size: .96rem;
+    letter-spacing: -.01em;
+    display: block;
+  }
+  .waybill-head span {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .7rem;
+    letter-spacing: .13em;
+    color: rgba(246, 242, 232, .58);
+  }
+  .chip-live {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .66rem;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: #8ff0c0;
+    background: rgba(46, 158, 107, .18);
+    border: 1px solid rgba(46, 158, 107, .4);
+    padding: .3rem .6rem;
+    border-radius: 999px;
+    white-space: nowrap;
   }
 
-  .stub:not(:last-child) {
-    border-right: 2px dashed var(--border);
-  }
+  .waybill-body { padding: 1.4rem; }
 
-  .stub .stamp {
-    width: 34px;
-    height: 34px;
+  /* The punched divider. Two holes in the page ground, sitting over the
+     card's edge - the tear-off line of a real docket. */
+  .perf {
+    position: relative;
+    border-top: 1.5px dashed var(--rule-strong);
+    margin: 1.25rem 0;
+  }
+  .perf::before, .perf::after {
+    content: '';
+    position: absolute;
+    top: -9px;
+    width: 18px; height: 18px;
     border-radius: 50%;
-    border: 2px solid var(--gold);
-    color: var(--gold);
+    background: var(--navy-900);
+  }
+  .perf::before { left: -1.4rem; }
+  .perf::after { right: -1.4rem; }
+
+  .leg { display: grid; grid-template-columns: 22px 1fr; gap: .9rem; }
+  .leg + .leg { margin-top: .25rem; }
+  .leg-rail { display: grid; justify-items: center; }
+  .leg-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 2.5px solid var(--gold-deep);
+    background: var(--surface);
+    margin-top: .38rem;
+  }
+  .leg-dot.done { background: var(--go); border-color: var(--go); }
+  .leg-line { width: 2px; flex: 1; min-height: 30px; background: repeating-linear-gradient(var(--rule-strong) 0 4px, transparent 4px 8px); }
+  .leg-rail { grid-template-rows: auto 1fr; }
+  .leg h4 { font-size: .95rem; font-weight: 600; }
+  .leg p { font-size: .84rem; color: var(--ink-soft); margin-top: .12rem; }
+  .leg time {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .72rem;
+    color: var(--ink-soft);
+    letter-spacing: .06em;
+  }
+
+  .waybill-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: .9rem;
+  }
+  .waybill-grid dt {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .62rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .waybill-grid dd {
+    margin: .25rem 0 0;
+    font-family: 'Sora', sans-serif;
+    font-weight: 600;
+    font-size: .97rem;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .pin-box {
     display: flex;
     align-items: center;
-    justify-content: center;
-    font-weight: 800;
-    font-size: 15px;
-    margin-bottom: 20px;
+    justify-content: space-between;
+    gap: 1rem;
+    background: var(--bg-sunk);
+    border: 1.5px dashed var(--rule-strong);
+    border-radius: 5px;
+    padding: .85rem 1rem;
+  }
+  .pin-box p {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .66rem;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+  }
+  .pin-digits { display: flex; gap: .4rem; }
+  .pin-digits span {
+    width: 30px; height: 38px;
+    display: grid; place-items: center;
+    background: var(--surface);
+    border: 1.5px solid var(--rule-strong);
+    border-radius: 4px;
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 600;
+    font-size: 1.1rem;
   }
 
-  .stub:nth-child(1) .stamp { transform: rotate(-6deg); }
-  .stub:nth-child(2) .stamp { transform: rotate(4deg); }
-  .stub:nth-child(3) .stamp { transform: rotate(-3deg); }
-
-  .stub h3 {
-    font-size: 16.5px;
-    font-weight: 700;
-    margin-bottom: 8px;
+  .barcode {
+    height: 40px;
+    margin-top: 1.25rem;
+    background-image: repeating-linear-gradient(90deg,
+      var(--ink) 0 2px, transparent 2px 5px,
+      var(--ink) 5px 6px, transparent 6px 10px,
+      var(--ink) 10px 13px, transparent 13px 15px,
+      var(--ink) 15px 16px, transparent 16px 21px);
+    opacity: .78;
   }
-
-  .stub p {
-    font-size: 13.5px;
-    line-height: 1.6;
-    color: var(--muted);
-    margin: 0;
-  }
-
-  @media (max-width: 720px) {
-    .waybill { flex-direction: column; }
-    .stub:not(:last-child) {
-      border-right: none;
-      border-bottom: 2px dashed var(--border);
-    }
-  }
-
-  /* ---------- Also included (quiet, no card chrome) ---------- */
-
-  .included {
-    padding: 80px 20px;
-    background: var(--bg-soft);
-    transition: background-color 0.5s ease;
-  }
-
-  .included h2 {
+  .barcode-no {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .68rem;
+    letter-spacing: .3em;
+    color: var(--ink-soft);
     text-align: center;
-    font-size: clamp(20px, 3.4vw, 26px);
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    margin-bottom: 52px;
+    margin-top: .45rem;
   }
 
-  .included-list {
-    max-width: 760px;
-    margin: 0 auto;
+  /* ---------- section frame ---------- */
+
+  section { position: relative; }
+
+  .band { padding-block: clamp(3.5rem, 6.5vw, 6.5rem); }
+  .band-sunk { background: var(--bg-sunk); }
+  .band-navy { background: var(--navy-900); color: var(--hero-ink); }
+  :root[data-mode='night'] .band-navy {
+    border-block: 1px solid var(--rule);
+    background: var(--navy-800);
+  }
+  .band-navy .lede { color: rgba(246, 242, 232, .74); }
+  .band-navy .ref { color: var(--gold); }
+
+  /* The tear-line between sections. */
+  .tear { height: 0; border-top: 1.5px dashed var(--rule-strong); }
+
+  .sec-head {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 36px 44px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+    gap: 1.5rem clamp(2rem, 5vw, 5rem);
+    align-items: end;
+    margin-bottom: clamp(2.2rem, 4vw, 3.4rem);
   }
+  .sec-head h2 { font-size: var(--step-3); font-weight: 700; margin-top: .85rem; }
+  .sec-head .lede { font-size: var(--step-0); }
 
-  .included-item { display: flex; gap: 16px; }
+  /* ---------- trust strip ---------- */
 
-  .included-item .dot {
-    flex: none;
-    width: 8px;
-    height: 8px;
-    margin-top: 8px;
-    border-radius: 50%;
-    background: var(--gold);
+  .strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-top: 1px solid var(--rule);
+    border-bottom: 1px solid var(--rule);
   }
-
-  .included-item h3 { font-size: 15.5px; font-weight: 700; margin-bottom: 5px; }
-
-  .included-item p {
-    font-size: 13.5px;
-    line-height: 1.55;
-    color: var(--muted);
-    margin: 0;
+  .strip > div {
+    padding: 1.9rem clamp(1rem, 2vw, 1.9rem);
+    display: grid;
+    gap: .45rem;
+    align-content: start;
   }
+  .strip > div + div { border-left: 1px dashed var(--rule-strong); }
+  .strip svg { color: var(--gold-deep); }
+  :root[data-mode='night'] .strip svg { color: var(--gold); }
+  .strip h3 { font-size: 1.02rem; font-weight: 600; margin-top: .3rem; }
+  .strip p { font-size: .89rem; color: var(--ink-soft); }
 
-  @media (max-width: 560px) {
-    .included-list { grid-template-columns: 1fr; }
+  /* ---------- steps: three tear-off stubs ---------- */
+
+  .stubs { display: grid; grid-template-columns: repeat(3, 1fr); gap: clamp(1rem, 2vw, 1.6rem); }
+
+  .stub {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    padding: 1.7rem 1.6rem 1.5rem;
+    display: grid;
+    gap: .8rem;
+    align-content: start;
+    position: relative;
+    box-shadow: var(--shadow-card);
+    transition: transform .28s cubic-bezier(.2,.8,.3,1), box-shadow .28s ease;
   }
+  .stub:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); }
+  /* The stub's left edge is perforated - it tears off the docket. */
+  .stub::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 12px; bottom: 12px;
+    width: 3px;
+    background: repeating-linear-gradient(var(--gold) 0 6px, transparent 6px 12px);
+    border-radius: 3px;
+  }
+  .stub-no {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 2.4rem;
+    font-weight: 600;
+    line-height: 1;
+    color: var(--rule-strong);
+    letter-spacing: -.03em;
+  }
+  .stub h3 { font-size: var(--step-1); font-weight: 600; }
+  .stub p { color: var(--ink-soft); font-size: .95rem; }
+  .stub .who {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .64rem;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--gold-deep);
+    border-top: 1px dashed var(--rule-strong);
+    padding-top: .7rem;
+    margin-top: .3rem;
+  }
+  :root[data-mode='night'] .stub .who { color: var(--gold); }
 
-  /* ---------- Closing CTA ---------- */
+  /* ---------- audience blocks ---------- */
 
-  .closing {
-    padding: 72px 20px 88px;
+  .split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(2rem, 5vw, 4.5rem);
+    align-items: center;
+  }
+  .split.flip .split-copy { order: 2; }
+
+  .split h2 { font-size: var(--step-3); font-weight: 700; margin-top: .8rem; }
+  .split .lede { margin-top: 1.1rem; }
+
+  .ticks { list-style: none; padding: 0; margin: 1.9rem 0 0; display: grid; gap: 1rem; }
+  .ticks li { display: grid; grid-template-columns: 22px 1fr; gap: .85rem; align-items: start; }
+  .ticks svg { color: var(--go); margin-top: .25rem; }
+  .ticks strong { font-family: 'Sora', sans-serif; font-weight: 600; font-size: 1rem; }
+  .ticks span { display: block; color: var(--ink-soft); font-size: .93rem; margin-top: .1rem; }
+  .band-navy .ticks span { color: rgba(246, 242, 232, .68); }
+
+  .split-cta { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 2.2rem; }
+
+  /* A framed panel that holds the illustrative card in each split. */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 6px;
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .9rem 1.2rem;
+    border-bottom: 1px dashed var(--rule-strong);
+    background: var(--bg-sunk);
+  }
+  .panel-head strong { font-family: 'Sora', sans-serif; font-size: .9rem; font-weight: 600; }
+  .panel-body { padding: 1.35rem 1.2rem; display: grid; gap: 1rem; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: .93rem;
+  }
+  .row + .row { border-top: 1px solid var(--rule); padding-top: .9rem; }
+  .row .k { color: var(--ink-soft); }
+  .row .v { font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .row .v.big { font-family: 'Sora', sans-serif; font-size: 1.16rem; }
+  .row .v.go { color: var(--go); }
+
+  .state {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .64rem;
+    font-weight: 600;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    padding: .28rem .58rem;
+    border-radius: 999px;
+    border: 1px solid;
+    white-space: nowrap;
+  }
+  .state.go { color: var(--go); border-color: rgba(46, 158, 107, .45); background: rgba(46, 158, 107, .1); }
+  .state.wait { color: var(--gold-deep); border-color: rgba(245, 166, 35, .5); background: rgba(245, 166, 35, .1); }
+  :root[data-mode='night'] .state.wait { color: var(--gold-warm); }
+
+  /* ---------- coverage ---------- */
+
+  .zones {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    overflow: hidden;
+  }
+  .zone {
     background: var(--bg);
-    text-align: center;
-    transition: background-color 0.5s ease;
+    padding: 1.1rem 1.2rem;
+    display: grid;
+    gap: .2rem;
+    transition: background-color .2s ease;
+  }
+  .zone:hover { background: var(--surface); }
+  .zone .zn { font-family: 'Sora', sans-serif; font-weight: 600; font-size: 1rem; }
+  .zone .zc {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .66rem;
+    letter-spacing: .14em;
+    color: var(--gold-deep);
+  }
+  :root[data-mode='night'] .zone .zc { color: var(--gold); }
+  .zone .zt { font-size: .82rem; color: var(--ink-soft); }
+
+  /* ---------- pricing worked example ---------- */
+
+  .calc {
+    display: grid;
+    grid-template-columns: 1.15fr .85fr;
+    gap: clamp(1.6rem, 3vw, 3rem);
+    align-items: start;
+  }
+  .tape {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 5px;
+    box-shadow: var(--shadow-card);
+    padding: 1.5rem 1.5rem 1.2rem;
+    font-family: 'IBM Plex Mono', monospace;
+    /* The torn bottom edge of a till roll. */
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 9px),
+      92% 100%, 84% calc(100% - 9px), 76% 100%, 68% calc(100% - 9px),
+      60% 100%, 52% calc(100% - 9px), 44% 100%, 36% calc(100% - 9px),
+      28% 100%, 20% calc(100% - 9px), 12% 100%, 4% calc(100% - 9px), 0 100%);
+  }
+  .tape-line {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    font-size: .88rem;
+    padding-block: .5rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .tape-line span:first-child { color: var(--ink-soft); }
+  .tape-rule { border-top: 1.5px dashed var(--rule-strong); margin: .6rem 0; }
+  .tape-total {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    align-items: baseline;
+    font-family: 'Sora', sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    padding-top: .3rem;
+  }
+  .tape-note { font-size: .74rem; color: var(--ink-soft); margin-top: .9rem; line-height: 1.6; }
+
+  .price-notes { display: grid; gap: 1.5rem; }
+  .price-note h3 { font-size: 1.06rem; font-weight: 600; }
+  .price-note p { color: var(--ink-soft); font-size: .93rem; margin-top: .3rem; }
+  .band-navy .price-note p { color: rgba(246, 242, 232, .7); }
+
+  /* ---------- faq ---------- */
+
+  .faq { display: grid; gap: 0; border-top: 1px solid var(--rule); }
+  details {
+    border-bottom: 1px solid var(--rule);
+  }
+  summary {
+    list-style: none;
+    cursor: pointer;
+    padding: 1.35rem 3rem 1.35rem 0;
+    font-family: 'Sora', sans-serif;
+    font-weight: 600;
+    font-size: 1.06rem;
+    position: relative;
+    transition: color .2s ease;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary:hover { color: var(--gold-deep); }
+  :root[data-mode='night'] summary:hover { color: var(--gold); }
+  summary::after {
+    content: '';
+    position: absolute;
+    right: .4rem; top: 50%;
+    width: 11px; height: 11px;
+    border-right: 2px solid var(--gold-deep);
+    border-bottom: 2px solid var(--gold-deep);
+    transform: translateY(-70%) rotate(45deg);
+    transition: transform .25s ease;
+  }
+  :root[data-mode='night'] summary::after { border-color: var(--gold); }
+  details[open] summary::after { transform: translateY(-30%) rotate(-135deg); }
+  details p { padding: 0 3rem 1.5rem 0; color: var(--ink-soft); max-width: 72ch; }
+
+  /* ---------- closing CTA ---------- */
+
+  .close-card {
+    background: var(--navy-800);
+    color: var(--hero-ink);
+    border-radius: 8px;
+    padding: clamp(2.2rem, 4vw, 3.6rem);
+    display: grid;
+    grid-template-columns: 1.2fr .8fr;
+    gap: clamp(1.8rem, 4vw, 3.5rem);
+    align-items: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .close-card::after {
+    content: '';
+    position: absolute;
+    right: -90px; bottom: -140px;
+    width: 420px; height: 420px;
+    background: radial-gradient(circle, rgba(245, 166, 35, .22), transparent 65%);
+    pointer-events: none;
+  }
+  .close-card .ref { color: var(--gold); }
+  .close-card h2 { font-size: var(--step-2); font-weight: 700; }
+  .close-card p { color: rgba(246, 242, 232, .76); margin-top: .9rem; max-width: 46ch; }
+  .close-actions { display: grid; gap: .75rem; position: relative; z-index: 1; }
+
+  .contact-line {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem 2rem;
+    margin-top: 1.6rem;
+    padding-top: 1.3rem;
+    border-top: 1px dashed rgba(246, 242, 232, .22);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .82rem;
+    color: rgba(246, 242, 232, .8);
+  }
+  .contact-line a:hover { color: var(--gold-warm); }
+
+  /* ---------- footer ---------- */
+
+  footer { padding-block: clamp(2.5rem, 4vw, 3.5rem) 2rem; border-top: 1px solid var(--rule); }
+  .foot-grid {
+    display: grid;
+    grid-template-columns: 1.6fr repeat(3, 1fr);
+    gap: 2rem clamp(1.5rem, 3vw, 3rem);
+  }
+  .foot-grid h4 {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: .68rem;
+    font-weight: 600;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--ink-soft);
+    margin-bottom: .9rem;
+  }
+  .foot-grid ul { list-style: none; padding: 0; margin: 0; display: grid; gap: .55rem; }
+  .foot-grid li a { font-size: .92rem; color: var(--ink-soft); }
+  .foot-grid li a:hover { color: var(--gold-deep); }
+  :root[data-mode='night'] .foot-grid li a:hover { color: var(--gold); }
+  .foot-about p { font-size: .9rem; color: var(--ink-soft); margin-top: .9rem; max-width: 34ch; }
+  .foot-bottom {
+    margin-top: 2.6rem;
+    padding-top: 1.4rem;
+    border-top: 1px dashed var(--rule-strong);
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: .7rem 1.5rem;
+    font-size: .84rem;
+    color: var(--ink-soft);
+  }
+  .foot-bottom a:hover { color: var(--gold-deep); }
+
+  /* ---------- responsive ---------- */
+
+  @media (max-width: 1040px) {
+    .hero-in { grid-template-columns: 1fr; }
+    .waybill { transform: none; max-width: 520px; }
+    .split, .calc, .close-card { grid-template-columns: 1fr; }
+    .split.flip .split-copy { order: 0; }
+    .stubs { grid-template-columns: 1fr; }
+    .strip { grid-template-columns: 1fr 1fr; }
+    .strip > div:nth-child(3) { border-left: none; }
+    .strip > div:nth-child(n+3) { border-top: 1px dashed var(--rule-strong); }
+    .sec-head { grid-template-columns: 1fr; }
+    .foot-grid { grid-template-columns: 1fr 1fr; }
   }
 
-  .closing h2 {
-    font-size: clamp(20px, 3.4vw, 26px);
-    font-weight: 800;
-    letter-spacing: -0.5px;
-    margin-bottom: 26px;
+  @media (max-width: 760px) {
+    .nav-links { display: none; }
+    .nav-in { height: 66px; }
+    .hero { margin-top: -66px; padding-top: 66px; }
+    .nav-actions .btn:not(.mode-toggle) { display: none; }
+    .nav-actions .btn.nav-burger {
+      display: inline-flex;
+      padding: .55rem 1rem;
+      font-size: .85rem;
+    }
+    .strip { grid-template-columns: 1fr; }
+    .strip > div + div { border-left: none; border-top: 1px dashed var(--rule-strong); }
+    .waybill-grid { grid-template-columns: 1fr 1fr; }
+    .pin-box { flex-direction: column; align-items: flex-start; }
   }
-
-  .closing .cta-row { justify-content: center; animation: none; }
-
-  /* ---------- Footer: a fixed deep-navy band regardless of day/night mode. ---------- */
-
-  footer {
-    padding: 40px 20px 44px;
-    background: var(--navy-deep);
-    text-align: center;
-    font-size: 12.5px;
-    line-height: 2;
-    color: rgba(243, 241, 236, 0.55);
-  }
-
-  footer a.foot-link { color: rgba(243, 241, 236, 0.92); font-weight: 600; transition: color 0.2s ease; }
-  footer a.foot-link:hover { color: var(--gold); }
 
   @media (prefers-reduced-motion: reduce) {
-    * {
-      animation-duration: 0.01ms !important;
+    html { scroll-behavior: auto; }
+    *, *::before, *::after {
+      animation-duration: .001ms !important;
       animation-iteration-count: 1 !important;
-      transition-duration: 0.01ms !important;
-      scroll-behavior: auto !important;
+      transition-duration: .001ms !important;
     }
+    .hero h1 em path { stroke-dashoffset: 0; }
   }
 </style>
 </head>
 <body>
 
-  <nav class="nav" aria-label="Primary">
-    <div class="nav-brand">
-      <img src="../assets/assets/icon/icon.png" alt="" onerror="this.style.display='none'" />
-      <span>SuperDelivery</span>
-    </div>
+<header class="nav" id="nav">
+  <div class="shell nav-in">
+    <a class="brand" href="#top">
+      <img src="../assets/assets/icon/icon.png" alt="" width="40" height="40" />
+      <span>
+        <span class="brand-name">SuperDelivery</span>
+        <span class="brand-tag">Accra &middot; Same day</span>
+      </span>
+    </a>
+    <nav class="nav-links" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#vendors">For vendors</a>
+      <a href="#riders">For riders</a>
+      <a href="#coverage">Coverage</a>
+      <a href="#pricing">Pricing</a>
+    </nav>
     <div class="nav-actions">
-      <button
-        class="mode-toggle"
-        id="modeToggle"
-        type="button"
-        aria-pressed="false"
-        aria-label="Switch between day and night background"
-      >
-        <svg class="icon-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="4"></circle>
-          <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path>
+      <button class="mode-toggle" id="modeToggle" type="button" aria-label="Switch between day and night">
+        <svg class="sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4.2" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M19.1 4.9l-1.4 1.4M6.3 17.7l-1.4 1.4" />
         </svg>
-        <span class="thumb" aria-hidden="true"></span>
-        <svg class="icon-moon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-          <path d="M20 14.5a8.5 8.5 0 1 1-9-9 7 7 0 0 0 9 9z"></path>
+        <svg class="moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" />
         </svg>
       </button>
-      <a class="btn btn-primary btn-sm" href="../vendor" target="_blank" rel="noopener">
-        Register your business
-      </a>
+      <a class="btn btn-onhero btn-sm" href="../login" target="_blank" rel="noopener">Log in</a>
+      <a class="btn btn-primary btn-sm" href="../vendor" target="_blank" rel="noopener">Start delivering</a>
+      <a class="btn btn-primary btn-sm nav-burger" href="../vendor" target="_blank" rel="noopener">Start</a>
     </div>
-  </nav>
+  </div>
+</header>
 
-  <section class="hero" id="top">
-    <div class="hero-copy">
-      <h1>You run the business. You sell. We deliver.</h1>
-      <p class="tagline">
-        Share one link. A nearby rider picks it up, the order is tracked
-        live, and the customer confirms with a PIN when the rider
-        delivers the package.
-      </p>
+<main id="top">
 
-      <div class="cta-row">
-        <a class="btn btn-primary" href="../vendor" target="_blank" rel="noopener">
-          Register your business
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="shell hero-in">
+      <div>
+        <span class="hero-eyebrow"><span class="pulse"></span> Riders on the road across Greater Accra</span>
+        <h1>
+          One link from your shop to your customer&rsquo;s
+          <em>front door<svg viewBox="0 0 300 12" preserveAspectRatio="none" aria-hidden="true"><path d="M3 8.5C62 3.4 145 2.2 297 5.6" /></svg></em>
+        </h1>
+        <p class="hero-lede">
+          Send your customer one link. They fill in where it&rsquo;s going, see the
+          price before they confirm, and follow the rider on a map. A four-digit
+          PIN at the door is the receipt &mdash; nobody has to phone anybody.
+        </p>
+        <div class="hero-cta">
+          <a class="btn btn-primary" href="../vendor" target="_blank" rel="noopener">
+            Get my delivery link
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 5l7 7-7 7" /></svg>
+          </a>
+          <a class="btn btn-onhero" href="#how">See how a delivery runs</a>
+        </div>
+        <dl class="hero-meta">
+          <div>
+            <dt>Coverage</dt>
+            <dd>Greater Accra &amp; Tema</dd>
+          </div>
+          <div>
+            <dt>Payment</dt>
+            <dd>MoMo, card or cash</dd>
+          </div>
+          <div>
+            <dt>Proof of delivery</dt>
+            <dd>4-digit customer PIN</dd>
+          </div>
+        </dl>
+      </div>
+
+      <!-- The docket the whole page is modelled on. -->
+      <article class="waybill" aria-label="Example delivery waybill">
+        <div class="waybill-head">
+          <span>
+            <strong>Adepa Fabrics &rarr; Ama O.</strong>
+            <span>WAYBILL SD-4471-AC</span>
+          </span>
+          <span class="chip-live"><span class="pulse"></span> On the way</span>
+        </div>
+        <div class="waybill-body">
+          <div class="leg">
+            <div class="leg-rail"><span class="leg-dot done"></span><span class="leg-line"></span></div>
+            <div>
+              <h4>Collected at Adepa Fabrics</h4>
+              <p>Oxford Street, Osu</p>
+              <time>14:02</time>
+            </div>
+          </div>
+          <div class="leg">
+            <div class="leg-rail"><span class="leg-dot done"></span><span class="leg-line"></span></div>
+            <div>
+              <h4>Kwame is riding</h4>
+              <p>Passing Danquah Circle &middot; 3.1 km to go</p>
+              <time>14:19</time>
+            </div>
+          </div>
+          <div class="leg">
+            <div class="leg-rail"><span class="leg-dot"></span></div>
+            <div>
+              <h4>Drop at 12 Boundary Road</h4>
+              <p>East Legon &middot; PIN confirms handover</p>
+              <time>14:34 expected</time>
+            </div>
+          </div>
+
+          <div class="perf"></div>
+
+          <dl class="waybill-grid">
+            <div><dt>Distance</dt><dd>6.4 km</dd></div>
+            <div><dt>Fare</dt><dd>GH&#8373;14.60</dd></div>
+            <div><dt>Paid</dt><dd>MoMo</dd></div>
+          </dl>
+
+          <div class="perf"></div>
+
+          <div class="pin-box">
+            <p>Customer PIN<br />at the door</p>
+            <div class="pin-digits" aria-label="Four digit PIN">
+              <span>4</span><span>7</span><span>1</span><span>9</span>
+            </div>
+          </div>
+
+          <div class="barcode" aria-hidden="true"></div>
+          <p class="barcode-no">SD 4471 AC</p>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ============ TRUST STRIP ============ -->
+  <div class="shell">
+    <div class="strip">
+      <div>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5.5L12 2 4 5.5V12c0 6 8 10 8 10z" /><path d="M9 12l2 2 4-4" /></svg>
+        <h3>Handover you can prove</h3>
+        <p>The parcel closes only when the customer reads out their PIN. No PIN, no completed delivery.</p>
+      </div>
+      <div>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="10.5" r="3" /><path d="M12 22s7-6.2 7-11.5A7 7 0 0 0 5 10.5C5 15.8 12 22 12 22z" /></svg>
+        <h3>Live on the map</h3>
+        <p>Vendor and customer watch the same moving pin, from pickup until the rider stops at the gate.</p>
+      </div>
+      <div>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5" width="19" height="14" rx="2.5" /><path d="M2.5 10h19M6.5 15h4" /></svg>
+        <h3>Mobile Money first</h3>
+        <p>MTN, Telecel and AirtelTigo through Paystack &mdash; or card, or cash at the door. Your call.</p>
+      </div>
+      <div>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18L9 7l4 7 3-4 4 8z" /><circle cx="9" cy="7" r="1.4" /></svg>
+        <h3>Priced by the road</h3>
+        <p>Fares follow the route a rider actually rides, not a straight line drawn across the city.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ HOW IT WORKS ============ -->
+  <section class="band" id="how">
+    <div class="shell">
+      <div class="sec-head">
+        <div>
+          <span class="ref">WB-01 &middot; The run</span>
+          <h2>Three tear-off stubs, three people, no back and forth</h2>
+        </div>
+        <p class="lede">
+          A delivery on SuperDelivery is one docket that passes through three
+          hands. Everyone sees the same one, so nobody has to call to ask
+          where it got to.
+        </p>
+      </div>
+
+      <div class="stubs">
+        <article class="stub">
+          <span class="stub-no">01</span>
+          <h3>You send the link</h3>
+          <p>
+            Every vendor gets a permanent link. Put it in your WhatsApp status,
+            your bio, your invoice &mdash; anywhere a customer can tap it. Nothing
+            to install, nothing to sign up for on their side.
+          </p>
+          <span class="who">Vendor &middot; 10 seconds</span>
+        </article>
+        <article class="stub">
+          <span class="stub-no">02</span>
+          <h3>Your customer fills it in</h3>
+          <p>
+            They tap <em>Use my location</em> or drop a pin, add their number, and
+            the price appears before they confirm &mdash; calculated from the real
+            road distance to your shop.
+          </p>
+          <span class="who">Customer &middot; under a minute</span>
+        </article>
+        <article class="stub">
+          <span class="stub-no">03</span>
+          <h3>A rider takes it and the PIN closes it</h3>
+          <p>
+            The job goes to a rider covering your area. Both of you track it live.
+            At the gate the customer reads out four digits and the delivery is
+            signed off &mdash; on the record, not on trust.
+          </p>
+          <span class="who">Rider &middot; same day</span>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <div class="shell"><div class="tear"></div></div>
+
+  <!-- ============ VENDORS ============ -->
+  <section class="band" id="vendors">
+    <div class="shell">
+      <div class="split">
+        <div class="split-copy">
+          <span class="ref">WB-02 &middot; For vendors</span>
+          <h2>You run the business. You sell. We deliver.</h2>
+          <p class="lede">
+            Boutiques, pharmacies, food kitchens, phone shops, spare-parts
+            dealers &mdash; if it fits on a bike, it moves. You stop being the
+            middle of the conversation between a customer and a rider.
+          </p>
+          <ul class="ticks">
+            <li>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              <div><strong>One link, reused forever</strong><span>No app for your customer to download and no order form for you to retype.</span></div>
+            </li>
+            <li>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              <div><strong>Your own orders board</strong><span>Every request that came through your link, with its live status and its fare, in one list.</span></div>
+            </li>
+            <li>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              <div><strong>Schedule ahead</strong><span>Set a pickup for later today or tomorrow morning and it lands in the queue at the right time.</span></div>
+            </li>
+            <li>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              <div><strong>SMS and email at every step</strong><span>Your customer is told when a rider is assigned and when they arrive. You are not the messenger.</span></div>
+            </li>
+          </ul>
+          <div class="split-cta">
+            <a class="btn btn-primary" href="../vendor" target="_blank" rel="noopener">Register your shop</a>
+            <a class="btn btn-ghost" href="../login" target="_blank" rel="noopener">I already have an account</a>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <strong>Today &middot; Adepa Fabrics</strong>
+            <span class="ref">ORDERS</span>
+          </div>
+          <div class="panel-body">
+            <div class="row">
+              <span class="k">SD-4471 &middot; Ama O. &middot; East Legon</span>
+              <span class="state go">On the way</span>
+            </div>
+            <div class="row">
+              <span class="k">SD-4470 &middot; Kojo M. &middot; Spintex</span>
+              <span class="state wait">Finding a rider</span>
+            </div>
+            <div class="row">
+              <span class="k">SD-4468 &middot; Efua B. &middot; Dansoman</span>
+              <span class="state go">Delivered 13:12</span>
+            </div>
+            <div class="row">
+              <span class="k">Collected today</span>
+              <span class="v big go">GH&#8373;186.40</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="shell"><div class="tear"></div></div>
+
+  <!-- ============ CUSTOMERS ============ -->
+  <section class="band band-sunk" id="customers">
+    <div class="shell">
+      <div class="split flip">
+        <div class="split-copy">
+          <span class="ref">WB-03 &middot; For customers</span>
+          <h2>Know the price before you say yes. Watch it the whole way.</h2>
+          <p class="lede">
+            Ghanaian addresses do not always have street names, so the form
+            does not insist on one. Tap <em>Use my location</em>, or move a pin
+            to your gate. That is the address.
+          </p>
+          <ul class="ticks">
+            <li>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              <div><strong>The fare, up front</strong><span>Worked out from the road distance and shown before you confirm. It does not move afterwards.</span></div>
+            </li>
+            <li>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              <div><strong>A tracking link, by SMS</strong><span>Open it on any phone and watch the rider approach. No account, no download.</span></div>
+            </li>
+            <li>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              <div><strong>Your PIN is the receipt</strong><span>Only you can close the delivery. The rider cannot mark it delivered without those four digits.</span></div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <strong>Where should it go?</strong>
+            <span class="ref">STEP 2 OF 3</span>
+          </div>
+          <div class="panel-body">
+            <div class="row">
+              <span class="k">Drop-off</span>
+              <span class="v">12 Boundary Rd, East Legon</span>
+            </div>
+            <div class="row">
+              <span class="k">Pinned from</span>
+              <span class="v">Use my location</span>
+            </div>
+            <div class="row">
+              <span class="k">Road distance</span>
+              <span class="v">6.4 km</span>
+            </div>
+            <div class="row">
+              <span class="k">You pay</span>
+              <span class="v big">GH&#8373;14.60</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ RIDERS ============ -->
+  <section class="band band-navy" id="riders">
+    <div class="shell">
+      <div class="split">
+        <div class="split-copy">
+          <span class="ref">WB-04 &middot; For riders</span>
+          <h2>Bring the bike. We bring the work.</h2>
+          <p class="lede">
+            If you already ride in Accra, you already know the hard part is not
+            the riding &mdash; it is finding the next job and getting paid for the
+            last one. That is the part we handle.
+          </p>
+          <ul class="ticks">
+            <li>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              <div><strong>Jobs come to your phone</strong><span>Deliveries near you land in the app. Go online when you are riding, offline when you are not.</span></div>
+            </li>
+            <li>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              <div><strong>You keep the fare</strong><span>A flat daily fee instead of a bite out of every single trip. Pay it by Mobile Money in the app.</span></div>
+            </li>
+            <li>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5" /></svg>
+              <div><strong>No arguments at the door</strong><span>The PIN settles it. Once the customer reads it out, the trip is closed and logged.</span></div>
+            </li>
+          </ul>
+          <div class="split-cta">
+            <a class="btn btn-primary" href="tel:+233553552693">Call +233 55 355 2693</a>
+            <a class="btn btn-onhero" href="mailto:info@anknovate.com?subject=Rider%20application">Email us to ride</a>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-head">
+            <strong>Kwame A. &middot; Today</strong>
+            <span class="state go">Online</span>
+          </div>
+          <div class="panel-body">
+            <div class="row"><span class="k">Trips completed</span><span class="v">7</span></div>
+            <div class="row"><span class="k">Distance ridden</span><span class="v">41.2 km</span></div>
+            <div class="row"><span class="k">Daily fee</span><span class="v go">Paid &middot; MoMo</span></div>
+            <div class="row"><span class="k">Earned today</span><span class="v big go">GH&#8373;132.80</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ COVERAGE ============ -->
+  <section class="band" id="coverage">
+    <div class="shell">
+      <div class="sec-head">
+        <div>
+          <span class="ref">WB-05 &middot; Coverage</span>
+          <h2>Where the riders already are</h2>
+        </div>
+        <p class="lede">
+          Greater Accra is split into dispatch zones, and a job goes to a rider
+          covering that zone. Not on the list? Tell us &mdash; zones open where
+          the vendors are.
+        </p>
+      </div>
+
+      <div class="zones">
+        <div class="zone"><span class="zc">GA-01</span><span class="zn">Osu &amp; Labone</span><span class="zt">Oxford St, Cantonments, Ridge</span></div>
+        <div class="zone"><span class="zc">GA-02</span><span class="zn">East Legon</span><span class="zt">Boundary Rd, Adjiringanor, Bawaleshie</span></div>
+        <div class="zone"><span class="zc">GA-03</span><span class="zn">Airport &amp; Dzorwulu</span><span class="zt">Airport Residential, Roman Ridge</span></div>
+        <div class="zone"><span class="zc">GA-04</span><span class="zn">Spintex</span><span class="zt">Baatsona, Manet, Coastal Estates</span></div>
+        <div class="zone"><span class="zc">GA-05</span><span class="zn">Tema</span><span class="zt">Community 1&ndash;25, Harbour area</span></div>
+        <div class="zone"><span class="zc">GA-06</span><span class="zn">Madina &amp; Adenta</span><span class="zt">Ritz, Redco, Frafraha</span></div>
+        <div class="zone"><span class="zc">GA-07</span><span class="zn">Achimota &amp; Lapaz</span><span class="zt">Tesano, Abeka, Kwashieman</span></div>
+        <div class="zone"><span class="zc">GA-08</span><span class="zn">Accra Central</span><span class="zt">Circle, Makola, Adabraka</span></div>
+        <div class="zone"><span class="zc">GA-09</span><span class="zn">Dansoman &amp; Kaneshie</span><span class="zt">Mataheko, Odorkor, Sakaman</span></div>
+        <div class="zone"><span class="zc">GA-10</span><span class="zn">Teshie &amp; Nungua</span><span class="zt">Lascala, Zenu, Sakumono</span></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="shell"><div class="tear"></div></div>
+
+  <!-- ============ PRICING ============ -->
+  <section class="band" id="pricing">
+    <div class="shell">
+      <div class="sec-head">
+        <div>
+          <span class="ref">WB-06 &middot; The fare</span>
+          <h2>Worked out the same way every time</h2>
+        </div>
+        <p class="lede">
+          A base fare, plus a rate for each kilometre the rider actually rides.
+          Both are set per zone by the vendor, and the customer sees the total
+          before confirming.
+        </p>
+      </div>
+
+      <div class="calc">
+        <div class="tape">
+          <p class="ref" style="margin-bottom:.9rem">EXAMPLE &middot; OSU &rarr; EAST LEGON</p>
+          <div class="tape-line"><span>Base fare</span><span>GH&#8373;5.00</span></div>
+          <div class="tape-line"><span>Road distance</span><span>6.4 km</span></div>
+          <div class="tape-line"><span>Rate per km</span><span>GH&#8373;1.50</span></div>
+          <div class="tape-line"><span>Distance charge</span><span>GH&#8373;9.60</span></div>
+          <div class="tape-rule"></div>
+          <div class="tape-total"><span>Total</span><span>GH&#8373;14.60</span></div>
+          <p class="tape-note">
+            Figures shown are the platform defaults. A vendor&rsquo;s zone can carry
+            its own base fare and per-kilometre rate, and whatever it is, the
+            customer sees the total before they confirm.
+          </p>
+        </div>
+
+        <div class="price-notes">
+          <div class="price-note">
+            <h3>Road distance, not a straight line</h3>
+            <p>Two points 3 km apart across the Ring Road are not a 3 km ride. We measure the route, so the fare matches the work.</p>
+          </div>
+          <div class="price-note">
+            <h3>No surge, no surprise</h3>
+            <p>The price quoted at the form is the price at the door. Rain does not change it and traffic does not change it.</p>
+          </div>
+          <div class="price-note">
+            <h3>Riders pay a day rate</h3>
+            <p>Instead of a cut of every fare, riders settle one daily fee by Mobile Money. Busy days stay theirs.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FAQ ============ -->
+  <section class="band band-sunk" id="faq">
+    <div class="shell">
+      <div class="sec-head">
+        <div>
+          <span class="ref">WB-07 &middot; Questions</span>
+          <h2>The things vendors ask first</h2>
+        </div>
+        <p class="lede">
+          Still stuck on something? Call or email &mdash; a person answers, and
+          usually the same day.
+        </p>
+      </div>
+
+      <div class="faq">
+        <details open>
+          <summary>Does my customer need to install anything?</summary>
+          <p>No. Your link opens in whatever browser is already on their phone. They fill in three short steps and get a tracking link by SMS. Nothing to download and no account to create.</p>
+        </details>
+        <details>
+          <summary>What if the customer cannot describe their address?</summary>
+          <p>They do not have to. The form offers <em>Use my location</em> when they are standing at the place, and a map they can drag a pin on when they are not. Either one gives the rider a precise coordinate, which is more useful than a street name anyway.</p>
+        </details>
+        <details>
+          <summary>How do I get paid, and how does the rider?</summary>
+          <p>Customers pay by Mobile Money or card through Paystack, or in cash at the door &mdash; you choose which you accept. Riders keep the fare and settle a flat daily fee in the app, so a busy day is a good day for them.</p>
+        </details>
+        <details>
+          <summary>What stops a rider from marking a parcel delivered when it is not?</summary>
+          <p>The four-digit PIN. It is generated for each delivery and shown only to the customer. The rider has to enter it, and the system checks it before the delivery closes. Repeated wrong guesses are rate-limited.</p>
+        </details>
+        <details>
+          <summary>Can I send a delivery for later?</summary>
+          <p>Yes. Set a pickup time when the order is created and it sits in the queue until then, rather than going out for a rider straight away.</p>
+        </details>
+        <details>
+          <summary>My area is not in the coverage list. Can you still deliver?</summary>
+          <p>Often, yes &mdash; the zone list is where riders are concentrated, not a fence. Call us with the route and we will tell you honestly whether we can cover it today.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CLOSING CTA ============ -->
+  <section class="band" id="contact">
+    <div class="shell">
+      <div class="close-card">
+        <div>
+          <span class="ref">WB-08 &middot; Start</span>
+          <h2>Get your delivery link today</h2>
+          <p>
+            Registering takes a couple of minutes and costs nothing. You will
+            have a link to share with your customers before you finish your
+            next order.
+          </p>
+          <div class="contact-line">
+            <a href="mailto:info@anknovate.com">info@anknovate.com</a>
+            <a href="tel:+233553552693">+233 55 355 2693</a>
+            <span>Accra, Ghana</span>
+          </div>
+        </div>
+        <div class="close-actions">
+          <a class="btn btn-primary" href="../vendor" target="_blank" rel="noopener">
+            Register your shop
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M12 5l7 7-7 7" /></svg>
+          </a>
+          <a class="btn btn-onhero" href="../login" target="_blank" rel="noopener">Log in to the dashboard</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="shell">
+    <div class="foot-grid">
+      <div class="foot-about">
+        <a class="brand" href="#top" style="margin-right:0">
+          <img src="../assets/assets/icon/icon.png" alt="" width="40" height="40" />
+          <span>
+            <span class="brand-name" style="color:var(--ink)">SuperDelivery</span>
+            <span class="brand-tag">Delivering more. Connecting better.</span>
+          </span>
         </a>
-        <a class="btn btn-secondary" href="../login" target="_blank" rel="noopener">
-          Driver and staff login
-        </a>
+        <p>Same-day courier for Greater Accra, built and operated by Anknovate IT Services.</p>
       </div>
-
-      <p class="track-note">
-        Already a customer? Use the tracking link your vendor sent you after
-        you placed your order.
-      </p>
-    </div>
-
-    <div class="route-panel" aria-hidden="true">
-      <svg viewBox="0 0 420 360" fill="none">
-        <line class="route-grid-line" x1="0" y1="60" x2="420" y2="60" />
-        <line class="route-grid-line" x1="0" y1="150" x2="420" y2="150" />
-        <line class="route-grid-line" x1="0" y1="240" x2="420" y2="240" />
-        <line class="route-grid-line" x1="0" y1="330" x2="420" y2="330" />
-        <line class="route-grid-line" x1="90" y1="0" x2="90" y2="360" />
-        <line class="route-grid-line" x1="210" y1="0" x2="210" y2="360" />
-        <line class="route-grid-line" x1="330" y1="0" x2="330" y2="360" />
-
-        <circle class="route-zone" cx="46" cy="250" r="90" />
-        <circle class="route-zone" cx="374" cy="96" r="90" />
-
-        <path class="route-path" d="M 46 250 C 120 90, 240 320, 374 96" />
-
-        <g class="rider">
-          <circle class="ring" r="12" />
-          <circle r="6" />
-        </g>
-
-        <g>
-          <circle class="route-pin-dot" cx="46" cy="250" r="7" />
-          <text class="route-pin-label" x="46" y="278" text-anchor="middle">Shop</text>
-        </g>
-        <g>
-          <circle class="route-pin-dot" cx="374" cy="96" r="7" />
-          <text class="route-pin-label" x="374" y="76" text-anchor="middle">Doorstep</text>
-        </g>
-      </svg>
-    </div>
-  </section>
-
-  <section class="about">
-    <h2>About SuperDelivery</h2>
-    <p>
-      SuperDelivery is operated by Anknovate IT Services, connecting
-      vendors, dispatchers, and independent riders in one system - from a
-      vendor's shareable ordering link, through live GPS tracking and
-      Mobile Money payments, to PIN-verified proof of delivery at the
-      door. Questions? Reach us at
-      <a class="foot-link" href="mailto:info@anknovate.com">info@anknovate.com</a>
-      or
-      <a class="foot-link" href="tel:+233553552693">+233 55 355 2693</a>.
-    </p>
-  </section>
-
-  <section class="waybill-wrap">
-    <div class="waybill-head">
-      <h2>One link, three people, no back and forth</h2>
-      <p>Everything after the link is handled - here's the whole trip.</p>
-    </div>
-
-    <div class="waybill">
-      <div class="stub">
-        <div class="stamp">1</div>
-        <h3>Vendor shares a link</h3>
-        <p>Register once and get a link that turns into a delivery form
-          for your own customers - no account needed on either side.</p>
+      <div>
+        <h4>Get started</h4>
+        <ul>
+          <li><a href="../vendor" target="_blank" rel="noopener">Vendor sign-up</a></li>
+          <li><a href="../login" target="_blank" rel="noopener">Log in</a></li>
+          <li><a href="#riders">Ride with us</a></li>
+        </ul>
       </div>
-      <div class="stub">
-        <div class="stamp">2</div>
-        <h3>Nearest rider gets it</h3>
-        <p>Priced automatically from real road distance and matched to
-          an available rider in the same zone the moment it's placed.</p>
+      <div>
+        <h4>The service</h4>
+        <ul>
+          <li><a href="#how">How it works</a></li>
+          <li><a href="#coverage">Coverage</a></li>
+          <li><a href="#pricing">Pricing</a></li>
+          <li><a href="#faq">Questions</a></li>
+        </ul>
       </div>
-      <div class="stub">
-        <div class="stamp">3</div>
-        <h3>Proof lands at the door</h3>
-        <p>Customer and vendor both watch it live, and a one-time PIN
-          confirms it actually arrived.</p>
+      <div>
+        <h4>Contact</h4>
+        <ul>
+          <li><a href="mailto:info@anknovate.com">info@anknovate.com</a></li>
+          <li><a href="tel:+233553552693">+233 55 355 2693</a></li>
+          <li><a href="https://anknovate.com" target="_blank" rel="noopener">Anknovate IT Services</a></li>
+        </ul>
       </div>
     </div>
-  </section>
-
-  <section class="included">
-    <h2>Everything else running the business needs</h2>
-    <div class="included-list">
-      <div class="included-item">
-        <div class="dot" aria-hidden="true"></div>
-        <div>
-          <h3>Schedule ahead</h3>
-          <p>Pick a future date and time instead of "now" - dispatchers
-            get a reminder as it gets close, so nothing slips through.</p>
-        </div>
-      </div>
-      <div class="included-item">
-        <div class="dot" aria-hidden="true"></div>
-        <div>
-          <h3>Payments &amp; commission</h3>
-          <p>What customers owe and what riders owe the business, side
-            by side, with a full CSV export for your own books.</p>
-        </div>
-      </div>
-      <div class="included-item">
-        <div class="dot" aria-hidden="true"></div>
-        <div>
-          <h3>Reporting built in</h3>
-          <p>An always-current overview plus date-range reports across
-            deliveries, payments, staff, vendors, and zones.</p>
-        </div>
-      </div>
-      <div class="included-item">
-        <div class="dot" aria-hidden="true"></div>
-        <div>
-          <h3>Yours to run</h3>
-          <p>No fees, no vendor lock-in - self-host it or point it at
-            your own Supabase project.</p>
-        </div>
-      </div>
+    <div class="foot-bottom">
+      <span>&copy; <span id="yr">2026</span> Anknovate IT Services. All rights reserved.</span>
+      <a href="../legal/terms" target="_blank" rel="noopener">Terms &amp; Privacy Policy</a>
     </div>
-  </section>
+  </div>
+</footer>
 
-  <section class="closing">
-    <h2>Ready to get your customers a link?</h2>
-    <div class="cta-row">
-      <a class="btn btn-primary" href="../vendor" target="_blank" rel="noopener">
-        Register your business
-      </a>
-      <a class="btn btn-secondary" href="../login" target="_blank" rel="noopener">
-        Driver and staff login
-      </a>
-    </div>
-  </section>
-
-  <footer>
-    SuperDelivery.
-    <a class="foot-link" href="../login" target="_blank" rel="noopener">Login</a>
-    &nbsp;&nbsp;
-    <a class="foot-link" href="../vendor" target="_blank" rel="noopener">Vendor sign-up</a>
-    &nbsp;&nbsp;
-    <a class="foot-link" href="../legal/terms" target="_blank" rel="noopener">Terms &amp; Privacy Policy</a>
-    <br />
-    Powered by
-    <a class="foot-link" href="https://anknovate.com" target="_blank" rel="noopener">Anknovate IT Services</a>
-    <br />
-    &copy; <span id="copyright-year"></span> Anknovate IT Services. All rights reserved.
-  </footer>
-
-  <script>
-    // Never a stale hardcoded year in the footer.
-    document.getElementById('copyright-year').textContent = new Date().getFullYear();
-
-    var modeToggle = document.getElementById('modeToggle');
-    modeToggle.setAttribute(
-      'aria-pressed',
-      document.documentElement.getAttribute('data-mode') === 'night' ? 'true' : 'false'
-    );
-    modeToggle.addEventListener('click', function () {
-      var root = document.documentElement;
-      var next = root.getAttribute('data-mode') === 'day' ? 'night' : 'day';
+<script>
+  // Day/night, remembered. Same storage key the rest of the site uses.
+  (function () {
+    var root = document.documentElement;
+    var btn = document.getElementById('modeToggle');
+    btn.addEventListener('click', function () {
+      var next = root.getAttribute('data-mode') === 'night' ? 'day' : 'night';
       root.setAttribute('data-mode', next);
-      modeToggle.setAttribute('aria-pressed', next === 'night' ? 'true' : 'false');
       try { localStorage.setItem('superd-theme-mode', next); } catch (e) {}
     });
-  </script>
+  })();
+
+  // The bar is transparent over the navy hero and takes the page ground
+  // once the hero has passed.
+  (function () {
+    var nav = document.getElementById('nav');
+    var mark = function () {
+      nav.setAttribute('data-stuck', window.scrollY > 60 ? 'true' : 'false');
+    };
+    mark();
+    window.addEventListener('scroll', mark, { passive: true });
+  })();
+
+  document.getElementById('yr').textContent = new Date().getFullYear();
+</script>
 </body>
 </html>

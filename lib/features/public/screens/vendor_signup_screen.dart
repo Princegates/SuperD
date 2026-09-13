@@ -305,7 +305,11 @@ class _SuccessCard extends StatelessWidget {
 
 const _networks = [
   (value: 'mtn-gh', label: 'MTN Mobile Money'),
-  (value: 'vodafone-gh', label: 'Vodafone Cash'),
+  // Telecel bought Vodafone Ghana; riders and vendors know the
+  // network by the new name. The value stays 'vodafone-gh' - that is
+  // Paystack's provider code, not a brand, and renaming it would
+  // stop Mobile Money charges going through.
+  (value: 'vodafone-gh', label: 'Telecel Cash'),
   (value: 'tigo-gh', label: 'AirtelTigo Money'),
 ];
 

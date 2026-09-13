@@ -1,7 +1,7 @@
 // Charges a driver's Mobile Money wallet for today's daily platform fee
 // via Paystack's Charge API (POST /charge with a mobile_money object) -
 // the driver gets an approval prompt on their phone (MTN MoMo PIN prompt,
-// or a Vodafone Cash/AirtelTigo Money approval flow), and Paystack calls
+// or a Telecel Cash/AirtelTigo Money approval flow), and Paystack calls
 // paystack-daily-fee-webhook once it resolves.
 //
 // IMPORTANT: this is written against Paystack's publicly documented
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     const provider = NETWORK_TO_PAYSTACK_PROVIDER[network];
     if (!provider) {
       return jsonResponse(
-        { error: "Choose a Mobile Money network (MTN, Vodafone, or AirtelTigo)" },
+        { error: "Choose a Mobile Money network (MTN, Telecel, or AirtelTigo)" },
         400,
       );
     }

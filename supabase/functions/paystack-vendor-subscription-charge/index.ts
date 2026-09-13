@@ -46,7 +46,7 @@ Deno.serve(async (req) => {
     const provider = NETWORK_TO_PAYSTACK_PROVIDER[network];
     if (!provider) {
       return jsonResponse(
-        { error: "Choose a Mobile Money network (MTN, Vodafone, or AirtelTigo)" },
+        { error: "Choose a Mobile Money network (MTN, Telecel, or AirtelTigo)" },
         400,
       );
     }

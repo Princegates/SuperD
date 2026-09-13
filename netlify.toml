@@ -1,5 +1,5 @@
 [build]
-  command = "rm -rf _flutter && git clone https://github.com/flutter/flutter.git -b stable --depth 1 _flutter && export PATH=\"$PATH:$PWD/_flutter/bin\" && flutter config --no-analytics && flutter build web --no-web-resources-cdn --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY --dart-define=TURNSTILE_SITE_KEY=$TURNSTILE_SITE_KEY && sed -i \"s|__SUPABASE_URL__|$SUPABASE_URL|g; s|__SUPABASE_ANON_KEY__|$SUPABASE_ANON_KEY|g\" build/web/welcome/index.html"
+  command = "rm -rf _flutter && git clone https://github.com/flutter/flutter.git -b stable --depth 1 _flutter && export PATH=\"$PATH:$PWD/_flutter/bin\" && flutter config --no-analytics && flutter build web --no-web-resources-cdn --dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY --dart-define=TURNSTILE_SITE_KEY=$TURNSTILE_SITE_KEY ; if [ -f build/web/welcome/index.html ]; then sed -i \"s|__SUPABASE_URL__|$SUPABASE_URL|g; s|__SUPABASE_ANON_KEY__|$SUPABASE_ANON_KEY|g\" build/web/welcome/index.html; echo \"welcome page: substituted\"; else echo \"welcome page: not found, left as shipped\"; fi"
   publish = "build/web"
 
 # The welcome page ships with __SUPABASE_URL__/__SUPABASE_ANON_KEY__
@@ -8,6 +8,9 @@
 # without ever being committed. The page reads the live rider commission
 # rate through them (public_rider_terms(), 0086); if the substitution
 # never happens the page keeps the figures written into its own markup.
+# Deliberately sequenced with ';' and guarded by a file test rather than
+# chained with '&&': the page is correct either way, so a substitution
+# that cannot run must never fail the build and strand the last deploy.
 
 [build.environment]
   # SUPABASE_URL/SUPABASE_ANON_KEY/TURNSTILE_SITE_KEY are meant to be

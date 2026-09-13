@@ -131,6 +131,7 @@ supabase/
     0081_special_deliveries.sql                   adds deliveries.is_special, a label for a delivery a dispatcher/super admin creates by hand with its own manually-entered fee instead of the usual zone pricing - see "Special deliveries" below
     0082_erase_customer.sql                       adds erase_customer(), a super-admin-only RPC that scrubs a customer's name/phone/email from every one of their deliveries and removes their customers directory row, blocked while any delivery for that phone is still in progress - see "Erasing a customer" below
     0083_harden_profile_self_service_and_pin.sql  stops a driver self-approving their own pending account (profiles.is_active), granting themselves the daily-fee/commission bypass (payment_access_override_until) or re-rostering their own zone, and caps guesses at a delivery's completion PIN at 10 per hour per driver
+    0084_notification_webhook_triggers.sql        puts the notify-* webhook wiring in the repo as pg_net triggers instead of a dashboard checklist, so a fresh deployment doesn't come up silently un-wired; the x-webhook-secret they send is read from the webhook_config row (never committed), and the driver-approved trigger only calls out on a real pending -> active flip rather than on every driver location ping
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -2073,28 +2074,40 @@ build one from.
 Every `notify-*` function runs with `verify_jwt = false`, which means the
 Supabase platform lets *anyone* call them. They only accept a request that
 carries an `x-webhook-secret` header matching the `WEBHOOK_SECRET` secret,
-and return `503` until you set one:
+and return `503` until you set one.
+
+The same value has to exist in two places - the functions check it, the
+database sends it - so generate it once and use it for both:
 
 ```bash
-supabase secrets set WEBHOOK_SECRET="$(openssl rand -hex 32)"
+SECRET="$(openssl rand -hex 32)"; echo "$SECRET"
+supabase secrets set WEBHOOK_SECRET="$SECRET"
 ```
 
-Print the value (`supabase secrets list` won't show it - keep the output of
-the `openssl` command, or generate it separately and paste it) and add it
-as a header on **every** Database Webhook you create below:
-
-- **Header name**: `x-webhook-secret`
-- **Value**: the secret you just set
-
-On the `pg_net` fallback route, put it in the same `headers` jsonb the
-`Content-Type` goes in:
+Then store it for the triggers to read (`0084_notification_webhook_triggers.sql`
+creates this table; the value is never committed):
 
 ```sql
-headers := jsonb_build_object(
-  'Content-Type', 'application/json',
-  'x-webhook-secret', 'the-secret-you-generated'
-)
+insert into public.webhook_config (secret) values ('<the same value>')
+on conflict (id) do update set secret = excluded.secret;
 ```
+
+That's it - the triggers read through `webhook_secret()`, so rotating the
+secret later is the same two commands again with no trigger changes.
+
+Verify both sides agree without printing the secret anywhere:
+
+```sql
+select left(md5(public.webhook_secret()), 8) as fingerprint;
+```
+
+```bash
+printf '%s' "$SECRET" | md5sum | cut -c1-8
+```
+
+Matching fingerprints mean the database will authenticate against the
+functions. A mismatch shows up as a `401 Not authorized` in
+`net._http_response`.
 
 This applies to `notify-delivery-events`, `notify-driver-application`,
 `notify-driver-approved`, `notify-vendor-registered` and
@@ -2106,6 +2119,22 @@ Without this, anyone who learns a delivery id can replay it at the
 function and make your app text and email that delivery's real customer
 and vendor repeatedly, on your Twilio bill. Re-deploy the functions after
 setting the secret.
+
+> **Don't also create Database Webhooks in the dashboard for these.**
+> `0084` already installs a `pg_net` trigger per function. A dashboard
+> webhook on the same table alongside it means every notification is sent
+> twice - two texts, two emails, two pushes. To check what's wired:
+>
+> ```sql
+> select c.relname as tbl, t.tgname
+> from pg_trigger t join pg_class c on c.oid = t.tgrelid
+> where not t.tgisinternal
+>   and (pg_get_triggerdef(t.oid) like '%functions/v1/%'
+>        or pg_get_functiondef(t.tgfoid) like '%functions/v1/%')
+> order by c.relname;
+> ```
+>
+> One row per table is right; two on the same table is a duplicate.
 
 ### 3. Create the Database Webhook
 

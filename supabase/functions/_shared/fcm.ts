@@ -108,21 +108,27 @@ async function getAccessToken(sa: ServiceAccount): Promise<string | null> {
   }
 }
 
-/// Sends one push message to a single FCM registration token. Returns
-/// false (never throws) on any failure - a missing/invalid/expired token,
-/// missing credentials, or an FCM-side error - so a caller looping over
-/// several of a profile's devices can just keep going.
+/// What became of one push. "unregistered" is worth telling apart from a
+/// plain failure: it means FCM has permanently disowned this token (the
+/// app was uninstalled, its data cleared, or it was reinstalled and issued
+/// a new one), so the row should go rather than be retried forever.
+export type PushOutcome = "sent" | "failed" | "unregistered";
+
+/// Sends one push message to a single FCM registration token. Never throws
+/// - a missing/invalid/expired token, missing credentials, or an FCM-side
+/// error all come back as an outcome - so a caller looping over several of
+/// a profile's devices can just keep going.
 export async function sendPush(
   token: string,
   title: string,
   body: string,
   data?: Record<string, string>,
-): Promise<boolean> {
+): Promise<PushOutcome> {
   const sa = readServiceAccount();
-  if (!sa) return false;
+  if (!sa) return "failed";
 
   const accessToken = await getAccessToken(sa);
-  if (!accessToken) return false;
+  if (!accessToken) return "failed";
 
   try {
     const res = await fetch(
@@ -138,13 +144,21 @@ export async function sendPush(
         }),
       },
     );
-    if (!res.ok) {
-      console.error(`fcm: send failed ${res.status} - ${await res.text()}`);
-    }
-    return res.ok;
+    if (res.ok) return "sent";
+
+    const detail = await res.text();
+    console.error(`fcm: send failed ${res.status} - ${detail}`);
+    // Only 404/UNREGISTERED is treated as a dead token. A 400 is
+    // deliberately left as a plain failure: INVALID_ARGUMENT covers a
+    // malformed *payload* as well as a malformed token, and throwing away
+    // a live device's registration over a bad title would be worse than
+    // keeping a useless row.
+    return res.status === 404 || detail.includes("UNREGISTERED")
+      ? "unregistered"
+      : "failed";
   } catch (e) {
     console.error("fcm: fetch to fcm.googleapis.com failed -", e);
-    return false;
+    return "failed";
   }
 }
 
@@ -169,8 +183,29 @@ export async function sendPushToProfile(
   if (error || !rows) return 0;
 
   let sent = 0;
+  const dead: string[] = [];
   for (const row of rows) {
-    if (await sendPush(row.token as string, title, body, data)) sent++;
+    const token = row.token as string;
+    const outcome = await sendPush(token, title, body, data);
+    if (outcome === "sent") sent++;
+    else if (outcome === "unregistered") dead.push(token);
   }
+
+  // Every reinstall leaves its old token behind, and FCM rejects those
+  // forever. Left alone they accumulate per driver and every future push
+  // pays for a round trip per corpse before reaching the real device.
+  if (dead.length > 0) {
+    const { error: deleteError } = await admin
+      .from("device_push_tokens")
+      .delete()
+      .in("token", dead);
+    if (deleteError) {
+      console.error(
+        "fcm: could not remove dead tokens -",
+        deleteError.message ?? deleteError,
+      );
+    }
+  }
+
   return sent;
 }

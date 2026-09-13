@@ -201,32 +201,11 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
     final notices = ref.watch(myVisibleNoticesProvider).valueOrNull ?? [];
     final todaysRevenue = ref.watch(todaysRevenueProvider);
 
-    // A driver's own delivery list re-emits the full set on every change -
-    // only ids that weren't there last time are a genuinely new assignment.
-    // previous == null (still loading) is skipped so the very first load
-    // doesn't fire one notification per existing delivery.
-    ref.listen<AsyncValue<List<Delivery>>>(myDeliveriesProvider, (
-      previous,
-      next,
-    ) {
-      final priorIds = previous?.valueOrNull?.map((d) => d.id).toSet();
-      final current = next.valueOrNull;
-      if (priorIds == null || current == null) return;
-      for (final delivery in current) {
-        if (!priorIds.contains(delivery.id)) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('New delivery assigned: #${delivery.trackingCode}'),
-              action: SnackBarAction(
-                label: 'View',
-                onPressed: () =>
-                    context.push('/driver/delivery/${delivery.id}'),
-              ),
-            ),
-          );
-        }
-      }
-    });
+    // A new assignment used to also raise a snackbar here. It's the push
+    // notification's job now (see notify-delivery-events) - that reaches a
+    // driver whose phone is in their pocket, which this never could, and
+    // the list below updates live either way. Dispatch keeps its own
+    // in-app alerts in AdminShellScreen, since no push is sent to them.
 
     return Scaffold(
       appBar: AppBar(

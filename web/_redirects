@@ -7,4 +7,15 @@
 # one ever got a chance to run.
 https://superd.anknovate.com/*  https://superdeliverygh.com/:splat  301!
 
+# The site root is the marketing page, not the Flutter app. Both existed
+# and had drifted apart: '/' rendered WelcomeScreen (a Dart widget) while
+# '/welcome/' served the hand-built page, so the same site showed two
+# different front doors. This makes the static page the single one.
+#
+# Forced (200!) on purpose: an unforced rule loses to a real file, and
+# build/web/index.html - the Flutter host page - is exactly that. Only the
+# bare '/' is affected; every app route still falls through to the SPA
+# rule below and boots the app as before.
+/                            /welcome/index.html   200!
+
 /*    /index.html   200

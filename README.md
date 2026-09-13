@@ -136,6 +136,7 @@ supabase/
     0086_public_rider_terms.sql                  adds public_rider_terms(), a security-definer function anon may execute, returning only the commission percentage, flat fee and currency (0 for both while driver_commission_enabled is off) - so the marketing site prints the live rate a super admin set instead of a hard-coded one. app_settings itself stays authenticated-read (0017); this deliberately is not a view or a widened policy, so support_phone/admin_alert_email stay unreadable
     0087_driver_rating_summary.sql              adds driver_rating_summary(), the average and count per driver over delivery_ratings (0034) - customers had been rating drivers since then into a table no admin screen ever read. Invoker rights on purpose, so the table's own "dispatcher reads all" policy governs it and a driver calling it gets nothing
     0088_tracking_pickup_coords.sql             adds pickup_lat/pickup_lng to get_delivery_by_tracking_code, so the customer's live ETA can also time the leg before collection ("collecting in about N min") instead of showing nothing while the rider rides to the shop. Otherwise identical to 0064's definition; the pickup point is the shop the customer ordered from, already public on that vendor's page
+    0089_failed_delivery_outcome.sql            adds deliveries.failure_reason/failure_note/failed_at/failed_by plus fail_delivery() and failed_delivery_summary(), so a delivery someone rode for and could not hand over stops being recorded identically to one dispatch called off - see "Failed deliveries" below
   functions/
     _shared/fcm.ts                 Firebase Cloud Messaging HTTP v1 push helper, shared by any function that wants to push to a profile's devices
     _shared/turnstile.ts           Cloudflare Turnstile server-side token verification, shared by the two functions below - a no-op (always passes) if TURNSTILE_SECRET_KEY isn't set
@@ -1869,6 +1870,84 @@ state. Both `_confirmReject()`/`_confirmCancel()` in
 that re-applies RLS from scratch instead of relying on the realtime stream
 noticing on its own. No other status change on this screen needs this -
 only reject/cancel ever touch `assigned_driver_id`.
+
+## Failed deliveries
+
+Rejecting, cancelling and failing are three different things, and the app
+records them as three different things.
+
+- **Reject** - the rider has not started. The delivery goes back to the
+  unassigned pool for someone else.
+- **Cancel trip** - the rider started and cannot finish. The delivery is
+  handed to another rider in the same zone, or back to the pool.
+- **Couldn't deliver** - the rider went, and the parcel did not change
+  hands. This ends the delivery. It is the outcome added in
+  `0089_failed_delivery_outcome.sql`.
+
+Before 0089 that third case had nowhere to go and was recorded as
+`cancelled`, the same status a dispatcher sets when calling off an order
+nobody ever rode for. At the end of a month you could not tell how many
+customers were not home, how many addresses were wrong, or which rider
+that kept happening to.
+
+**How it is stored.** `deliveries.status` stays `cancelled`;
+`deliveries.failure_reason` is what separates the two. That is deliberate,
+and the reasoning is written out at the top of the migration: roughly
+sixty places in this schema ask "is this delivery still live?" as `status
+not in ('delivered', 'cancelled')`, and a new enum value would be absent
+from every one of them, silently keeping a failed delivery on its rider's
+capacity forever. A failed delivery is mechanically identical to a
+cancelled one - terminal, no fare, no commission (`log_commission_due()`
+fires on `delivered` only), rider freed - so only the meaning needed a new
+home.
+
+**The reasons** (`delivery_failure_reason`) are `customer_absent`,
+`customer_refused`, `wrong_address`, `unreachable`, `package_issue` and
+`other`. Six, deliberately: a rider taps one of these one-handed at a
+gate, and six options they can tell apart produce data worth counting
+where twenty would not. `other` requires a note.
+
+**Who can record one.** `fail_delivery(p_delivery_id, p_reason, p_note)`
+takes either the assigned rider (on a job that is still theirs and still
+live) or a dispatcher/super admin writing down what a rider phoned in. It
+refuses a delivery that is already delivered, one already failed, and
+another rider's job. `enforce_delivery_update()` blocks the same things at
+the row level, so the columns cannot be set by editing the delivery
+directly either - including by a dispatcher relabelling a completed job,
+which would take a fare and a commission off the books after the fact.
+
+**Where it shows.**
+
+- The rider's delivery screen, under the overflow menu as "Couldn't
+  deliver", from `assigned` onwards.
+- The dispatcher's delivery detail screen as "Record as failed", beside
+  (not instead of) "Cancel delivery", with a card showing the reason, the
+  rider's note and when it was recorded.
+- Every status badge reads **Failed** rather than **Cancelled** - see
+  `StatusBadge`'s `failureReason`, and `Delivery.outcomeLabel` for the
+  longer "Failed - Wrong address" form.
+- **Console > Overview** splits what used to be one "Cancelled" figure
+  into **Called off** and **Failed**, replaces the old cancellation rate
+  with a failure rate, and adds a **Why deliveries fail** breakdown. The
+  two numbers say different things: orders called off are customers
+  changing their minds, failed deliveries are rides that cost money and
+  earned none.
+- **Drivers** shows failures per rider on their work line. Orders
+  dispatch called off that merely had a rider's name on them are counted
+  separately and deliberately not shown there - that is not theirs to
+  answer for.
+- The delivery CSVs on both the Deliveries screen and Console > Reports
+  carry the outcome and the rider's note.
+
+`failed_delivery_summary(p_since)` gives the same breakdown in SQL,
+including the fare that walked away with each reason. It runs with invoker
+rights on purpose, so `deliveries`' own RLS still decides who may read
+what.
+
+The customer's tracking page still says "Cancelled". The failure reasons
+and the rider's notes are internal - a customer who was not home already
+knows, and "refused it" is not something to put on a page you also send to
+the vendor.
 
 ## Driver categories and availability
 

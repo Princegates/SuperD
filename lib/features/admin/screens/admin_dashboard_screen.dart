@@ -248,11 +248,12 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           'Assigned at',
                           'Picked up at',
                           'Delivered at',
+                          'Failure note',
                         ],
                         rows: shown,
                         toRow: (d) => [
                           d.trackingCode,
-                          d.status.label,
+                          d.outcomeLabel,
                           d.customerName,
                           d.customerPhone ?? '',
                           d.pickupAddress,
@@ -262,6 +263,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                           d.assignedAt?.toIso8601String() ?? '',
                           d.pickedUpAt?.toIso8601String() ?? '',
                           d.deliveredAt?.toIso8601String() ?? '',
+                          d.failureNote ?? '',
                         ],
                       ),
                     );

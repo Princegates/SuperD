@@ -85,7 +85,10 @@ class _DeliveryCardState extends State<DeliveryCard>
                     const _SpecialBadge(),
                   ],
                   const Spacer(),
-                  StatusBadge(status: delivery.status),
+                  StatusBadge(
+                    status: delivery.status,
+                    failureReason: delivery.failureReason,
+                  ),
                 ],
               ),
               const SizedBox(height: 10),

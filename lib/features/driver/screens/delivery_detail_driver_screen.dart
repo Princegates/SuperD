@@ -16,6 +16,7 @@ import '../../../models/delivery_status.dart';
 import '../../../models/payment.dart';
 import '../../../models/payment_status.dart';
 import '../../../shared/providers/delivery_detail_providers.dart';
+import '../../../shared/widgets/fail_delivery_sheet.dart';
 import '../providers/driver_providers.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/navigation_launcher.dart';
@@ -39,6 +40,7 @@ class _DeliveryDetailDriverScreenState
     extends ConsumerState<DeliveryDetailDriverScreen> {
   bool _isUndoing = false;
   bool _isCancelling = false;
+  bool _isFailing = false;
 
   Future<void> _undo(Delivery delivery, DeliveryStatus previous) async {
     setState(() => _isUndoing = true);
@@ -127,6 +129,51 @@ class _DeliveryDetailDriverScreenState
     }
   }
 
+  /// The rider went, and the parcel did not change hands. Distinct from
+  /// "Cancel trip" above, which is for a job they cannot finish and hands
+  /// it to somebody else - here the attempt was made and it is over.
+  Future<void> _recordFailure(Delivery delivery) async {
+    final outcome = await showFailDeliverySheet(
+      context,
+      customerName: delivery.customerName,
+    );
+    if (outcome == null || !mounted) return;
+
+    setState(() => _isFailing = true);
+    try {
+      await ref
+          .read(deliveryRepositoryProvider)
+          .failDelivery(
+            deliveryId: delivery.id,
+            reason: outcome.reason,
+            note: outcome.note,
+          );
+      // The delivery stays assigned to this rider - a failure is theirs to
+      // account for - so unlike reject/cancel their RLS access to the row
+      // survives and realtime will carry the change. The invalidate is
+      // just so the list behind them redraws immediately.
+      ref.invalidate(myDeliveriesProvider);
+      if (mounted) context.pop();
+    } on PostgrestException catch (e) {
+      // Same reasoning as the PIN flow below: fail_delivery()'s own
+      // messages already say exactly what happened ("already recorded as
+      // failed", "no longer assigned to you"), and a rider standing at a
+      // gate needs that, not a generic apology.
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not record this. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isFailing = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final deliveryState = ref.watch(deliveryByIdProvider(widget.deliveryId));
@@ -141,14 +188,24 @@ class _DeliveryDetailDriverScreenState
     final canCancel =
         delivery?.status == DeliveryStatus.pickedUp ||
         delivery?.status == DeliveryStatus.inTransit;
+    // A rider can only fail a job that is still theirs and still live.
+    // Once it has ended - delivered, or already failed - there is nothing
+    // to record, and the server refuses it anyway.
+    final canFail =
+        delivery != null &&
+        !delivery.didFail &&
+        (delivery.status == DeliveryStatus.assigned ||
+            delivery.status == DeliveryStatus.pickedUp ||
+            delivery.status == DeliveryStatus.inTransit);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Delivery'),
         actions: [
-          if (delivery != null && (previousStatus != null || canCancel))
+          if (delivery != null &&
+              (previousStatus != null || canCancel || canFail))
             PopupMenuButton<VoidCallback>(
-              enabled: !_isUndoing && !_isCancelling,
+              enabled: !_isUndoing && !_isCancelling && !_isFailing,
               onSelected: (action) => action(),
               itemBuilder: (context) => [
                 if (previousStatus != null)
@@ -160,6 +217,11 @@ class _DeliveryDetailDriverScreenState
                   PopupMenuItem(
                     value: () => _confirmCancel(delivery),
                     child: const Text('Cancel trip'),
+                  ),
+                if (canFail)
+                  PopupMenuItem(
+                    value: () => _recordFailure(delivery),
+                    child: const Text("Couldn't deliver"),
                   ),
               ],
             ),
@@ -431,7 +493,10 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                     ),
                   ),
                   const SizedBox(width: 8),
-                  StatusBadge(status: delivery.status),
+                  StatusBadge(
+                    status: delivery.status,
+                    failureReason: delivery.failureReason,
+                  ),
                 ],
               ),
               const SizedBox(height: 16),

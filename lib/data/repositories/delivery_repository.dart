@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/delivery.dart';
+import '../../models/delivery_failure_reason.dart';
 import '../../models/delivery_incident.dart';
 import '../../models/delivery_status.dart';
 import '../../shared/utils/resilient_stream.dart';
@@ -207,6 +208,29 @@ class DeliveryRepository {
     await _client.rpc(
       'driver_cancel_delivery',
       params: {'p_delivery_id': deliveryId, 'p_reason': reason},
+    );
+  }
+
+  /// Records that a rider went out and the parcel did not change hands.
+  ///
+  /// Not the same thing as [cancelTrip], which hands a job the rider
+  /// cannot finish to somebody else - here the attempt was made and it
+  /// did not work, so the delivery ends. See `fail_delivery()` in
+  /// `0089_failed_delivery_outcome.sql`; the server decides who is
+  /// allowed to record this, and refuses on a job already delivered or
+  /// already failed.
+  Future<void> failDelivery({
+    required String deliveryId,
+    required DeliveryFailureReason reason,
+    String? note,
+  }) async {
+    await _client.rpc(
+      'fail_delivery',
+      params: {
+        'p_delivery_id': deliveryId,
+        'p_reason': reason.wireValue,
+        'p_note': note,
+      },
     );
   }
 

@@ -8,6 +8,7 @@ import '../../../models/commission_status.dart';
 import '../../../models/daily_fee_status.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_incident.dart';
+import '../../../models/delivery_failure_reason.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/driver_daily_fee.dart';
 import '../../../models/payment.dart';
@@ -50,9 +51,27 @@ class ConsoleOverviewTab extends ConsumerWidget {
           statusCounts.update(d.status, (c) => c + 1, ifAbsent: () => 1);
         }
         final delivered = statusCounts[DeliveryStatus.delivered] ?? 0;
-        final cancelled = statusCounts[DeliveryStatus.cancelled] ?? 0;
+        // Both of these are stored as `cancelled` (see
+        // 0089_failed_delivery_outcome.sql); the failure reason is what
+        // separates them. Reporting them as one number would hide the
+        // only one of the two that says anything about how the operation
+        // is running - orders called off are the customer changing their
+        // mind, failed deliveries are rides that cost money and earned
+        // none.
+        final failed = deliveries.where((d) => d.didFail).length;
+        final calledOff =
+            (statusCounts[DeliveryStatus.cancelled] ?? 0) - failed;
         final completionRate = total == 0 ? 0.0 : delivered / total;
-        final cancellationRate = total == 0 ? 0.0 : cancelled / total;
+        final failureRate = total == 0 ? 0.0 : failed / total;
+
+        final failureCounts = <DeliveryFailureReason, int>{};
+        for (final d in deliveries) {
+          if (d.failureReason case final reason?) {
+            failureCounts.update(reason, (c) => c + 1, ifAbsent: () => 1);
+          }
+        }
+        final rankedFailures = failureCounts.entries.toList()
+          ..sort((a, b) => b.value.compareTo(a.value));
 
         final driverNames = {for (final d in drivers) d.id: d.displayName};
         final vendorNames = {for (final v in vendors) v.id: v.vendorName};
@@ -117,8 +136,8 @@ class ConsoleOverviewTab extends ConsumerWidget {
                   icon: Icons.check_circle_outline,
                 ),
                 _StatTile(
-                  label: 'Cancelled',
-                  value: '$cancelled',
+                  label: 'Called off',
+                  value: '$calledOff',
                   color: AppTheme.danger,
                   icon: Icons.cancel_outlined,
                 ),
@@ -129,10 +148,10 @@ class ConsoleOverviewTab extends ConsumerWidget {
                   icon: Icons.trending_up,
                 ),
                 _StatTile(
-                  label: 'Cancellation rate',
-                  value: '${(cancellationRate * 100).toStringAsFixed(0)}%',
-                  color: AppTheme.neutral,
-                  icon: Icons.trending_down,
+                  label: 'Failed deliveries',
+                  value: '${(failureRate * 100).toStringAsFixed(0)}%',
+                  color: AppTheme.warning,
+                  icon: Icons.report_problem_outlined,
                 ),
               ],
             ),
@@ -144,15 +163,48 @@ class ConsoleOverviewTab extends ConsumerWidget {
               child: Column(
                 children: [
                   for (final status in DeliveryStatus.values)
-                    _RankedRow(
-                      label: status.label,
-                      count: statusCounts[status] ?? 0,
-                      max: total,
-                      color: status.color,
-                    ),
+                    if (status == DeliveryStatus.cancelled) ...[
+                      _RankedRow(
+                        label: 'Called off',
+                        count: calledOff,
+                        max: total,
+                        color: status.color,
+                      ),
+                      _RankedRow(
+                        label: 'Failed',
+                        count: failed,
+                        max: total,
+                        color: AppTheme.warning,
+                      ),
+                    ] else
+                      _RankedRow(
+                        label: status.label,
+                        count: statusCounts[status] ?? 0,
+                        max: total,
+                        color: status.color,
+                      ),
                 ],
               ),
             ),
+            if (rankedFailures.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              _SectionCard(
+                title: 'Why deliveries fail',
+                icon: Icons.report_problem_outlined,
+                iconColor: AppTheme.warning,
+                child: Column(
+                  children: [
+                    for (final entry in rankedFailures)
+                      _RankedRow(
+                        label: entry.key.label,
+                        count: entry.value,
+                        max: failed,
+                        color: AppTheme.warning,
+                      ),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             _SectionCard(
               title: 'Top drivers (completed deliveries)',
@@ -550,9 +602,7 @@ class _FinanceSummaryCard extends StatelessWidget {
                                 .where((p) => p.status == PaymentStatus.paid)
                                 .fold(0.0, (s, p) => s + p.amount),
                             outstanding: entry.value
-                                .where(
-                                  (p) => p.status == PaymentStatus.pending,
-                                )
+                                .where((p) => p.status == PaymentStatus.pending)
                                 .fold(0.0, (s, p) => s + p.amount),
                           ),
                         ),

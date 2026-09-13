@@ -1,3 +1,7 @@
+import 'package:flutter/material.dart';
+
+import '../core/theme/app_theme.dart';
+import 'delivery_failure_reason.dart';
 import 'delivery_status.dart';
 
 class Delivery {
@@ -55,6 +59,17 @@ class Delivery {
   /// possible (the default before scheduling existed).
   final DateTime? scheduledAt;
 
+  /// Set when a rider went out and the parcel did not change hands. The
+  /// [status] is `cancelled` in that case, same as a delivery a
+  /// dispatcher called off - this is the only thing that tells the two
+  /// apart. See `0089_failed_delivery_outcome.sql`.
+  final DeliveryFailureReason? failureReason;
+
+  /// Whatever the rider typed alongside the reason, in their own words.
+  final String? failureNote;
+
+  final DateTime? failedAt;
+
   const Delivery({
     required this.id,
     required this.trackingCode,
@@ -84,6 +99,9 @@ class Delivery {
     this.pickedUpAt,
     this.deliveredAt,
     this.scheduledAt,
+    this.failureReason,
+    this.failureNote,
+    this.failedAt,
   });
 
   factory Delivery.fromMap(Map<String, dynamic> map) {
@@ -119,8 +137,33 @@ class Delivery {
       pickedUpAt: parseDate(map['picked_up_at']),
       deliveredAt: parseDate(map['delivered_at']),
       scheduledAt: parseDate(map['scheduled_at']),
+      failureReason: DeliveryFailureReason.fromString(
+        map['failure_reason'] as String?,
+      ),
+      failureNote: map['failure_note'] as String?,
+      failedAt: parseDate(map['failed_at']),
     );
   }
+
+  /// True when this ended because a delivery was attempted and did not
+  /// work, rather than because it was called off.
+  bool get didFail => failureReason != null;
+
+  /// What to call this delivery's state on screen.
+  ///
+  /// Everywhere else in the app reads `status.label`, which for both of
+  /// these says "Cancelled". That is the thing this whole outcome exists
+  /// to stop: a dispatcher scanning the day's work needs to see at a
+  /// glance that one order was called off and the other was ridden for
+  /// and refused at the door.
+  String get outcomeLabel =>
+      failureReason == null ? status.label : 'Failed - ${failureReason!.label}';
+
+  Color get outcomeColor =>
+      failureReason == null ? status.color : AppTheme.warning;
+
+  IconData get outcomeIcon =>
+      failureReason == null ? status.icon : Icons.report_problem_outlined;
 
   bool get hasPickupCoordinates => pickupLat != null && pickupLng != null;
   bool get hasDropoffCoordinates => dropoffLat != null && dropoffLng != null;
@@ -166,6 +209,9 @@ class Delivery {
       pickedUpAt: pickedUpAt,
       deliveredAt: deliveredAt,
       scheduledAt: scheduledAt,
+      failureReason: failureReason,
+      failureNote: failureNote,
+      failedAt: failedAt,
     );
   }
 

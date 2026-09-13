@@ -282,7 +282,10 @@ class _HistoryRow extends StatelessWidget {
               ],
             ),
           ),
-          StatusBadge(status: delivery.status),
+          StatusBadge(
+            status: delivery.status,
+            failureReason: delivery.failureReason,
+          ),
         ],
       ),
     );

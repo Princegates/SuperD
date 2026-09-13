@@ -9,6 +9,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/delivery_repository.dart'
     show TrackingLinkException;
+import '../../../models/delivery_failure_reason.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
@@ -19,6 +20,7 @@ import '../../../shared/providers/delivery_detail_providers.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/navigation_launcher.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/fail_delivery_sheet.dart';
 import '../../../shared/widgets/map_preview.dart';
 import '../../../shared/widgets/payment_card.dart';
 import '../../../shared/widgets/status_badge.dart';
@@ -162,7 +164,10 @@ class _DetailBody extends ConsumerWidget {
               const SizedBox(width: 8),
             ],
             const SizedBox(width: 8),
-            StatusBadge(status: delivery.status),
+            StatusBadge(
+              status: delivery.status,
+              failureReason: delivery.failureReason,
+            ),
           ],
         ),
         const SizedBox(height: 16),
@@ -305,7 +310,50 @@ class _DetailBody extends ConsumerWidget {
             ),
           ),
         ],
+        if (delivery.failureReason case final reason?) ...[
+          const SizedBox(height: 16),
+          _FailureCard(
+            reason: reason,
+            note: delivery.failureNote,
+            at: delivery.failedAt,
+          ),
+        ],
         const SizedBox(height: 24),
+        // Two different endings, deliberately two different buttons. A
+        // cancellation is the business calling an order off; a failure is
+        // a rider having gone out and come back with the parcel. Recorded
+        // as the same thing, a month of them tells you nothing.
+        if (delivery.status != DeliveryStatus.delivered && !delivery.didFail)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: OutlinedButton.icon(
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.warning,
+              ),
+              onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final outcome = await showFailDeliverySheet(
+                  context,
+                  customerName: delivery.customerName,
+                  asRider: false,
+                );
+                if (outcome == null) return;
+                try {
+                  await ref
+                      .read(deliveryRepositoryProvider)
+                      .failDelivery(
+                        deliveryId: delivery.id,
+                        reason: outcome.reason,
+                        note: outcome.note,
+                      );
+                } on PostgrestException catch (e) {
+                  messenger.showSnackBar(SnackBar(content: Text(e.message)));
+                }
+              },
+              icon: const Icon(Icons.report_problem_outlined),
+              label: const Text('Record as failed'),
+            ),
+          ),
         if (delivery.status != DeliveryStatus.cancelled &&
             delivery.status != DeliveryStatus.delivered)
           OutlinedButton.icon(
@@ -471,9 +519,10 @@ class _AssignedDriverCardState extends ConsumerState<_AssignedDriverCard> {
   Widget build(BuildContext context) {
     final delivery = widget.delivery;
     final canAssign =
-        ref.watch(currentProfileProvider).valueOrNull?.hasPermission(
-              StaffPermission.assignDrivers,
-            ) ??
+        ref
+            .watch(currentProfileProvider)
+            .valueOrNull
+            ?.hasPermission(StaffPermission.assignDrivers) ??
         false;
     return Card(
       child: Padding(
@@ -621,6 +670,63 @@ class _InfoRow extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// What the rider came back with, on a delivery that did not complete.
+///
+/// Shown rather than left to the status history because this is the part
+/// a dispatcher acts on - ringing the customer back, re-sending the
+/// parcel, or noticing that the same address has failed three times.
+class _FailureCard extends StatelessWidget {
+  const _FailureCard({required this.reason, this.note, this.at});
+
+  final DeliveryFailureReason reason;
+  final String? note;
+  final DateTime? at;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.warning.withValues(alpha: 0.08),
+        border: Border.all(color: AppTheme.warning.withValues(alpha: 0.35)),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(reason.icon, size: 20, color: AppTheme.warning),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Failed - ${reason.label}',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.warning,
+                  ),
+                ),
+                if (note?.isNotEmpty == true) ...[
+                  const SizedBox(height: 4),
+                  Text(note!, style: const TextStyle(fontSize: 13)),
+                ],
+                if (at != null) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    DateFormat('d MMM y, h:mm a').format(at!),
+                    style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -382,7 +382,8 @@ class _WorkStats {
   _WorkStats();
 
   int completed = 0;
-  int handedBack = 0;
+  int calledOff = 0;
+  int failed = 0;
   final List<Duration> _legs = [];
 
   void _add(Duration leg) => _legs.add(leg);
@@ -406,8 +407,11 @@ class _WorkStats {
             : '~$minutes min a trip',
       );
     }
-    if (handedBack > 0) {
-      parts.add('$handedBack handed back');
+    // Only failures are named here. An order the office called off while
+    // it happened to be assigned to this rider says nothing about them,
+    // and putting it in their line reads as if it did.
+    if (failed > 0) {
+      parts.add('$failed failed');
     }
     return parts.join(' \u00b7 ');
   }
@@ -430,7 +434,15 @@ class _WorkStats {
           }
         }
       } else if (delivery.status == DeliveryStatus.cancelled) {
-        stats.handedBack++;
+        // Two very different things arrive here (see
+        // 0089_failed_delivery_outcome.sql): a delivery this rider went
+        // out for and could not complete, and one dispatch called off
+        // that merely had their name on it. Only the first is theirs.
+        if (delivery.didFail) {
+          stats.failed++;
+        } else {
+          stats.calledOff++;
+        }
       }
     }
     return out;

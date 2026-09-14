@@ -2681,11 +2681,21 @@ below.
 
 Needs the same `PAYSTACK_SECRET_KEY` secret as the driver daily fee (see
 **Setting up real Paystack collection** under **Driver daily fee** above
-for how to get one) - no separate signup. Deploy the new charge function,
-and redeploy the webhook function since its code changed:
+for how to get one) - no separate signup. Same OTP case as the driver
+daily fee too: most Ghana Mobile Money charges resolve with a prompt on
+the vendor's own phone, but some accounts/numbers come back asking for a
+one-time code instead - `paystack-vendor-subscription-charge` hands the
+signup page a `reference` for that case, and the vendor enters the code
+right there, which submits it via
+`paystack-vendor-subscription-submit-otp` (rate-limited per vendor code
+and per IP - see `submit_vendor_subscription_otp_precheck()` in
+`0090_vendor_subscription_otp_precheck.sql` - since this is a public,
+no-login endpoint). Deploy the new charge and OTP-submit functions, and
+redeploy the webhook function since its code changed:
 
 ```bash
 supabase functions deploy paystack-vendor-subscription-charge
+supabase functions deploy paystack-vendor-subscription-submit-otp
 supabase functions deploy paystack-daily-fee-webhook
 ```
 

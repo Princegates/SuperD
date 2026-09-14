@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../models/driver_daily_fee.dart';
 import '../../models/driver_daily_fee_tier.dart';
 import '../../shared/utils/resilient_stream.dart';
+import 'paystack_charge_result.dart';
 
 /// Thrown when a daily-fee action fails, with a message safe to show
 /// directly to the driver or dispatcher.
@@ -13,19 +14,6 @@ class DailyFeeException implements Exception {
   @override
   String toString() => message;
 }
-
-/// The outcome of starting or continuing a Paystack Mobile Money charge -
-/// see [DriverDailyFeeRepository.chargeViaPaystack]/[submitPaystackOtp].
-/// [status] is one of Paystack's own charge statuses ('pending' covers
-/// both `pay_offline` and `success`, since either way the row settles via
-/// the webhook - see [watchTodayRecords]); [reference] is only set when
-/// [status] is `'send_otp'`, identifying which attempt a submitted code
-/// belongs to.
-typedef PaystackChargeResult = ({
-  String status,
-  String message,
-  String? reference,
-});
 
 class DriverDailyFeeRepository {
   DriverDailyFeeRepository(this._client);

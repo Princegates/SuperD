@@ -7,6 +7,7 @@ import 'package:superd/features/admin/providers/admin_providers.dart';
 import 'package:superd/features/admin/screens/admin_dashboard_screen.dart';
 import 'package:superd/features/admin/screens/drivers_screen.dart';
 import 'package:superd/features/admin/screens/home_screen.dart';
+import 'package:superd/features/admin/screens/staff_form_screen.dart';
 import 'package:superd/features/console/screens/console_commission_tab.dart';
 import 'package:superd/features/console/screens/console_finance_tab.dart';
 import 'package:superd/features/console/screens/console_overview_tab.dart';
@@ -57,6 +58,18 @@ final _driver = Profile(
   role: UserRole.driver,
   isActive: true,
   phone: '+233240000001',
+);
+
+/// The edit form's other state: a rider with a photo already stored, so
+/// the field renders the "replace it" copy rather than the empty prompt.
+final _riderWithPhoto = Profile(
+  id: 'driver-2',
+  email: 'adwoa@example.com',
+  fullName: 'Adwoa Serwaa-Nyantakyi',
+  role: UserRole.driver,
+  isActive: true,
+  phone: '+233240000003',
+  avatarPath: 'driver-2/photo.jpg',
 );
 
 Delivery _delivery() {
@@ -190,5 +203,22 @@ void main() {
   // admin the other screens use, since that is who sees it.
   testWidgets('Rider profile', (t) async {
     await _sweep(t, 'Rider profile', () => const RiderProfileScreen());
+  });
+
+  // Both states of the staff form, because the photo row reads differently
+  // in each: "add" has an empty circle and the longest prompt, "edit" has
+  // a photo on file and the replacement warning. Both put a fixed-width
+  // circle beside text in a Row, which is exactly the shape that overflowed
+  // on the rider profile at 320dp.
+  testWidgets('Add rider', (t) async {
+    await _sweep(t, 'Add rider', () => const StaffFormScreen());
+  });
+
+  testWidgets('Edit rider', (t) async {
+    await _sweep(
+      t,
+      'Edit rider',
+      () => StaffFormScreen(existing: _riderWithPhoto),
+    );
   });
 }

@@ -326,7 +326,7 @@ class ProfileRepository {
 
   /// Creates a driver's login and profile via the "admin-create-driver"
   /// Edge Function. Callable by a dispatcher or super admin.
-  Future<({String tempPassword, bool emailSent})> createDriver({
+  Future<({String? userId, String tempPassword, bool emailSent})> createDriver({
     required String email,
     required String fullName,
     String? phone,
@@ -357,7 +357,7 @@ class ProfileRepository {
 
   /// Creates a dispatcher's login and profile via the same Edge Function.
   /// Only a super admin may call this - enforced server-side too.
-  Future<({String tempPassword, bool emailSent})> createDispatcher({
+  Future<({String? userId, String tempPassword, bool emailSent})> createDispatcher({
     required String email,
     required String fullName,
     required String phone,
@@ -374,7 +374,7 @@ class ProfileRepository {
 
   /// Creates an auditor's login and profile via the same Edge Function.
   /// Only a super admin may call this - enforced server-side too.
-  Future<({String tempPassword, bool emailSent})> createAuditor({
+  Future<({String? userId, String tempPassword, bool emailSent})> createAuditor({
     required String email,
     required String fullName,
     required String phone,
@@ -394,7 +394,7 @@ class ProfileRepository {
   /// user is emailed their temporary password directly and must set their
   /// own on first sign-in; [tempPassword] is still returned as a fallback
   /// to share by hand if [emailSent] is false.
-  Future<({String tempPassword, bool emailSent})> _createStaffAccount({
+  Future<({String? userId, String tempPassword, bool emailSent})> _createStaffAccount({
     required UserRole role,
     required String email,
     required String fullName,
@@ -430,6 +430,11 @@ class ProfileRepository {
       );
       final data = response.data as Map<String, dynamic>;
       return (
+        // Nullable on purpose: the Edge Function returns the new auth
+        // user's id, but this is the only caller that needs it and it
+        // only costs an optional photo upload if it ever goes missing -
+        // never the account itself.
+        userId: data['userId'] as String?,
         tempPassword: data['tempPassword'] as String,
         emailSent: data['emailSent'] as bool? ?? false,
       );

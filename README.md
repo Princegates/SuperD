@@ -1129,6 +1129,10 @@ database checks above are what actually enforce it either way.
   actions for the Admin Console, writable only through `log_audit_event`
   and readable only by a super admin.
 - Storage bucket `proof-of-delivery` — photos drivers capture on delivery.
+- Storage bucket `rider-photos` (private) — one face photo per rider, at
+  `<user id>/photo.jpg` and capped at 200 KB by the client before upload.
+  `profiles.avatar_path` points at it; screens read it through short-lived
+  signed URLs, never a public link.
 
 Row Level Security enforces the roles at the database level, not just in
 the app:
@@ -1141,6 +1145,20 @@ the app:
 - Only super admins can change a `profiles.role` value — a separate trigger
   reverts any role change attempted by a dispatcher, driver, or a
   compromised client.
+- A rider's own identity fields are read-only to them. They can see their
+  full profile in the app, but name, phone, Ghana card, address, licence
+  and vehicle details are reverted by the same trigger if the client tries
+  to change them; a change goes through dispatch instead. Riders keep
+  writing what they actually need to operate — going online, their live
+  position, their password and terms acceptance.
+- A rider's photo is write-once. They can retake it freely while their
+  account is still pending, but once a dispatcher approves them
+  (`is_active`) the trigger and the storage policy both refuse further
+  changes from the rider. An approved rider who has no photo yet can still
+  set a first one — which is what makes admin-created riders work.
+- Dispatchers and super admins can set or replace a rider's photo from the
+  Add/Edit rider form on web, including after approval. A replacement is
+  written to `audit_log` as `rider_photo_replaced`.
 
 ## Payments
 

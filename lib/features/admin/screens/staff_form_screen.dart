@@ -1,8 +1,11 @@
+import 'package:flutter/foundation.dart' show Uint8List, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' show StorageException;
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
@@ -13,6 +16,7 @@ import '../../../models/staff_permission.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/ghana_phone.dart';
+import '../../../shared/utils/rider_photo.dart';
 import '../providers/admin_providers.dart';
 
 /// Add-or-edit form for a driver's or dispatcher's roster details. In add
@@ -83,10 +87,27 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
   late String? _zoneId = widget.existing?.zoneId;
   late DriverVehicleType? _vehicleType = widget.existing?.vehicleType;
 
+  /// A newly chosen photo, held in memory until the account exists (on
+  /// create) or until save (on edit). Null means "leave whatever is there".
+  Uint8List? _photo;
+  String? _photoError;
+
   bool _isSubmitting = false;
   String? _errorMessage;
 
   bool get _isDriver => widget.role == UserRole.driver;
+
+  /// A link to the photo already on file, so an editing admin can see what
+  /// they would be replacing. Lazy and read once - the form is not a live
+  /// view of the roster. Short-circuits before touching the repository
+  /// when there is nothing to fetch, which is every "add" form.
+  late final Future<String?> _existingPhotoUrl = _loadExistingPhoto();
+
+  Future<String?> _loadExistingPhoto() async {
+    final path = widget.existing?.avatarPath;
+    if (path == null) return null;
+    return ref.read(profileRepositoryProvider).riderPhotoUrl(path);
+  }
 
   bool get _callerIsSuperAdmin =>
       ref.read(currentProfileProvider).valueOrNull?.role == UserRole.superAdmin;
@@ -148,6 +169,62 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
     super.dispose();
   }
 
+  /// Where an admin's photo comes from depends on where they are sitting.
+  /// On web this is a back-office browser with no useful camera, so go
+  /// straight to the file dialog; on a phone, offer both - a dispatcher
+  /// standing in front of a new rider can just photograph them.
+  Future<void> _choosePhoto() async {
+    if (kIsWeb) {
+      await _pickPhoto(ImageSource.gallery);
+      return;
+    }
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from files'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source != null) await _pickPhoto(source);
+  }
+
+  Future<void> _pickPhoto(ImageSource source) async {
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      // A first pass at the device's own encoder so we are not decoding a
+      // full-resolution frame. RiderPhoto does the real work of getting
+      // under the 200 KB cap.
+      maxWidth: 1200,
+      maxHeight: 1200,
+      imageQuality: 90,
+    );
+    if (picked == null) return;
+    final shrunk = RiderPhoto.compress(await picked.readAsBytes());
+    if (!mounted) return;
+    setState(() {
+      if (shrunk == null) {
+        _photoError = "That file isn't an image we can read. Try a JPEG "
+            'or PNG.';
+      } else {
+        _photo = shrunk;
+        _photoError = null;
+      }
+    });
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -159,6 +236,26 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
     try {
       final repo = ref.read(profileRepositoryProvider);
       if (widget.isEditing) {
+        // Photo first, deliberately. Replacing a rider's photo is the one
+        // edit here the database would refuse from anyone but staff (see
+        // `enforce_profile_role_change` in 0091_rider_photo.sql), so if it
+        // is going to fail, fail before the rest of the form is written
+        // and the error message is still true.
+        if (_isDriver && _photo != null) {
+          await repo.uploadRiderPhoto(
+            userId: widget.existing!.id,
+            bytes: _photo!,
+          );
+          await logAuditEvent(
+            ref.read(supabaseClientProvider),
+            action: 'rider_photo_replaced',
+            entityType: 'profile',
+            entityId: widget.existing!.id,
+            summary:
+                'Replaced the photo on file for '
+                '${_nameController.text.trim()}',
+          );
+        }
         await repo.updateDriverDetails(
           userId: widget.existing!.id,
           fullName: _nameController.text.trim(),
@@ -237,10 +334,30 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
           ref.read(supabaseClientProvider),
           action: 'staff_created',
           entityType: 'profile',
+          entityId: result.userId,
           summary:
               'Added ${widget.role.label.toLowerCase()} '
               '${_nameController.text.trim()}',
         );
+        // Non-fatal on purpose: the account is already created and the
+        // temporary password already emailed. Failing the whole flow here
+        // would leave an admin thinking they have to start over, when all
+        // that is missing is a picture they can add by editing the rider.
+        var photoAttached = true;
+        if (_isDriver && _photo != null) {
+          final userId = result.userId;
+          if (userId == null) {
+            // No id came back, so there is nothing to attach the photo to.
+            // Say so rather than let the admin assume it went up.
+            photoAttached = false;
+          } else {
+            try {
+              await repo.uploadRiderPhoto(userId: userId, bytes: _photo!);
+            } catch (_) {
+              photoAttached = false;
+            }
+          }
+        }
         ref
           ..invalidate(allProfilesProvider)
           ..invalidate(driversListProvider);
@@ -249,12 +366,19 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
             email: _emailController.text.trim(),
             tempPassword: result.tempPassword,
             emailSent: result.emailSent,
+            photoAttached: photoAttached,
           );
         }
         if (mounted) context.pop();
       }
     } on StaffManagementException catch (e) {
       setState(() => _errorMessage = e.message);
+    } on StorageException catch (_) {
+      setState(
+        () => _errorMessage =
+            "Couldn't upload the photo, so nothing was saved. Check the "
+            'connection and try again.',
+      );
     } catch (e) {
       setState(
         () => _errorMessage =
@@ -273,6 +397,7 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
     required String email,
     required String tempPassword,
     required bool emailSent,
+    required bool photoAttached,
   }) {
     return showDialog(
       context: context,
@@ -324,6 +449,31 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
                 ],
               ),
             ),
+            if (!photoAttached) ...[
+              const SizedBox(height: 14),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Icon(
+                    Icons.info_outline,
+                    size: 18,
+                    color: AppTheme.warning,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'The account is set up, but the photo did not upload. '
+                      'Open this rider and try again - nothing else is '
+                      'affected.',
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.grey.shade700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
         actions: [
@@ -355,6 +505,27 @@ class _StaffFormScreenState extends ConsumerState<StaffFormScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (_isDriver) ...[
+                  FutureBuilder<String?>(
+                    future: _existingPhotoUrl,
+                    builder: (context, snapshot) => _RiderPhotoField(
+                      pending: _photo,
+                      existingUrl: snapshot.data,
+                      onTap: _isSubmitting ? null : _choosePhoto,
+                    ),
+                  ),
+                  if (_photoError != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _photoError!,
+                      style: const TextStyle(
+                        color: AppTheme.danger,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 22),
+                ],
                 TextFormField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Full name'),
@@ -724,3 +895,110 @@ class _PermissionChip extends StatelessWidget {
 }
 
 enum _OverrideChoice { useDefault, allow, deny }
+
+/// The rider's photo, as an admin sees it on this form.
+///
+/// Three states, and the wording has to separate them: nothing on file, a
+/// picture just chosen but not yet saved, and one already stored that this
+/// admin would be replacing. Staff are the only ones who can do that last
+/// one - a rider's own photo locks the moment they are approved - so the
+/// copy says as much rather than letting someone replace a face by
+/// accident.
+class _RiderPhotoField extends StatelessWidget {
+  const _RiderPhotoField({
+    required this.pending,
+    required this.existingUrl,
+    required this.onTap,
+  });
+
+  /// Chosen on this form, not yet uploaded.
+  final Uint8List? pending;
+
+  /// A signed link to what is already stored, if anything.
+  final String? existingUrl;
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasPending = pending != null;
+    final hasExisting = existingUrl != null;
+    final has = hasPending || hasExisting;
+
+    final (title, subtitle) = switch ((hasPending, hasExisting)) {
+      (true, true) => (
+        'New photo chosen',
+        'Replaces the one on file when you save.',
+      ),
+      (true, false) => ('Photo chosen', 'Tap to pick a different one.'),
+      (false, true) => (
+        'Photo on file',
+        'Tap to replace it. A rider cannot change their own once they are '
+            'approved, so replacements are recorded in the audit log.',
+      ),
+      (false, false) => (
+        'Add a photo',
+        'Optional. So dispatch and customers know who is coming - the '
+            'rider can also add their own at first sign-in.',
+      ),
+    };
+
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 86,
+            height: 86,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.primary.withValues(alpha: 0.08),
+              border: Border.all(
+                color: has ? AppTheme.primary : Colors.grey.shade300,
+                width: has ? 2 : 1,
+              ),
+            ),
+            child: hasPending
+                ? Image.memory(pending!, fit: BoxFit.cover)
+                : hasExisting
+                ? Image.network(
+                    existingUrl!,
+                    fit: BoxFit.cover,
+                    // A broken link is not worth an error box on a form -
+                    // fall back to the same prompt as "no photo yet".
+                    errorBuilder: (context, _, _) => _placeholder(),
+                  )
+                : _placeholder(),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                subtitle,
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _placeholder() => Icon(
+    Icons.add_a_photo_outlined,
+    color: Colors.grey.shade500,
+    size: 26,
+  );
+}

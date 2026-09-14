@@ -54,6 +54,12 @@ class Profile {
   final double? lastLng;
   final DateTime? locationUpdatedAt;
 
+  /// Path inside the private `rider-photos` bucket, not a URL - the bucket
+  /// is not public, so it is read through a signed URL generated per view.
+  /// Set once by the rider while signing up and fixed at approval; staff
+  /// can replace it. See `0090_rider_photo.sql`.
+  final String? avatarPath;
+
   const Profile({
     required this.id,
     required this.email,
@@ -81,6 +87,7 @@ class Profile {
     this.lastLat,
     this.lastLng,
     this.locationUpdatedAt,
+    this.avatarPath,
   });
 
   factory Profile.fromMap(Map<String, dynamic> map) {
@@ -110,8 +117,10 @@ class Profile {
           ? null
           : DateTime.tryParse(map['payment_access_override_until'] as String),
       role: UserRole.fromString(map['role'] as String? ?? 'driver'),
-      permissionOverrides: (map['permission_overrides'] as Map<String, dynamic>?)
-              ?.map((key, value) => MapEntry(key, value as bool)) ??
+      permissionOverrides:
+          (map['permission_overrides'] as Map<String, dynamic>?)?.map(
+            (key, value) => MapEntry(key, value as bool),
+          ) ??
           const {},
       isActive: map['is_active'] as bool? ?? true,
       isOnline: map['is_online'] as bool? ?? false,
@@ -125,8 +134,15 @@ class Profile {
       locationUpdatedAt: map['location_updated_at'] == null
           ? null
           : DateTime.tryParse(map['location_updated_at'] as String),
+      avatarPath: map['avatar_path'] as String?,
     );
   }
+
+  /// Whether the photo is still theirs to retake - true through signup and
+  /// while they wait to be approved, false once an admin has accepted them.
+  /// Mirrors the rule the database enforces in `enforce_profile_role_change()`
+  /// (0090); this only decides whether the UI offers the option.
+  bool get canStillSetPhoto => avatarPath == null || !isActive;
 
   String get displayName => fullName.isNotEmpty ? fullName : email;
 

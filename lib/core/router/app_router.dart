@@ -20,6 +20,7 @@ import '../../features/driver/screens/driver_signup_screen.dart';
 import '../../features/driver/screens/earnings_screen.dart';
 import '../../features/driver/screens/my_rides_screen.dart';
 import '../../features/driver/screens/pending_approval_screen.dart';
+import '../../features/driver/screens/rider_profile_screen.dart';
 import '../../features/legal/screens/policy_screen.dart';
 import '../../features/public/screens/customer_request_screen.dart';
 import '../../features/public/screens/track_order_screen.dart';
@@ -393,6 +394,13 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'rides',
             pageBuilder: (context, state) =>
                 fadeSlidePage(key: state.pageKey, child: const MyRidesScreen()),
+          ),
+          GoRoute(
+            path: 'profile',
+            pageBuilder: (context, state) => fadeSlidePage(
+              key: state.pageKey,
+              child: const RiderProfileScreen(),
+            ),
           ),
           GoRoute(
             path: 'route',

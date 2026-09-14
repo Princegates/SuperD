@@ -1,13 +1,16 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/driver_vehicle_type.dart';
-import '../../../shared/legal/superd_legal_policy.dart';
 import '../../../shared/utils/ghana_phone.dart';
+import '../../../shared/utils/rider_photo.dart';
 import '../../../shared/widgets/terms_checkbox.dart';
 
 /// Self-service signup for drivers only - reachable from the login screen's
@@ -43,6 +46,13 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
   bool _isSubmitting = false;
   String? _errorMessage;
   bool _checkEmail = false;
+
+  /// Held in memory until the account exists, because there is nowhere to
+  /// put it before then - storage wants an authenticated caller and a user
+  /// id for the folder. That also makes retaking free: nothing has been
+  /// uploaded, so a rider can take it as many times as they like while
+  /// they are still filling the form in.
+  Uint8List? _photo;
 
   /// Required before [_submit] will run at all - see [TermsCheckbox] near
   /// the bottom of the form.
@@ -147,6 +157,20 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
       // A session means the project has email confirmation off - the
       // router picks up the new session on its own and takes the driver
       // straight into the app. Otherwise, tell them to confirm first.
+      final userId = response.user?.id;
+      if (response.session != null && _photo != null && userId != null) {
+        // Deliberately not fatal. The account exists by this point, and
+        // failing the whole signup over a photo would be the wrong trade -
+        // they can add it from their profile, which stays open to them
+        // until an admin approves them.
+        try {
+          await ref
+              .read(profileRepositoryProvider)
+              .uploadRiderPhoto(userId: userId, bytes: _photo!);
+        } catch (_) {
+          // Swallowed on purpose; see above.
+        }
+      }
       if (mounted && response.session == null) {
         setState(() => _checkEmail = true);
       }
@@ -163,6 +187,57 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }
+  }
+
+  Future<void> _pickPhoto(ImageSource source) async {
+    final picked = await ImagePicker().pickImage(
+      source: source,
+      // A first pass at the device's own encoder, so the bytes we decode
+      // are not a full 12-megapixel frame. RiderPhoto does the real work
+      // and the real enforcing.
+      maxWidth: 1200,
+      maxHeight: 1200,
+      imageQuality: 90,
+    );
+    if (picked == null) return;
+
+    final shrunk = RiderPhoto.compress(await picked.readAsBytes());
+    if (!mounted) return;
+    if (shrunk == null) {
+      setState(
+        () => _errorMessage =
+            "That file isn't a photo we can read. Try taking a new one.",
+      );
+      return;
+    }
+    setState(() {
+      _photo = shrunk;
+      _errorMessage = null;
+    });
+  }
+
+  Future<void> _choosePhotoSource() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take a photo'),
+              onTap: () => Navigator.of(context).pop(ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.of(context).pop(ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (source != null) await _pickPhoto(source);
   }
 
   String? _emptyToNull(String value) =>
@@ -191,6 +266,11 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                             style: TextStyle(color: Colors.black54),
                           ),
                           const SizedBox(height: 24),
+                          _PhotoField(
+                            photo: _photo,
+                            onTap: _isSubmitting ? null : _choosePhotoSource,
+                          ),
+                          const SizedBox(height: 22),
                           TextFormField(
                             controller: _nameController,
                             decoration: const InputDecoration(
@@ -409,6 +489,75 @@ class _CheckEmailCard extends StatelessWidget {
           'and sign in.',
           textAlign: TextAlign.center,
           style: const TextStyle(color: Colors.black54),
+        ),
+      ],
+    );
+  }
+}
+
+/// The photo, taken as part of signing up.
+///
+/// Retakeable for as long as this form is open - nothing has been uploaded
+/// yet, it is just bytes in memory - and the copy under it says so, because
+/// after approval it is fixed and a rider should know that before they
+/// settle on one.
+class _PhotoField extends StatelessWidget {
+  const _PhotoField({required this.photo, required this.onTap});
+
+  final Uint8List? photo;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final has = photo != null;
+    return Row(
+      children: [
+        GestureDetector(
+          onTap: onTap,
+          child: Container(
+            width: 86,
+            height: 86,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.primary.withValues(alpha: 0.08),
+              border: Border.all(
+                color: has ? AppTheme.primary : Colors.grey.shade300,
+                width: has ? 2 : 1,
+              ),
+            ),
+            child: has
+                ? Image.memory(photo!, fit: BoxFit.cover)
+                : Icon(
+                    Icons.add_a_photo_outlined,
+                    color: Colors.grey.shade500,
+                    size: 26,
+                  ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                has ? 'Your photo' : 'Add your photo',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                ),
+              ),
+              const SizedBox(height: 3),
+              Text(
+                has
+                    ? 'Tap to retake. You can change it until your account '
+                          'is approved.'
+                    : 'So dispatch and customers know who is coming. '
+                          'Optional, but it helps you get work.',
+                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              ),
+            ],
+          ),
         ),
       ],
     );

@@ -150,3 +150,18 @@ final rankedDriversProvider =
       });
       return ranked;
     });
+
+/// Signed links to every rider's photograph, in one request rather than
+/// one per row.
+///
+/// Keyed by `avatar_path`, so a caller looks up `photos[driver.avatarPath]`
+/// and gets null for anyone without a photo - which is most riders to
+/// begin with, and renders as initials. Signed URLs expire; this rebuilds
+/// with the roster it belongs to.
+final driverPhotoUrlsProvider = FutureProvider<Map<String, String>>((
+  ref,
+) async {
+  final drivers = await ref.watch(driversListProvider.future);
+  final paths = [for (final d in drivers) ?d.avatarPath];
+  return ref.watch(profileRepositoryProvider).riderPhotoUrls(paths);
+});

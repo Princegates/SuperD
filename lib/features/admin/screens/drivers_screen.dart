@@ -189,6 +189,9 @@ class DriversScreen extends ConsumerWidget {
     final poorRatings = ref.watch(poorRatingsProvider).valueOrNull ?? const [];
     final deliveries = ref.watch(allDeliveriesProvider).valueOrNull ?? const [];
     final work = _WorkStats.byDriver(deliveries);
+    // Empty until the batch request lands, so the roster renders with
+    // initials straight away rather than waiting on photographs.
+    final photos = ref.watch(driverPhotoUrlsProvider).valueOrNull ?? const {};
 
     return Scaffold(
       floatingActionButton: canManageDrivers
@@ -251,6 +254,7 @@ class DriversScreen extends ConsumerWidget {
                       padding: const EdgeInsets.only(bottom: 8),
                       child: PersonCard(
                         person: driver,
+                        photoUrl: photos[driver.avatarPath],
                         rating: ratings[driver.id],
                         workline: work[driver.id]?.summary,
                         isMe: driver.id == myProfile?.id,

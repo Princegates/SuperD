@@ -13,6 +13,7 @@ import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../providers/admin_providers.dart';
+import '../../../shared/widgets/rider_avatar.dart';
 
 /// One person's row on the Team or Drivers screen - shared between the two
 /// since both list a [Profile] with the same activate/freeze/edit/delete
@@ -30,6 +31,7 @@ class PersonCard extends StatelessWidget {
     this.canManageDriver = true,
     this.rating,
     this.workline,
+    this.photoUrl,
   });
 
   final Profile person;
@@ -59,6 +61,13 @@ class PersonCard extends StatelessWidget {
   /// count, typical trip length, jobs handed back. Null for a staff row
   /// and for a driver who has not run anything yet.
   final String? workline;
+
+  /// A signed link to this person's photograph, when they have one and the
+  /// screen has fetched it. Null falls back to their initials, which is
+  /// what most rows will show until riders start uploading. Passed in
+  /// rather than fetched here because these expire and the roster signs
+  /// the whole list in one request - see `riderPhotoUrls`.
+  final String? photoUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -93,12 +102,10 @@ class PersonCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  child: Text(
-                    person.displayName.isNotEmpty
-                        ? person.displayName[0].toUpperCase()
-                        : '?',
-                  ),
+                RiderAvatar(
+                  name: person.displayName,
+                  photoUrl: photoUrl,
+                  size: 40,
                 ),
                 const SizedBox(width: 12),
                 Expanded(

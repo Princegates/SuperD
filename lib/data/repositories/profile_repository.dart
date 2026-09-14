@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/driver_vehicle_type.dart';
@@ -39,6 +41,92 @@ class ProfileRepository {
           .eq('id', userId)
           .map((rows) => rows.isEmpty ? null : Profile.fromMap(rows.first)),
     );
+  }
+
+  /// Bucket holding rider photographs. Private, unlike proof-of-delivery -
+  /// see `0090_rider_photo.sql` - so nothing here is reachable by URL
+  /// alone; every read goes through a signed link.
+  static const _photoBucket = 'rider-photos';
+
+  /// Stores a rider's photograph and points their profile at it.
+  ///
+  /// [bytes] must already be through [RiderPhoto.compress]; this does not
+  /// check the size, because by the time it gets here the rider has been
+  /// waiting on an upload and refusing it would be too late to be useful.
+  ///
+  /// `upsert` so a retake during signup replaces the file rather than
+  /// leaving the previous attempt behind. The database decides whether a
+  /// retake is allowed at all - both the storage policy and the profile
+  /// trigger close it off once the rider is approved - so a refusal here
+  /// surfaces as a StorageException, not as a silently ignored write.
+  Future<String> uploadRiderPhoto({
+    required String userId,
+    required Uint8List bytes,
+  }) async {
+    final path = '$userId/photo.jpg';
+    await _client.storage
+        .from(_photoBucket)
+        .uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(
+            contentType: 'image/jpeg',
+            upsert: true,
+          ),
+        );
+    await _client
+        .from('profiles')
+        .update({'avatar_path': path})
+        .eq('id', userId);
+    return path;
+  }
+
+  /// A viewable link for one rider's photo, valid for [ttl].
+  ///
+  /// Null rather than throwing when the photo is missing or unreadable: an
+  /// avatar is decoration on a screen that has a job to do, and a roster
+  /// that fails to load because one rider's file went astray is worse than
+  /// a roster with one initial in a circle.
+  Future<String?> riderPhotoUrl(
+    String? path, {
+    Duration ttl = const Duration(hours: 1),
+  }) async {
+    if (path == null) return null;
+    try {
+      return await _client.storage
+          .from(_photoBucket)
+          .createSignedUrl(path, ttl.inSeconds);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Signed links for a whole roster in one request.
+  ///
+  /// The Drivers screen shows every rider at once; asking for one signed
+  /// URL per rider would be a request per row. Returns a map keyed by the
+  /// same paths that went in, with anything unreadable simply absent.
+  Future<Map<String, String>> riderPhotoUrls(
+    Iterable<String> paths, {
+    Duration ttl = const Duration(hours: 1),
+  }) async {
+    final wanted = paths.toSet().toList();
+    if (wanted.isEmpty) return const {};
+    try {
+      final signed = await _client.storage
+          .from(_photoBucket)
+          .createSignedUrlsResult(wanted, ttl.inSeconds);
+      // The Result variant distinguishes a missing file from a signed one;
+      // the older createSignedUrls just dropped failures on the floor,
+      // which would leave a rider's row looking like they never uploaded.
+      return {
+        for (final item in signed)
+          if (item case SignedUrlSuccess(:final path, :final signedUrl))
+            path: signedUrl,
+      };
+    } catch (_) {
+      return const {};
+    }
   }
 
   Future<List<Profile>> fetchDrivers() async {

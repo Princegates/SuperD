@@ -12,6 +12,9 @@ import 'package:superd/features/console/screens/console_finance_tab.dart';
 import 'package:superd/features/console/screens/console_overview_tab.dart';
 import 'package:superd/features/console/screens/console_reports_tab.dart';
 import 'package:superd/features/auth/screens/login_screen.dart';
+import 'package:superd/features/driver/providers/rider_profile_providers.dart';
+import 'package:superd/features/driver/screens/rider_profile_screen.dart';
+import 'package:superd/models/rider_rating.dart';
 import 'package:superd/features/public/screens/vendor_signup_screen.dart';
 import 'package:superd/models/delivery.dart';
 import 'package:superd/models/delivery_status.dart';
@@ -86,6 +89,21 @@ Widget _host(Widget child) {
       driverRatingSummaryProvider.overrideWith((ref) async => {}),
       poorRatingsProvider.overrideWith((ref) async => []),
       zonesProvider.overrideWith((ref) async => []),
+      // The rider profile spins on these until they resolve, so without
+      // them pumpAndSettle never returns and the sweep reads a loading
+      // screen as a hang rather than checking any layout.
+      myPhotoUrlProvider.overrideWith((ref) async => null),
+      myRatingProvider.overrideWith(
+        (ref) async => RiderRating.fromMap({
+          'average': 4.5,
+          'ratings_count': 12,
+          'five_star': 8,
+          'four_star': 3,
+          'three_star': 1,
+          'two_star': 0,
+          'one_star': 0,
+        }),
+      ),
     ],
     child: MaterialApp(home: Scaffold(body: child)),
   );
@@ -165,5 +183,12 @@ void main() {
 
   testWidgets('Vendor signup', (t) async {
     await _sweep(t, 'Vendor signup', () => const VendorSignupScreen());
+  });
+
+  // The rider's own profile: a photo, a rating breakdown and a column of
+  // details, any of which can be long. Swept as a rider rather than as the
+  // admin the other screens use, since that is who sees it.
+  testWidgets('Rider profile', (t) async {
+    await _sweep(t, 'Rider profile', () => const RiderProfileScreen());
   });
 }

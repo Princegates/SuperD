@@ -227,6 +227,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
             onPressed: () => context.push('/driver/rides'),
           ),
           const AccountMenuButton(
+            profileRoute: '/driver/profile',
             changePasswordRoute: '/driver/change-password',
           ),
         ],

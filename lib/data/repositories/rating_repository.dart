@@ -1,6 +1,7 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/delivery_rating.dart';
+import '../../models/rider_rating.dart';
 
 /// Read access to what customers said about drivers.
 ///
@@ -44,5 +45,14 @@ class RatingRepository {
     if (onlyPoor) query = query.lte('rating', 3);
     final rows = await query.order('created_at', ascending: false).limit(limit);
     return rows.map(DeliveryRating.fromMap).toList();
+  }
+
+  /// The signed-in rider's own rating - average, how many it is drawn
+  /// from, and the spread. Aggregates only; the customer comments stay
+  /// with dispatch. See `my_rating_summary()` in 0091.
+  Future<RiderRating> fetchMyRating() async {
+    final rows = await _client.rpc('my_rating_summary') as List<dynamic>;
+    if (rows.isEmpty) return RiderRating.empty;
+    return RiderRating.fromMap(rows.first as Map<String, dynamic>);
   }
 }

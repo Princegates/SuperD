@@ -91,6 +91,7 @@ dependencies:
   # With no SENTRY_DSN set (the default), the SDK still initializes but
   # simply doesn't send anything anywhere.
   sentry_flutter: ^9.28.0
+  image: ^4.10.1
 
 dev_dependencies:
   flutter_test:

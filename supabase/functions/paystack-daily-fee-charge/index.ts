@@ -13,13 +13,13 @@
 // Paystack's response doesn't look like what's expected, rather than
 // pretending to succeed.
 //
-// One case this deliberately does NOT handle: if Paystack's response
-// comes back needing an OTP submitted (`data.status === "send_otp"`) -
-// uncommon for a Ghana mobile money charge, but possible depending on the
-// provider/account - there's no in-app screen to enter one, so this tells
-// the driver to use the manual reference option instead rather than
-// silently stalling. Building an OTP-entry step is a reasonable follow-up
-// if this turns out to happen often in practice.
+// If Paystack's response comes back needing an OTP submitted
+// (`data.status === "send_otp"`) - some Ghana Mobile Money
+// accounts/numbers route through this instead of the more common
+// pay_offline prompt-on-phone flow - the row is still recorded below
+// (status "pending") and the reference is handed back to the client,
+// which prompts the driver for the code and submits it via
+// paystack-daily-fee-submit-otp.
 //
 // Needs one secret set first (`supabase secrets set ...`):
 //   PAYSTACK_SECRET_KEY   - from your Paystack dashboard's API Keys page
@@ -175,19 +175,18 @@ Deno.serve(async (req) => {
     }
 
     const chargeStatus = paystackData?.data?.status as string | undefined;
-    if (chargeStatus === "send_otp") {
-      // Paystack wants an OTP this app has no screen to collect - rather
-      // than silently stalling the driver, tell them plainly and point
-      // at the fallback that always works.
-      return jsonResponse(
-        {
-          error:
-            "This Mobile Money number needs a one-time code we can't collect here yet. Please use the manual reference option instead.",
-        },
-        400,
-      );
-    }
-    if (chargeStatus !== "pay_offline" && chargeStatus !== "success") {
+    // send_otp means Paystack wants a one-time code submitted back before
+    // the charge completes (see paystack-daily-fee-submit-otp) - Ghana
+    // Mobile Money charges are documented as normally going through
+    // pay_offline (a prompt on the driver's phone) instead, but some
+    // accounts/numbers route through this OTP flow. Either way a row is
+    // recorded below so the OTP-submit step and the webhook both have
+    // something to resolve against.
+    if (
+      chargeStatus !== "pay_offline" &&
+      chargeStatus !== "success" &&
+      chargeStatus !== "send_otp"
+    ) {
       console.error(
         `paystack-daily-fee-charge: unexpected Paystack status "${chargeStatus}" -`,
         paystackData,
@@ -198,12 +197,12 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Record the attempt regardless of which of the two expected statuses
-    // came back - the webhook is the source of truth for the final
-    // outcome either way. A driver can have more than one row per day now
-    // (a top-up after crossing a tier), so this updates the existing
-    // pending paystack row for today if there is one (a retried charge),
-    // rather than inserting a duplicate.
+    // Record the attempt regardless of which of the three expected
+    // statuses came back - the webhook is the source of truth for the
+    // final outcome either way. A driver can have more than one row per
+    // day now (a top-up after crossing a tier), so this updates the
+    // existing pending paystack row for today if there is one (a retried
+    // charge), rather than inserting a duplicate.
     const record = {
       driver_id: driverId,
       fee_date: today,
@@ -226,6 +225,15 @@ Deno.serve(async (req) => {
         { error: "Could not record the payment attempt. Please try again." },
         500,
       );
+    }
+
+    if (chargeStatus === "send_otp") {
+      return jsonResponse({
+        status: "send_otp",
+        reference,
+        message: paystackData?.data?.display_text ??
+          "Enter the one-time code sent to your phone to complete payment.",
+      });
     }
 
     return jsonResponse({

@@ -14,6 +14,19 @@ class DailyFeeException implements Exception {
   String toString() => message;
 }
 
+/// The outcome of starting or continuing a Paystack Mobile Money charge -
+/// see [DriverDailyFeeRepository.chargeViaPaystack]/[submitPaystackOtp].
+/// [status] is one of Paystack's own charge statuses ('pending' covers
+/// both `pay_offline` and `success`, since either way the row settles via
+/// the webhook - see [watchTodayRecords]); [reference] is only set when
+/// [status] is `'send_otp'`, identifying which attempt a submitted code
+/// belongs to.
+typedef PaystackChargeResult = ({
+  String status,
+  String message,
+  String? reference,
+});
+
 class DriverDailyFeeRepository {
   DriverDailyFeeRepository(this._client);
 
@@ -134,10 +147,15 @@ class DriverDailyFeeRepository {
   }
 
   /// Starts a real-time Mobile Money charge via the
-  /// `paystack-daily-fee-charge` Edge Function - the driver approves a
-  /// prompt on their phone, and the row updates itself (see
-  /// [watchTodayRecords]) once Paystack's webhook resolves it.
-  Future<String> chargeViaPaystack({
+  /// `paystack-daily-fee-charge` Edge Function. Most Ghana Mobile Money
+  /// charges resolve with the driver approving a prompt on their own
+  /// phone (`status: 'pending'`), and the row updates itself (see
+  /// [watchTodayRecords]) once Paystack's webhook resolves it - but some
+  /// accounts/numbers come back as `status: 'send_otp'` instead, meaning
+  /// Paystack wants a one-time code submitted via [submitPaystackOtp]
+  /// before the charge can proceed; [reference] is only ever set in that
+  /// case, identifying which pending attempt the code belongs to.
+  Future<PaystackChargeResult> chargeViaPaystack({
     required String phone,
     required String network,
   }) async {
@@ -147,8 +165,40 @@ class DriverDailyFeeRepository {
         body: {'phone': phone, 'network': network},
       );
       final data = response.data as Map<String, dynamic>;
-      return data['message'] as String? ??
-          'Check your phone to approve the payment.';
+      return (
+        status: data['status'] as String? ?? 'pending',
+        message: data['message'] as String? ??
+            'Check your phone to approve the payment.',
+        reference: data['reference'] as String?,
+      );
+    } on FunctionException catch (e) {
+      throw DailyFeeException(_messageFrom(e));
+    }
+  }
+
+  /// Submits the one-time code the driver received for a charge that came
+  /// back `send_otp` from [chargeViaPaystack], via the
+  /// `paystack-daily-fee-submit-otp` Edge Function. A wrong/expired code
+  /// can itself come back as another `send_otp` [PaystackChargeResult]
+  /// (Paystack asking for a fresh code) rather than throwing - only a
+  /// genuine failure (unknown reference, already resolved, Paystack
+  /// rejecting the request outright) throws [DailyFeeException].
+  Future<PaystackChargeResult> submitPaystackOtp({
+    required String reference,
+    required String otp,
+  }) async {
+    try {
+      final response = await _client.functions.invoke(
+        'paystack-daily-fee-submit-otp',
+        body: {'reference': reference, 'otp': otp},
+      );
+      final data = response.data as Map<String, dynamic>;
+      return (
+        status: data['status'] as String? ?? 'pending',
+        message: data['message'] as String? ??
+            'Code accepted - confirming your payment.',
+        reference: data['reference'] as String?,
+      );
     } on FunctionException catch (e) {
       throw DailyFeeException(_messageFrom(e));
     }

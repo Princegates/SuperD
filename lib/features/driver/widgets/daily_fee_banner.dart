@@ -140,16 +140,23 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
     text: widget.driverPhone ?? '',
   );
   final _referenceController = TextEditingController();
+  final _otpController = TextEditingController();
   String _network = _networks.first.value;
   bool _isCharging = false;
   bool _isSubmittingManual = false;
+  bool _isSubmittingOtp = false;
   String? _message;
   String? _error;
+
+  /// Set only while Paystack is waiting on a one-time code for the charge
+  /// this reference identifies - see [PaystackChargeResult].
+  String? _pendingOtpReference;
 
   @override
   void dispose() {
     _phoneController.dispose();
     _referenceController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -165,14 +172,57 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
       _message = null;
     });
     try {
-      final message = await ref
+      final result = await ref
           .read(driverDailyFeeRepositoryProvider)
           .chargeViaPaystack(phone: phone, network: _network);
-      if (mounted) setState(() => _message = message);
+      if (mounted) {
+        setState(() {
+          _message = result.message;
+          _pendingOtpReference = result.status == 'send_otp'
+              ? result.reference
+              : null;
+        });
+      }
     } on DailyFeeException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _isCharging = false);
+    }
+  }
+
+  Future<void> _submitOtp() async {
+    final reference = _pendingOtpReference;
+    if (reference == null) return;
+    final otp = _otpController.text.trim();
+    if (otp.isEmpty) {
+      setState(() => _error = 'Enter the code sent to your phone.');
+      return;
+    }
+    setState(() {
+      _isSubmittingOtp = true;
+      _error = null;
+      _message = null;
+    });
+    try {
+      final result = await ref
+          .read(driverDailyFeeRepositoryProvider)
+          .submitPaystackOtp(reference: reference, otp: otp);
+      if (mounted) {
+        setState(() {
+          _message = result.message;
+          // A rejected/expired code comes back as another send_otp - keep
+          // the field open so the driver can enter the fresh one, rather
+          // than treating it as done.
+          _pendingOtpReference = result.status == 'send_otp'
+              ? (result.reference ?? reference)
+              : null;
+          if (_pendingOtpReference == null) _otpController.clear();
+        });
+      }
+    } on DailyFeeException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _isSubmittingOtp = false);
     }
   }
 
@@ -259,6 +309,29 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
                     )
                   : const Text('Pay via Mobile Money'),
             ),
+            if (_pendingOtpReference != null) ...[
+              const SizedBox(height: 14),
+              TextField(
+                controller: _otpController,
+                keyboardType: TextInputType.number,
+                autofocus: true,
+                decoration: const InputDecoration(
+                  labelText: 'One-time code',
+                  hintText: 'Enter the code sent to your phone',
+                ),
+              ),
+              const SizedBox(height: 10),
+              ElevatedButton(
+                onPressed: _isSubmittingOtp ? null : _submitOtp,
+                child: _isSubmittingOtp
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2.4),
+                      )
+                    : const Text('Submit code'),
+              ),
+            ],
             const SizedBox(height: 20),
             Row(
               children: [

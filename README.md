@@ -1716,11 +1716,12 @@ through the manual-confirm path with zero setup):
    ```bash
    supabase secrets set PAYSTACK_SECRET_KEY=sk_...
    ```
-3. Deploy both functions - the webhook needs `verify_jwt = false` since
-   Paystack calls it directly with no Supabase session (already set in
-   `supabase/config.toml`):
+3. Deploy the three functions - the webhook needs `verify_jwt = false`
+   since Paystack calls it directly with no Supabase session (already set
+   in `supabase/config.toml`):
    ```bash
    supabase functions deploy paystack-daily-fee-charge
+   supabase functions deploy paystack-daily-fee-submit-otp
    supabase functions deploy paystack-daily-fee-webhook
    ```
 4. In the Paystack dashboard, under **Settings → API Keys & Webhooks**,
@@ -1732,16 +1733,19 @@ through the manual-confirm path with zero setup):
    Paystack's own `x-paystack-signature` header against your secret key
    rather than trusting the request blindly.
 5. **Verify against Paystack's current docs before relying on this in
-   production.** Both functions are written against Paystack's publicly
-   documented Charge API (mobile money charging for Ghana) and webhook
-   signature scheme, but exact field names and event shapes are worth
-   double-checking in your own Paystack dashboard/test mode first -
-   third-party API details do shift over time, and this fails loudly (an
-   error back to the driver) rather than silently, if something doesn't
-   match. One known gap: if Paystack ever responds asking for an OTP
-   (`data.status === "send_otp"`) - uncommon for Ghana mobile money, but
-   possible - there's no in-app screen to collect one yet, so the driver
-   is told to use the manual reference option instead.
+   production.** All three functions are written against Paystack's
+   publicly documented Charge API (mobile money charging for Ghana),
+   `submit_otp` endpoint, and webhook signature scheme, but exact field
+   names and event shapes are worth double-checking in your own Paystack
+   dashboard/test mode first - third-party API details do shift over
+   time, and this fails loudly (an error back to the driver) rather than
+   silently, if something doesn't match. Most Ghana Mobile Money charges
+   resolve with a prompt on the driver's own phone
+   (`data.status === "pay_offline"`), but some accounts/numbers come back
+   asking for a one-time code instead (`data.status === "send_otp"`) -
+   `paystack-daily-fee-charge` hands the driver's app a `reference` for
+   that case, and the driver enters the code in the same payment sheet,
+   which submits it via `paystack-daily-fee-submit-otp`.
 
 ### Scheduled deliveries
 

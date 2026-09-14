@@ -150,10 +150,13 @@ class _AsyncValueViewState<T> extends State<AsyncValueView<T>> {
 
 /// Whether [err] is (transitively) a no-network failure rather than a real
 /// application error - e.g. Supabase's `RealtimeSubscribeException`
-/// wrapping a `SocketException: Failed host lookup` when the device has no
-/// signal. Matched on the stringified error rather than the concrete
-/// exception types (`SocketException`, `WebSocketChannelException`,
-/// Supabase's `RealtimeSubscribeException`) so this doesn't need to import
+/// wrapping a `SocketException: Failed host lookup` on mobile, or just
+/// `WebSocketChannelException: WebSocket connection failed.` on web (the
+/// browser's WebSocket API never surfaces the dart:io-style socket detail
+/// mobile gets, so it needs its own, vaguer pattern here too). Matched on
+/// the stringified error rather than the concrete exception types
+/// (`SocketException`, `WebSocketChannelException`, Supabase's
+/// `RealtimeSubscribeException`) so this doesn't need to import
 /// `dart:io`/`web_socket_channel`/`realtime_client` here just to check a
 /// wrapped cause.
 bool _isConnectivityError(Object err) {
@@ -164,5 +167,7 @@ bool _isConnectivityError(Object err) {
       text.contains('Connection reset') ||
       text.contains('Connection timed out') ||
       text.contains('Network is unreachable') ||
-      text.contains('Software caused connection abort');
+      text.contains('Software caused connection abort') ||
+      text.contains('WebSocketChannelException') ||
+      text.contains('WebSocket connection failed');
 }

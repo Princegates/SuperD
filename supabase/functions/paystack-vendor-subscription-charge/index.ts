@@ -113,16 +113,16 @@ Deno.serve(async (req) => {
     }
 
     const chargeStatus = paystackData?.data?.status as string | undefined;
-    if (chargeStatus === "send_otp") {
-      return jsonResponse(
-        {
-          error:
-            "This Mobile Money number needs a one-time code we can't collect here yet. Try a different number, or ask your admin to activate you manually.",
-        },
-        400,
-      );
-    }
-    if (chargeStatus !== "pay_offline" && chargeStatus !== "success") {
+    // send_otp means Paystack wants a one-time code submitted back before
+    // the charge completes (see paystack-vendor-subscription-submit-otp) -
+    // same as the driver daily fee's charge function, some Ghana Mobile
+    // Money accounts/numbers route through this instead of the more
+    // common pay_offline prompt-on-phone flow.
+    if (
+      chargeStatus !== "pay_offline" &&
+      chargeStatus !== "success" &&
+      chargeStatus !== "send_otp"
+    ) {
       console.error(
         `paystack-vendor-subscription-charge: unexpected Paystack status "${chargeStatus}" -`,
         paystackData,
@@ -137,7 +137,9 @@ Deno.serve(async (req) => {
     // daily fee - see its own comment) is the source of truth for the
     // final outcome - this just records which reference to watch for, so
     // a retry overwrites the previous attempt's reference rather than
-    // leaving a stale one behind.
+    // leaving a stale one behind. Recorded regardless of which of the
+    // three expected statuses came back, since the OTP-submit step and
+    // the webhook both need this reference in place.
     const { error: writeError } = await admin
       .from("vendors")
       .update({ subscription_payment_reference: reference })
@@ -151,6 +153,15 @@ Deno.serve(async (req) => {
         { error: "Could not record the payment attempt. Please try again." },
         500,
       );
+    }
+
+    if (chargeStatus === "send_otp") {
+      return jsonResponse({
+        status: "send_otp",
+        reference,
+        message: paystackData?.data?.display_text ??
+          "Enter the one-time code sent to your phone to complete payment.",
+      });
     }
 
     return jsonResponse({

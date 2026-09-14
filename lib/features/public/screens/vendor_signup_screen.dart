@@ -334,13 +334,19 @@ class _SubscriptionPaymentCard extends ConsumerStatefulWidget {
 class _SubscriptionPaymentCardState
     extends ConsumerState<_SubscriptionPaymentCard> {
   final _phoneController = TextEditingController();
+  final _otpController = TextEditingController();
   String _network = _networks.first.value;
   bool _isCharging = false;
+  bool _isSubmittingOtp = false;
   bool _isPolling = false;
   Timer? _pollTimer;
   String? _message;
   String? _error;
   VendorPublicInfo? _status;
+
+  /// Set only while Paystack is waiting on a one-time code for the charge
+  /// this reference identifies - see [PaystackChargeResult].
+  String? _pendingOtpReference;
 
   @override
   void initState() {
@@ -352,6 +358,7 @@ class _SubscriptionPaymentCardState
   void dispose() {
     _pollTimer?.cancel();
     _phoneController.dispose();
+    _otpController.dispose();
     super.dispose();
   }
 
@@ -390,7 +397,7 @@ class _SubscriptionPaymentCardState
       _message = null;
     });
     try {
-      final message = await ref
+      final result = await ref
           .read(vendorRepositoryProvider)
           .payVendorSubscription(
             code: widget.registration.code,
@@ -398,13 +405,59 @@ class _SubscriptionPaymentCardState
             network: _network,
           );
       if (mounted) {
-        setState(() => _message = message);
-        _startPolling();
+        setState(() {
+          _message = result.message;
+          _pendingOtpReference = result.status == 'send_otp'
+              ? result.reference
+              : null;
+        });
+        if (result.status != 'send_otp') _startPolling();
       }
     } on VendorSubscriptionException catch (e) {
       if (mounted) setState(() => _error = e.message);
     } finally {
       if (mounted) setState(() => _isCharging = false);
+    }
+  }
+
+  Future<void> _submitOtp() async {
+    final reference = _pendingOtpReference;
+    if (reference == null) return;
+    final otp = _otpController.text.trim();
+    if (otp.isEmpty) {
+      setState(() => _error = 'Enter the code sent to your phone.');
+      return;
+    }
+    setState(() {
+      _isSubmittingOtp = true;
+      _error = null;
+      _message = null;
+    });
+    try {
+      final result = await ref
+          .read(vendorRepositoryProvider)
+          .submitVendorSubscriptionOtp(
+            code: widget.registration.code,
+            reference: reference,
+            otp: otp,
+          );
+      if (mounted) {
+        setState(() {
+          _message = result.message;
+          // A rejected/expired code comes back as another send_otp - keep
+          // the field open so the vendor can enter the fresh one, rather
+          // than treating it as done.
+          _pendingOtpReference = result.status == 'send_otp'
+              ? (result.reference ?? reference)
+              : null;
+          if (_pendingOtpReference == null) _otpController.clear();
+        });
+        if (_pendingOtpReference == null) _startPolling();
+      }
+    } on VendorSubscriptionException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _isSubmittingOtp = false);
     }
   }
 
@@ -463,6 +516,29 @@ class _SubscriptionPaymentCardState
                 )
               : const Text('Pay via Mobile Money'),
         ),
+        if (_pendingOtpReference != null) ...[
+          const SizedBox(height: 14),
+          TextField(
+            controller: _otpController,
+            keyboardType: TextInputType.number,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'One-time code',
+              hintText: 'Enter the code sent to your phone',
+            ),
+          ),
+          const SizedBox(height: 10),
+          ElevatedButton(
+            onPressed: _isSubmittingOtp ? null : _submitOtp,
+            child: _isSubmittingOtp
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2.4),
+                  )
+                : const Text('Submit code'),
+          ),
+        ],
         if (_isPolling) ...[
           const SizedBox(height: 16),
           const Row(

@@ -4,6 +4,7 @@ import '../../models/vendor.dart';
 import '../../models/zone.dart';
 import '../../models/zone_location.dart';
 import '../../shared/utils/resilient_stream.dart';
+import 'paystack_charge_result.dart';
 
 /// Zones (for grouping drivers/vendors) and vendors (the businesses whose
 /// customers request deliveries through a unique link, with no SuperD
@@ -233,15 +234,19 @@ class VendorRepository {
 
   /// Starts a real-time Mobile Money charge for [code]'s one-time
   /// subscription fee via the "paystack-vendor-subscription-charge" Edge
-  /// Function - the vendor approves a prompt on their phone, and their
-  /// link activates itself once Paystack's webhook resolves it (poll
-  /// [fetchVendorByCode] to notice). Public - a vendor has no login, only
-  /// their own [code] - the actual amount owed is always looked up
-  /// server-side, never trusted from this client. Throws
-  /// [VendorSubscriptionException] if [code] isn't in a chargeable state
-  /// (already active, no fee applies, or the feature's since been turned
-  /// off).
-  Future<String> payVendorSubscription({
+  /// Function. Most Ghana Mobile Money charges resolve with the vendor
+  /// approving a prompt on their own phone (`status: 'pending'`), and
+  /// their link activates itself once Paystack's webhook resolves it (poll
+  /// [fetchVendorByCode] to notice) - but some accounts/numbers come back
+  /// as `status: 'send_otp'` instead, meaning Paystack wants a one-time
+  /// code submitted via [submitVendorSubscriptionOtp] before the charge
+  /// can proceed; the result's `reference` is only set in that case.
+  /// Public - a vendor has no login, only their own [code] - the actual
+  /// amount owed is always looked up server-side, never trusted from this
+  /// client. Throws [VendorSubscriptionException] if [code] isn't in a
+  /// chargeable state (already active, no fee applies, or the feature's
+  /// since been turned off).
+  Future<PaystackChargeResult> payVendorSubscription({
     required String code,
     required String phone,
     required String network,
@@ -252,8 +257,42 @@ class VendorRepository {
         body: {'code': code, 'phone': phone, 'network': network},
       );
       final data = response.data as Map<String, dynamic>;
-      return data['message'] as String? ??
-          'Check your phone to approve the payment.';
+      return (
+        status: data['status'] as String? ?? 'pending',
+        message: data['message'] as String? ??
+            'Check your phone to approve the payment.',
+        reference: data['reference'] as String?,
+      );
+    } on FunctionException catch (e) {
+      throw VendorSubscriptionException(_messageFrom(e));
+    }
+  }
+
+  /// Submits the one-time code the vendor received for a charge that came
+  /// back `send_otp` from [payVendorSubscription], via the
+  /// `paystack-vendor-subscription-submit-otp` Edge Function. A
+  /// wrong/expired code can itself come back as another `send_otp`
+  /// [PaystackChargeResult] (Paystack asking for a fresh code) rather than
+  /// throwing - only a genuine failure (unknown/stale reference, rate
+  /// limited, Paystack rejecting the request outright) throws
+  /// [VendorSubscriptionException].
+  Future<PaystackChargeResult> submitVendorSubscriptionOtp({
+    required String code,
+    required String reference,
+    required String otp,
+  }) async {
+    try {
+      final response = await _client.functions.invoke(
+        'paystack-vendor-subscription-submit-otp',
+        body: {'code': code, 'reference': reference, 'otp': otp},
+      );
+      final data = response.data as Map<String, dynamic>;
+      return (
+        status: data['status'] as String? ?? 'pending',
+        message: data['message'] as String? ??
+            'Code accepted - confirming your payment.',
+        reference: data['reference'] as String?,
+      );
     } on FunctionException catch (e) {
       throw VendorSubscriptionException(_messageFrom(e));
     }

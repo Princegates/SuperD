@@ -93,28 +93,76 @@ class _AsyncValueViewState<T> extends State<AsyncValueView<T>> {
         ),
       );
 
-  Widget _errorView(Object err) =>
-      widget.error?.call(err) ??
-      Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Something went wrong:\n$err',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600),
+  Widget _errorView(Object err) {
+    if (widget.error != null) return widget.error!(err);
+    if (_isConnectivityError(err)) return _offlineView();
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Something went wrong:\n$err',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey.shade600),
+            ),
+            if (widget.onRetry != null) ...[
+              const SizedBox(height: 16),
+              OutlinedButton(
+                onPressed: widget.onRetry,
+                child: const Text('Try again'),
               ),
-              if (widget.onRetry != null) ...[
-                const SizedBox(height: 16),
-                OutlinedButton(
-                  onPressed: widget.onRetry,
-                  child: const Text('Try again'),
-                ),
-              ],
             ],
-          ),
+          ],
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _offlineView() => Center(
+    child: Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.wifi_off, size: 36, color: Colors.grey.shade400),
+          const SizedBox(height: 12),
+          Text(
+            "You're offline",
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              color: Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "We'll reconnect automatically once you have a signal.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.grey.shade500, fontSize: 12.5),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+/// Whether [err] is (transitively) a no-network failure rather than a real
+/// application error - e.g. Supabase's `RealtimeSubscribeException`
+/// wrapping a `SocketException: Failed host lookup` when the device has no
+/// signal. Matched on the stringified error rather than the concrete
+/// exception types (`SocketException`, `WebSocketChannelException`,
+/// Supabase's `RealtimeSubscribeException`) so this doesn't need to import
+/// `dart:io`/`web_socket_channel`/`realtime_client` here just to check a
+/// wrapped cause.
+bool _isConnectivityError(Object err) {
+  final text = err.toString();
+  return text.contains('SocketException') ||
+      text.contains('Failed host lookup') ||
+      text.contains('Connection refused') ||
+      text.contains('Connection reset') ||
+      text.contains('Connection timed out') ||
+      text.contains('Network is unreachable') ||
+      text.contains('Software caused connection abort');
 }

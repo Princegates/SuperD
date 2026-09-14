@@ -1,7 +1,7 @@
 /// A rider's own rating, as `my_rating_summary()` returns it.
 ///
 /// Aggregates only - deliberately no customer comments. Those stay with
-/// dispatch; see `0091_rider_own_rating.sql` for why.
+/// dispatch; see `0092_rider_own_rating.sql` for why.
 class RiderRating {
   const RiderRating({
     required this.average,

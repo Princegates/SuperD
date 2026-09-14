@@ -49,7 +49,7 @@ class RatingRepository {
 
   /// The signed-in rider's own rating - average, how many it is drawn
   /// from, and the spread. Aggregates only; the customer comments stay
-  /// with dispatch. See `my_rating_summary()` in 0091.
+  /// with dispatch. See `my_rating_summary()` in 0092.
   Future<RiderRating> fetchMyRating() async {
     final rows = await _client.rpc('my_rating_summary') as List<dynamic>;
     if (rows.isEmpty) return RiderRating.empty;

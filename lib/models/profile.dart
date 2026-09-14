@@ -57,7 +57,7 @@ class Profile {
   /// Path inside the private `rider-photos` bucket, not a URL - the bucket
   /// is not public, so it is read through a signed URL generated per view.
   /// Set once by the rider while signing up and fixed at approval; staff
-  /// can replace it. See `0090_rider_photo.sql`.
+  /// can replace it. See `0091_rider_photo.sql`.
   final String? avatarPath;
 
   const Profile({
@@ -141,7 +141,7 @@ class Profile {
   /// Whether the photo is still theirs to retake - true through signup and
   /// while they wait to be approved, false once an admin has accepted them.
   /// Mirrors the rule the database enforces in `enforce_profile_role_change()`
-  /// (0090); this only decides whether the UI offers the option.
+  /// (0091); this only decides whether the UI offers the option.
   bool get canStillSetPhoto => avatarPath == null || !isActive;
 
   String get displayName => fullName.isNotEmpty ? fullName : email;

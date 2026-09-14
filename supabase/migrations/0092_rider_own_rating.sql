@@ -50,4 +50,4 @@ $$;
 revoke all on function public.my_rating_summary() from public;
 grant execute on function public.my_rating_summary() to authenticated;
 
-comment on function public.my_rating_summary() is 'A rider''s own rating, aggregates only - no customer comments, which stay with dispatch (see 0091). Scoped to auth.uid() with no parameter, so it cannot be pointed at anyone else.';
+comment on function public.my_rating_summary() is 'A rider''s own rating, aggregates only - no customer comments, which stay with dispatch (see 0092). Scoped to auth.uid() with no parameter, so it cannot be pointed at anyone else.';

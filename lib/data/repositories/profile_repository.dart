@@ -44,7 +44,7 @@ class ProfileRepository {
   }
 
   /// Bucket holding rider photographs. Private, unlike proof-of-delivery -
-  /// see `0090_rider_photo.sql` - so nothing here is reachable by URL
+  /// see `0091_rider_photo.sql` - so nothing here is reachable by URL
   /// alone; every read goes through a signed link.
   static const _photoBucket = 'rider-photos';
 

@@ -18,7 +18,7 @@ import '../providers/rider_profile_providers.dart';
 /// is - their name, their licence, the bike they ride - is what dispatch
 /// matched to a job and what a customer was told to expect at the door.
 /// Changes go through staff, who are then the ones on the audit trail for
-/// it. The database enforces this (see `0090_rider_photo.sql`); this
+/// it. The database enforces this (see `0091_rider_photo.sql`); this
 /// screen just stops offering something that would be refused.
 class RiderProfileScreen extends ConsumerStatefulWidget {
   const RiderProfileScreen({super.key});
@@ -31,7 +31,7 @@ class _RiderProfileScreenState extends ConsumerState<RiderProfileScreen> {
   bool _uploading = false;
 
   /// Only reachable while the database would accept it - see
-  /// `canStillSetPhoto`, which mirrors the rule in 0090. A rider who
+  /// `canStillSetPhoto`, which mirrors the rule in 0091. A rider who
   /// signed up before photos existed, or who is still waiting on
   /// approval, can set one here.
   Future<void> _addPhoto(String userId) async {
@@ -167,7 +167,7 @@ class _PendingChip extends StatelessWidget {
 
 /// The rider's own score. Their average, what it is drawn from, and the
 /// spread - never the customers' written comments, which stay with
-/// dispatch (see 0091).
+/// dispatch (see 0092).
 class _RatingCard extends StatelessWidget {
   const _RatingCard({this.rating});
 

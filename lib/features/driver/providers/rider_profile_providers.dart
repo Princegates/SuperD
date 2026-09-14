@@ -4,7 +4,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../../models/rider_rating.dart';
 
 /// The signed-in rider's own rating. Aggregates only - see
-/// `my_rating_summary()` in `0091_rider_own_rating.sql`.
+/// `my_rating_summary()` in `0092_rider_own_rating.sql`.
 final myRatingProvider = FutureProvider<RiderRating>((ref) async {
   // Rebuilds when the profile does, so a rider who has just been rated
   // sees it after the next refresh rather than only on a cold start.

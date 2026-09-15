@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show FilteringTextInputFormatter;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../data/repositories/driver_daily_fee_repository.dart';
 import '../../../models/daily_fee_status.dart';
+import '../../../shared/utils/ghana_phone.dart';
 
 /// Opens the Mobile Money / manual-reference sheet for settling today's
 /// balance - today's tiered platform fee (Console > Settings > Driver
@@ -161,9 +163,11 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
   }
 
   Future<void> _payViaPaystack() async {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
-      setState(() => _error = 'Enter a Mobile Money number.');
+    final phone = GhanaPhone.normalize(_phoneController.text);
+    if (phone == null) {
+      setState(
+        () => _error = 'Enter a valid Ghana phone number, e.g. 024 XXX XXXX.',
+      );
       return;
     }
     setState(() {
@@ -314,6 +318,7 @@ class _DailyFeePaymentSheetState extends ConsumerState<_DailyFeePaymentSheet> {
               TextField(
                 controller: _otpController,
                 keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                 autofocus: true,
                 decoration: const InputDecoration(
                   labelText: 'One-time code',

@@ -2,8 +2,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show TextInput;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
@@ -23,6 +25,14 @@ const _loginTabLabels = {
   UserRole.dispatcher: 'Dispatcher',
 };
 
+/// SharedPreferences key for the "Remember me" email - never the password.
+/// The password itself is deliberately never written to local storage
+/// (SharedPreferences isn't secure storage on either platform); the
+/// [AutofillGroup] below plus [AutofillHints.password] on the field hand
+/// that job to the OS/browser's own credential manager instead, which
+/// already exists for this and is built to hold a secret safely.
+const _rememberedEmailKey = 'superd_remembered_email';
+
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
 
@@ -40,6 +50,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   bool _isSubmitting = false;
   String? _errorMessage;
   UserRole _selectedTab = UserRole.driver;
+  bool _rememberMe = false;
 
   @override
   void initState() {
@@ -48,6 +59,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       vsync: this,
       duration: const Duration(seconds: 6),
     )..repeat();
+    _loadRememberedEmail();
+  }
+
+  Future<void> _loadRememberedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getString(_rememberedEmailKey);
+    if (saved == null || !mounted) return;
+    setState(() {
+      _emailController.text = saved;
+      _rememberMe = true;
+    });
   }
 
   @override
@@ -98,12 +120,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     });
 
     try {
+      final email = _emailController.text.trim();
       await ref
           .read(authRepositoryProvider)
-          .signIn(
-            email: _emailController.text.trim(),
-            password: _passwordController.text,
-          );
+          .signIn(email: email, password: _passwordController.text);
+      // Save/clear the remembered email only after signIn succeeds - a
+      // failed attempt shouldn't overwrite what was there before, and
+      // there's no point remembering an email that didn't work.
+      final prefs = await SharedPreferences.getInstance();
+      if (_rememberMe) {
+        await prefs.setString(_rememberedEmailKey, email);
+      } else {
+        await prefs.remove(_rememberedEmailKey);
+      }
+      // Prompts the platform's own save-password dialog (Android/iOS/web)
+      // now that sign-in succeeded - this is what actually remembers the
+      // password, not anything stored by this app. A no-op where the
+      // platform doesn't support it.
+      TextInput.finishAutofillContext();
       // go_router redirect handles navigation once the auth state updates.
     } on AuthException catch (e) {
       setState(() => _errorMessage = e.message);
@@ -218,41 +252,86 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               ),
                             ],
                             const SizedBox(height: 24),
-                            TextFormField(
-                              controller: _emailController,
-                              keyboardType: TextInputType.emailAddress,
-                              autofillHints: const [AutofillHints.email],
-                              decoration: const InputDecoration(
-                                labelText: 'Email',
-                                prefixIcon: Icon(Icons.email_outlined),
+                            // Groups the two fields for the platform's own
+                            // autofill/credential-manager UI (Android,
+                            // iOS, web) - the actual "remember my
+                            // password" mechanism, since this app never
+                            // stores the password itself. See
+                            // _rememberedEmailKey's doc comment.
+                            AutofillGroup(
+                              child: Column(
+                                crossAxisAlignment:
+                                    CrossAxisAlignment.stretch,
+                                children: [
+                                  TextFormField(
+                                    controller: _emailController,
+                                    keyboardType: TextInputType.emailAddress,
+                                    autofillHints: const [
+                                      AutofillHints.email,
+                                    ],
+                                    decoration: const InputDecoration(
+                                      labelText: 'Email',
+                                      prefixIcon: Icon(Icons.email_outlined),
+                                    ),
+                                    validator: (value) =>
+                                        (value == null ||
+                                            !value.contains('@'))
+                                        ? 'Enter a valid email'
+                                        : null,
+                                  ),
+                                  const SizedBox(height: 14),
+                                  TextFormField(
+                                    controller: _passwordController,
+                                    obscureText: true,
+                                    autofillHints: const [
+                                      AutofillHints.password,
+                                    ],
+                                    decoration: const InputDecoration(
+                                      labelText: 'Password',
+                                      prefixIcon: Icon(Icons.lock_outline),
+                                    ),
+                                    validator: (value) =>
+                                        (value == null || value.length < 6)
+                                        ? 'Password must be at least 6 characters'
+                                        : null,
+                                    onFieldSubmitted: (_) => _submit(),
+                                  ),
+                                ],
                               ),
-                              validator: (value) =>
-                                  (value == null || !value.contains('@'))
-                                  ? 'Enter a valid email'
-                                  : null,
                             ),
-                            const SizedBox(height: 14),
-                            TextFormField(
-                              controller: _passwordController,
-                              obscureText: true,
-                              autofillHints: const [AutofillHints.password],
-                              decoration: const InputDecoration(
-                                labelText: 'Password',
-                                prefixIcon: Icon(Icons.lock_outline),
-                              ),
-                              validator: (value) =>
-                                  (value == null || value.length < 6)
-                                  ? 'Password must be at least 6 characters'
-                                  : null,
-                              onFieldSubmitted: (_) => _submit(),
-                            ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () =>
-                                    context.push('/forgot-password'),
-                                child: const Text('Forgot password?'),
-                              ),
+                            Row(
+                              mainAxisAlignment:
+                                  MainAxisAlignment.spaceBetween,
+                              children: [
+                                InkWell(
+                                  onTap: () => setState(
+                                    () => _rememberMe = !_rememberMe,
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Checkbox(
+                                          value: _rememberMe,
+                                          onChanged: (value) => setState(
+                                            () =>
+                                                _rememberMe = value ?? false,
+                                          ),
+                                        ),
+                                        const Text('Remember me'),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () =>
+                                      context.push('/forgot-password'),
+                                  child: const Text('Forgot password?'),
+                                ),
+                              ],
                             ),
                             if (_errorMessage != null) ...[
                               const SizedBox(height: 14),

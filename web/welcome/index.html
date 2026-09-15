@@ -69,6 +69,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300..700&family=Archivo:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<!-- Leaflet: the coverage map (#coverage) - free OpenStreetMap/CARTO tiles,
+     no API key/billing needed, unlike Google Maps. Loading it here (not
+     deferred) keeps this simple; it's small (~40KB gzipped) next to the
+     fonts above. -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <style>
   /* ==========================================================
      SuperDelivery — the issue.
@@ -801,6 +806,17 @@
   .tile .zn { font-family: 'Fraunces', Georgia, serif; font-size: 1.22rem; font-weight: 600; letter-spacing: -.02em; }
   .tile .zt { display: block; font-size: .85rem; color: var(--muted); margin-top: .3rem; }
 
+  /* ---------- coverage map ---------- */
+
+  .coverage-map-wrap { margin-bottom: 1.6rem; border-radius: 8px; overflow: hidden; box-shadow: var(--lift-1); }
+  .coverage-map { height: 380px; width: 100%; background: var(--surface); }
+  /* Leaflet's own popup chrome, restyled to sit inside this page's world
+     instead of looking like a dropped-in widget. */
+  .coverage-map .leaflet-popup-content-wrapper { border-radius: 6px; box-shadow: var(--lift-2); }
+  .coverage-map .leaflet-popup-content { font-family: 'Archivo', system-ui, sans-serif; margin: .7rem .9rem; }
+  .coverage-map .leaflet-popup-content b { font-family: 'Fraunces', Georgia, serif; font-size: 1.05rem; }
+  .coverage-map .leaflet-popup-content span { display: block; font-size: .82rem; color: var(--muted); margin-top: .2rem; }
+
   /* ---------- fare panel ---------- */
 
   .fare-wrap {
@@ -1255,18 +1271,28 @@
         </p>
       </div>
 
-      <div class="tiles">
-        <div class="tile rise"><span class="zn">Osu &amp; Labone</span><span class="zt">Oxford St, Cantonments, Ridge</span></div>
-        <div class="tile rise" style="--d:50ms"><span class="zn">East Legon</span><span class="zt">Boundary Rd, Adjiringanor, Bawaleshie</span></div>
-        <div class="tile rise" style="--d:100ms"><span class="zn">Airport &amp; Dzorwulu</span><span class="zt">Airport Residential, Roman Ridge</span></div>
-        <div class="tile rise" style="--d:150ms"><span class="zn">Spintex</span><span class="zt">Baatsona, Manet, Coastal Estates</span></div>
-        <div class="tile rise" style="--d:200ms"><span class="zn">Tema</span><span class="zt">Community 1&ndash;25, Harbour area</span></div>
-        <div class="tile rise" style="--d:250ms"><span class="zn">Madina &amp; Adenta</span><span class="zt">Ritz, Redco, Frafraha</span></div>
-        <div class="tile rise" style="--d:300ms"><span class="zn">Achimota &amp; Lapaz</span><span class="zt">Tesano, Abeka, Kwashieman</span></div>
-        <div class="tile rise" style="--d:350ms"><span class="zn">Accra Central</span><span class="zt">Circle, Makola, Adabraka</span></div>
-        <div class="tile rise" style="--d:400ms"><span class="zn">Dansoman &amp; Kaneshie</span><span class="zt">Mataheko, Odorkor, Sakaman</span></div>
-        <div class="tile rise" style="--d:450ms"><span class="zn">Teshie &amp; Nungua</span><span class="zt">Lascala, Zenu, Sakumono</span></div>
+      <!-- Real map, not a decoration - Leaflet + free CARTO tiles (no API
+           key/billing, unlike Google Maps, which matters on a public page
+           with no login gate). Zone coordinates are approximate
+           neighbourhood centres, not operating-boundary polygons - read
+           straight off the tiles below so the two never drift apart. -->
+      <div class="coverage-map-wrap rise" style="--d:20ms">
+        <div id="coverage-map" class="coverage-map" role="img" aria-label="Map of Greater Accra showing SuperDelivery's ten dispatch zones"></div>
       </div>
+
+      <div class="tiles">
+        <div class="tile rise" data-lat="5.5580" data-lng="-0.1750"><span class="zn">Osu &amp; Labone</span><span class="zt">Oxford St, Cantonments, Ridge</span></div>
+        <div class="tile rise" style="--d:50ms" data-lat="5.6500" data-lng="-0.1500"><span class="zn">East Legon</span><span class="zt">Boundary Rd, Adjiringanor, Bawaleshie</span></div>
+        <div class="tile rise" style="--d:100ms" data-lat="5.6050" data-lng="-0.1750"><span class="zn">Airport &amp; Dzorwulu</span><span class="zt">Airport Residential, Roman Ridge</span></div>
+        <div class="tile rise" style="--d:150ms" data-lat="5.6300" data-lng="-0.1300"><span class="zn">Spintex</span><span class="zt">Baatsona, Manet, Coastal Estates</span></div>
+        <div class="tile rise" style="--d:200ms" data-lat="5.6698" data-lng="-0.0166"><span class="zn">Tema</span><span class="zt">Community 1&ndash;25, Harbour area</span></div>
+        <div class="tile rise" style="--d:250ms" data-lat="5.6850" data-lng="-0.1650"><span class="zn">Madina &amp; Adenta</span><span class="zt">Ritz, Redco, Frafraha</span></div>
+        <div class="tile rise" style="--d:300ms" data-lat="5.6180" data-lng="-0.2270"><span class="zn">Achimota &amp; Lapaz</span><span class="zt">Tesano, Abeka, Kwashieman</span></div>
+        <div class="tile rise" style="--d:350ms" data-lat="5.5560" data-lng="-0.2000"><span class="zn">Accra Central</span><span class="zt">Circle, Makola, Adabraka</span></div>
+        <div class="tile rise" style="--d:400ms" data-lat="5.5500" data-lng="-0.2450"><span class="zn">Dansoman &amp; Kaneshie</span><span class="zt">Mataheko, Odorkor, Sakaman</span></div>
+        <div class="tile rise" style="--d:450ms" data-lat="5.5870" data-lng="-0.0950"><span class="zn">Teshie &amp; Nungua</span><span class="zt">Lascala, Zenu, Sakumono</span></div>
+      </div>
+      <p style="margin-top:.9rem;font-size:.8rem;color:var(--muted)">Zone markers are approximate neighbourhood centres, not exact operating boundaries.</p>
     </div>
   </section>
 
@@ -1652,6 +1678,73 @@
         });
       }
     }
+  })();
+</script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+  (function () {
+    var el = document.getElementById('coverage-map');
+    if (!el || typeof L === 'undefined') return;
+
+    // Free CARTO basemaps - no API key/billing, unlike Google Maps, which
+    // matters on a page with no login to throttle who can load it. Light/
+    // dark variants exist specifically so this can follow the same day/
+    // night toggle as the rest of the page instead of clashing with it.
+    var TILE_URL = {
+      day: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      night: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+    };
+    var ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions" target="_blank" rel="noopener">CARTO</a>';
+
+    var map = L.map(el, {
+      scrollWheelZoom: false,
+      attributionControl: true
+    }).setView([5.615, -0.155], 11);
+
+    var tileLayer = L.tileLayer(TILE_URL.day, {
+      attribution: ATTRIBUTION,
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map);
+
+    // Only intercept scroll to zoom once the visitor has actually clicked
+    // into the map - otherwise a normal page-scroll over it would get
+    // trapped zooming the map instead of moving the page.
+    map.on('focus', function () { map.scrollWheelZoom.enable(); });
+    map.on('blur', function () { map.scrollWheelZoom.disable(); });
+
+    // One marker per zone tile below, reading straight off its own
+    // data-lat/data-lng/.zn/.zt - the map and the list can never drift
+    // out of sync with each other because there is only one copy of the
+    // zone data.
+    var bounds = [];
+    document.querySelectorAll('.tile[data-lat]').forEach(function (tile) {
+      var lat = parseFloat(tile.getAttribute('data-lat'));
+      var lng = parseFloat(tile.getAttribute('data-lng'));
+      if (isNaN(lat) || isNaN(lng)) return;
+      var name = tile.querySelector('.zn');
+      var detail = tile.querySelector('.zt');
+      var html = '<b>' + (name ? name.textContent : '') + '</b>' +
+        (detail ? '<span>' + detail.textContent + '</span>' : '');
+      L.marker([lat, lng]).addTo(map).bindPopup(html);
+      bounds.push([lat, lng]);
+    });
+    if (bounds.length) map.fitBounds(bounds, { padding: [24, 24] });
+
+    // Follow the page's own day/night toggle - set once at load (the
+    // theme is already resolved on <html data-mode> before this script
+    // runs) and again on every click of the same button the rest of the
+    // page listens to.
+    var root = document.documentElement;
+    var applyMode = function () {
+      tileLayer.setUrl(root.getAttribute('data-mode') === 'night' ? TILE_URL.night : TILE_URL.day);
+    };
+    applyMode();
+    var modeBtn = document.getElementById('mode');
+    if (modeBtn) modeBtn.addEventListener('click', function () {
+      // The page's own handler flips data-mode first; run after it.
+      setTimeout(applyMode, 0);
+    });
   })();
 </script>
 </body>

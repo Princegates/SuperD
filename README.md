@@ -1194,6 +1194,18 @@ delivery. It refuses to count below two minutes without asking again -
 announcing an arrival on an extrapolation would be worse than saying
 nothing.
 
+**The location disclosure comes before the permission prompt.** Google
+Play requires a prominent disclosure that names the data, says it keeps
+being collected while the app is in the background, and gives a real
+choice - *before* the runtime permission dialog, not after it. The app
+showed its explanation only afterwards, and only to riders who had picked
+"while in use", which does not satisfy that however well it read.
+`_showProminentDisclosure()` in DriverDashboardScreen now runs first, and
+declining it means the permission is never requested at all: the rider
+can still take and complete deliveries, they simply will not appear on
+the dispatch map. This is also the screen Play asks to see in the
+background-location declaration video.
+
 **Riders report on movement, not on a clock.** A rider's app sends a
 position once they have moved ~25m, plus a keepalive every 5 minutes so a
 waiting rider stays visible and assignable. A rider on the move still

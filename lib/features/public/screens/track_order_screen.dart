@@ -1,6 +1,7 @@
 import 'package:intl/intl.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../../core/providers/core_providers.dart';
@@ -69,11 +70,13 @@ class TrackOrderScreen extends ConsumerWidget {
                     : order.pickupLng;
                 return SingleChildScrollView(
                   padding: const EdgeInsets.all(20),
-                  child: Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Column(
+                    children: [
+                      Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
@@ -217,15 +220,107 @@ class TrackOrderScreen extends ConsumerWidget {
                               color: Colors.grey.shade500,
                             ),
                           ),
-                        ],
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                      const _VendorPromoCard(),
+                    ],
                   ),
                 );
               },
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// A pitch to register as a vendor, shown to every customer tracking an
+/// order - not just the ones already delivered. This is the moment
+/// someone watching their own parcel move is most likely to think "I
+/// could use this for my own business", so the ask sits right here
+/// instead of only on the marketing site they'd have to go looking for
+/// separately.
+class _VendorPromoCard extends StatelessWidget {
+  const _VendorPromoCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.primary, AppTheme.primary.withValues(alpha: 0.82)],
+        ),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: AppTheme.accent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.storefront,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: Text(
+                  'Run a business? Get deliveries like this one.',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 15.5,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Share one link with your customers and every order gets '
+            'picked up, tracked live, and delivered - just like this one - '
+            'with no delivery fleet of your own to manage.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.9),
+              fontSize: 13,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => context.push('/vendor'),
+              style: FilledButton.styleFrom(
+                backgroundColor: AppTheme.accent,
+                foregroundColor: AppTheme.primary,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              icon: const Icon(Icons.arrow_forward, size: 18),
+              label: const Text(
+                'Register your business',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

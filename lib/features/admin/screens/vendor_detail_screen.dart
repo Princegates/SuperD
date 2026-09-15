@@ -29,7 +29,7 @@ class VendorDetailScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final deliveries = (ref.watch(allDeliveriesProvider).valueOrNull ?? [])
+    final deliveries = (ref.watch(deliveryHistoryProvider).valueOrNull ?? [])
         .where((d) => d.vendorId == vendor.id)
         .toList();
     final commission =

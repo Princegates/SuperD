@@ -194,7 +194,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
         // from an existing delivery whose status just changed. previous ==
         // null (still loading) is skipped so the first load doesn't fire
         // one notification per already-existing delivery.
-        ref.listen<AsyncValue<List<Delivery>>>(allDeliveriesProvider, (
+        ref.listen<AsyncValue<List<Delivery>>>(recentDeliveriesProvider, (
           previous,
           next,
         ) {

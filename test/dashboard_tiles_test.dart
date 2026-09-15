@@ -40,7 +40,7 @@ Widget _screen({String? staffName}) {
         (ref) =>
             Stream.value(staffName == null ? _admin : _adminNamed(staffName)),
       ),
-      allDeliveriesProvider.overrideWith((ref) => Stream.value(<Delivery>[])),
+      recentDeliveriesProvider.overrideWith((ref) => Stream.value(<Delivery>[])),
       driversListProvider.overrideWith((ref) async => <Profile>[]),
     ],
     child: MaterialApp(

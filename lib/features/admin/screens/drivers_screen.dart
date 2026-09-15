@@ -187,7 +187,7 @@ class DriversScreen extends ConsumerWidget {
     final ratings =
         ref.watch(driverRatingSummaryProvider).valueOrNull ?? const {};
     final poorRatings = ref.watch(poorRatingsProvider).valueOrNull ?? const [];
-    final deliveries = ref.watch(allDeliveriesProvider).valueOrNull ?? const [];
+    final deliveries = ref.watch(recentDeliveriesProvider).valueOrNull ?? const [];
     final work = _WorkStats.byDriver(deliveries);
     // Empty until the batch request lands, so the roster renders with
     // initials straight away rather than waiting on photographs.

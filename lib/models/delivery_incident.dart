@@ -4,7 +4,7 @@
 /// whoever made the change (`changed_by`); resolving it to a display name
 /// and the delivery's tracking code both happen client-side against
 /// already-fetched provider data, the same way the Commission tab
-/// resolves driver names - see `driversListProvider`/`allDeliveriesProvider`.
+/// resolves driver names - see `driversListProvider`/`recentDeliveriesProvider`.
 class DeliveryIncident {
   const DeliveryIncident({
     required this.deliveryId,

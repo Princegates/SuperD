@@ -1134,6 +1134,34 @@ database checks above are what actually enforce it either way.
   `profiles.avatar_path` points at it; screens read it through short-lived
   signed URLs, never a public link.
 
+#### What dispatch streams, and what it fetches
+
+Two different jobs, deliberately served two different ways.
+
+**Live (realtime, bounded).** The Deliveries screen, the dashboard tiles,
+the Drivers screen and the shell's notifications read
+`recentDeliveriesProvider` - deliveries from the last **90 days**, live.
+Bounded because this is a subscription every dispatcher holds open all
+day and re-reads in full on every reconnect; unbounded, that cost grows
+with your delivery history forever, for a screen that only shows the top
+of it. A delivery still live after 90 days is a data problem, not a
+dispatch one - stuck jobs are flagged within hours.
+
+**Reporting (one-shot, complete).** Console Overview, Reports, Daily Fees
+and a vendor's own page read `deliveryHistoryProvider` - every delivery
+ever, fetched when the report opens and released when it closes. Reports
+offers a range going back five years and defaults to all of it, so these
+genuinely need the whole table; they just do not need it streaming into
+every dispatcher's session all day.
+
+**The Live Map polls, it does not subscribe.** Riders push a position
+every 15 seconds. As a realtime subscription over every driver row, each
+of those writes was re-broadcast to every dispatcher watching, so the
+cost was riders x dispatchers - it grew when you hired either. It now
+fetches only the riders actually online, on the same 15-second beat, and
+stops entirely when nobody has the map on screen. Same picture, flat
+cost.
+
 Row Level Security enforces the roles at the database level, not just in
 the app:
 

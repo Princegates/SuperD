@@ -217,7 +217,7 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
         ?.freeDayDeliveryThreshold;
     final freeDayBalances =
         ref.watch(allFreeDayBalancesProvider).valueOrNull ?? {};
-    final allDeliveries = ref.watch(allDeliveriesProvider).valueOrNull ?? [];
+    final allDeliveries = ref.watch(deliveryHistoryProvider).valueOrNull ?? [];
     final driverNames = {for (final d in drivers) d.id: d.displayName};
 
     final deliveredCounts = <String, int>{};

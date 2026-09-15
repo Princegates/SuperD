@@ -10,8 +10,29 @@ import '../../../models/vendor.dart';
 import '../../../models/zone.dart';
 import '../../../models/zone_location.dart';
 
-final allDeliveriesProvider = StreamProvider<List<Delivery>>((ref) {
-  return ref.watch(deliveryRepositoryProvider).watchAllDeliveries();
+/// Recent deliveries, live - the operational feed. Everything dispatch
+/// does today reads this: the Deliveries screen, the dashboard tiles, the
+/// Drivers screen's active counts, the shell's new-order notification.
+///
+/// Deliberately not named "all": it covers
+/// [DeliveryRepository.recentWindow], and a provider that claimed
+/// otherwise would be a quiet lie to every screen reading it. For the
+/// whole history, see [deliveryHistoryProvider].
+final recentDeliveriesProvider = StreamProvider<List<Delivery>>((ref) {
+  return ref.watch(deliveryRepositoryProvider).watchRecentDeliveries();
+});
+
+/// Every delivery ever - what reporting reads.
+///
+/// A fetch rather than a subscription, and autoDispose so it is released
+/// when the reader closes the report. Console Reports offers a range going
+/// back five years and defaults to all of it, and a vendor's page shows
+/// lifetime totals, so these genuinely need the whole table - but only
+/// while someone is looking at them, which is the difference that matters.
+final deliveryHistoryProvider = FutureProvider.autoDispose<List<Delivery>>((
+  ref,
+) {
+  return ref.watch(deliveryRepositoryProvider).fetchAllDeliveries();
 });
 
 final driversListProvider = FutureProvider<List<Profile>>((ref) {
@@ -34,12 +55,38 @@ final poorRatingsProvider = FutureProvider<List<DeliveryRating>>((ref) {
   return ref.watch(ratingRepositoryProvider).fetchRecent(onlyPoor: true);
 });
 
-/// Every driver's live position, for the Live Map. Kept separate from
-/// [driversListProvider] (a one-shot fetch used for rosters/assignment)
-/// since this one needs to be a live realtime stream instead.
-final driverLocationsProvider = StreamProvider<List<Profile>>((ref) {
-  return ref.watch(profileRepositoryProvider).watchDriverLocations();
-});
+/// How often the Live Map asks where everyone is. Matched to the rate
+/// riders actually report at (DriverDashboardScreen's 15s interval) -
+/// polling faster would just re-read unchanged rows.
+///
+/// A provider rather than a constant so a test can wind it down instead
+/// of sleeping through real seconds; nothing in the app overrides it.
+final liveMapPollIntervalProvider = Provider<Duration>(
+  (ref) => const Duration(seconds: 15),
+);
+
+/// Drivers currently sharing a position, for the Live Map.
+///
+/// Polled, not subscribed - see
+/// [ProfileRepository.fetchLiveDriverLocations] for why. autoDispose
+/// matters as much as the polling does: the old realtime subscription
+/// stayed open for the life of the session whether or not anyone had the
+/// map on screen, and this stops the moment the last viewer leaves.
+///
+/// Kept separate from [driversListProvider] (the roster) because they
+/// answer different questions and change at wildly different rates.
+final driverLocationsProvider =
+    StreamProvider.autoDispose<List<Profile>>((ref) async* {
+      final repo = ref.watch(profileRepositoryProvider);
+      final interval = ref.watch(liveMapPollIntervalProvider);
+      var running = true;
+      ref.onDispose(() => running = false);
+      while (running) {
+        yield await repo.fetchLiveDriverLocations();
+        if (!running) break;
+        await Future<void>.delayed(interval);
+      }
+    });
 
 /// Every user in the system - used by the super-admin Team screen.
 final allProfilesProvider = FutureProvider<List<Profile>>((ref) {
@@ -105,7 +152,7 @@ final rankedDriversProvider =
       final drivers = (ref.watch(driversListProvider).valueOrNull ?? [])
           .where((d) => d.isActive && !d.isFrozen && !unpaidIds.contains(d.id))
           .toList();
-      final deliveries = ref.watch(allDeliveriesProvider).valueOrNull ?? [];
+      final deliveries = ref.watch(recentDeliveriesProvider).valueOrNull ?? [];
 
       final activeCounts = <String, int>{};
       for (final delivery in deliveries) {

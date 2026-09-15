@@ -122,7 +122,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             .valueOrNull
             ?.hasPermission(StaffPermission.createDeliveries) ??
         false;
-    final deliveriesState = ref.watch(allDeliveriesProvider);
+    final deliveriesState = ref.watch(recentDeliveriesProvider);
     final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
     final driverNames = {for (final d in drivers) d.id: d.displayName};
 
@@ -135,7 +135,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     // load) is skipped, same reasoning as the driver dashboard's own
     // "new delivery assigned" snackbar - otherwise every already
     // auto-assigned delivery would toast the moment this screen opens.
-    ref.listen<AsyncValue<List<Delivery>>>(allDeliveriesProvider, (
+    ref.listen<AsyncValue<List<Delivery>>>(recentDeliveriesProvider, (
       previous,
       next,
     ) {
@@ -305,7 +305,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                       : RefreshIndicator(
                           key: ValueKey('$_filter|$_query'),
                           onRefresh: () async =>
-                              ref.invalidate(allDeliveriesProvider),
+                              ref.invalidate(recentDeliveriesProvider),
                           child: ListView.separated(
                             padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
                             itemCount: items.length,

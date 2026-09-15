@@ -138,19 +138,37 @@ class ProfileRepository {
     return rows.map(Profile.fromMap).toList();
   }
 
-  /// Every driver, live - for the dispatcher/super-admin Live Map. Filtering
-  /// out stale positions (a driver who closed the app a while ago) happens
-  /// client-side via `Profile.hasRecentLocation`, since this just streams
-  /// the raw rows.
-  Stream<List<Profile>> watchDriverLocations() {
-    return resilientRealtimeStream(
-      () => _client
-          .from('profiles')
-          .stream(primaryKey: ['id'])
-          .eq('role', UserRole.driver.wireValue)
-          .order('full_name')
-          .map((rows) => rows.map(Profile.fromMap).toList()),
-    );
+  /// A driver whose last fix is older than this is treated as gone - the
+  /// same cutoff `Profile.hasRecentLocation` and the matching SQL in 0044
+  /// already use, so "recent enough to trust" means one thing everywhere.
+  static const liveLocationWindow = Duration(minutes: 15);
+
+  /// Drivers currently sharing a position, for the Live Map. One shot -
+  /// the caller polls.
+  ///
+  /// This used to be a realtime subscription over every driver row, which
+  /// made the Live Map the most expensive screen in the product: each
+  /// rider writes a position every 15 seconds, and realtime re-broadcast
+  /// every one of those writes to every dispatcher watching. The cost was
+  /// riders times dispatchers - it grew when you hired either.
+  ///
+  /// Polling the same data is flat: one query per dispatcher per tick, no
+  /// matter how many riders are out. It also filters server-side, so a
+  /// roster of five thousand riders returns only the hundred actually
+  /// online rather than all of them for the client to sift.
+  ///
+  /// Nothing is lost visually. Positions were only ever redrawn as they
+  /// arrived every 15 seconds; now they are fetched on the same beat.
+  Future<List<Profile>> fetchLiveDriverLocations() async {
+    final cutoff = DateTime.now().toUtc().subtract(liveLocationWindow);
+    final rows = await _client
+        .from('profiles')
+        .select()
+        .eq('role', UserRole.driver.wireValue)
+        .eq('is_online', true)
+        .gt('location_updated_at', cutoff.toIso8601String())
+        .order('full_name');
+    return rows.map(Profile.fromMap).toList();
   }
 
   /// Called roughly every ~15s (or on a meaningful move) by a driver's own

@@ -55,7 +55,7 @@ Widget _screen(List<Delivery> deliveries) {
   return ProviderScope(
     overrides: [
       currentProfileProvider.overrideWith((ref) => Stream.value(_dispatcher)),
-      allDeliveriesProvider.overrideWith((ref) => Stream.value(deliveries)),
+      recentDeliveriesProvider.overrideWith((ref) => Stream.value(deliveries)),
       driversListProvider.overrideWith((ref) async => <Profile>[]),
       driverRatingSummaryProvider.overrideWith((ref) async => {}),
       poorRatingsProvider.overrideWith((ref) async => []),

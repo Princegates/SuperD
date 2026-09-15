@@ -63,7 +63,7 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final deliveriesState = ref.watch(allDeliveriesProvider);
+    final deliveriesState = ref.watch(deliveryHistoryProvider);
     final payments = ref.watch(allPaymentsProvider).valueOrNull ?? [];
     final commission =
         ref.watch(allCommissionPaymentsProvider).valueOrNull ?? [];

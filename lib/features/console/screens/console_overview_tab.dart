@@ -32,7 +32,7 @@ class ConsoleOverviewTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final deliveriesState = ref.watch(allDeliveriesProvider);
+    final deliveriesState = ref.watch(deliveryHistoryProvider);
     final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
     final vendors = ref.watch(vendorsProvider).valueOrNull ?? [];
     final zones = ref.watch(zonesProvider).valueOrNull ?? [];

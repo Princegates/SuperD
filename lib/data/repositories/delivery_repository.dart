@@ -16,15 +16,55 @@ class DeliveryRepository {
   static const _table = 'deliveries';
   static const _podBucket = 'proof-of-delivery';
 
-  /// All deliveries, newest first. Used by the dispatcher dashboard.
-  Stream<List<Delivery>> watchAllDeliveries() {
+  /// How far back the live dispatch stream reaches.
+  ///
+  /// Dispatch is about what is happening now and what happened lately; a
+  /// job from last spring belongs in reporting, not on a realtime feed
+  /// that every dispatcher holds open all day. Generous on purpose - a
+  /// stuck delivery is flagged within hours (see DeliveryIncident), so
+  /// nothing operational is ever near this edge, and a wide window keeps
+  /// the Deliveries screen's search useful.
+  static const recentWindow = Duration(days: 90);
+
+  /// Recent deliveries, newest first, live. What the dispatcher dashboard,
+  /// the Drivers screen and the shell's notifications all read.
+  ///
+  /// Bounded rather than the whole table: this is a realtime subscription
+  /// held open by every dispatcher, and it re-reads everything it covers
+  /// on each reconnect - which `resilientRealtimeStream` does on any
+  /// dropped socket. Unbounded, that cost grows with the delivery history
+  /// forever, for a screen that only ever shows the top of it.
+  ///
+  /// One filter, because a realtime stream only takes one - hence a plain
+  /// date cut rather than "active OR recent". A delivery still live after
+  /// 90 days is a data problem, not a dispatch one.
+  Stream<List<Delivery>> watchRecentDeliveries() {
+    final cutoff = DateTime.now().toUtc().subtract(recentWindow);
     return resilientRealtimeStream(
       () => _client
           .from(_table)
           .stream(primaryKey: ['id'])
+          .gte('created_at', cutoff.toIso8601String())
           .order('created_at', ascending: false)
           .map((rows) => rows.map(Delivery.fromMap).toList()),
     );
+  }
+
+  /// Every delivery ever, newest first - one shot, no subscription.
+  ///
+  /// Reporting needs the lot: Console Reports offers a range going back
+  /// five years and defaults to all of it, and a vendor's page shows
+  /// lifetime totals. Those are read deliberately, by someone who opened a
+  /// report, so they are a fetch rather than a live feed - the numbers do
+  /// not need to move under the reader, and pulling the whole table into
+  /// every dispatcher's session all day to serve them would be the same
+  /// mistake in a different place.
+  Future<List<Delivery>> fetchAllDeliveries() async {
+    final rows = await _client
+        .from(_table)
+        .select()
+        .order('created_at', ascending: false);
+    return rows.map(Delivery.fromMap).toList();
   }
 
   /// Only the deliveries assigned to [driverId]. Used by the driver

@@ -27,7 +27,7 @@ Widget _host(Widget child) {
   return ProviderScope(
     overrides: [
       currentProfileProvider.overrideWith((ref) => Stream.value(_admin)),
-      allDeliveriesProvider.overrideWith((ref) => Stream.value(<Delivery>[])),
+      deliveryHistoryProvider.overrideWith((ref) async => <Delivery>[]),
       driversListProvider.overrideWith((ref) async => <Profile>[]),
       allProfilesProvider.overrideWith((ref) async => <Profile>[]),
     ],

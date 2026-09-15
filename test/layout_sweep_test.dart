@@ -96,7 +96,12 @@ Widget _host(Widget child) {
   return ProviderScope(
     overrides: [
       currentProfileProvider.overrideWith((ref) => Stream.value(_admin)),
-      allDeliveriesProvider.overrideWith((ref) => Stream.value([_delivery()])),
+      recentDeliveriesProvider.overrideWith(
+        (ref) => Stream.value([_delivery()]),
+      ),
+      // The Console tabs read history, not the live feed - the sweep
+      // covers both families, so it has to stub both.
+      deliveryHistoryProvider.overrideWith((ref) async => [_delivery()]),
       driversListProvider.overrideWith((ref) async => [_driver]),
       allProfilesProvider.overrideWith((ref) async => [_admin, _driver]),
       driverRatingSummaryProvider.overrideWith((ref) async => {}),

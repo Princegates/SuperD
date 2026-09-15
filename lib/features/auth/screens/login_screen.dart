@@ -299,9 +299,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                 ],
                               ),
                             ),
-                            Row(
-                              mainAxisAlignment:
-                                  MainAxisAlignment.spaceBetween,
+                            // Wrap, not Row: at 320dp - a cheap handset, or
+                            // a split screen - "Remember me" and "Forgot
+                            // password?" together are wider than the screen,
+                            // and a Row would paint the overflow stripe over
+                            // the sign-in form. Wrapped, they drop to two
+                            // lines instead.
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
                               children: [
                                 InkWell(
                                   onTap: () => setState(

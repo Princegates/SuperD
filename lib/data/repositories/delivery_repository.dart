@@ -281,8 +281,14 @@ class DeliveryRepository {
     await _client.from(_table).update({'notes': notes}).eq('id', deliveryId);
   }
 
-  /// Uploads a proof-of-delivery photo and stores its public URL on the
+  /// Uploads a proof-of-delivery photo and records its path on the
   /// delivery row.
+  ///
+  /// A path, not a URL. The bucket is private as of 0098 - a delivery
+  /// photo is taken at someone's door and shows their address, so an
+  /// absolute link that never expires and needs no sign-in was the wrong
+  /// shape for it. Readers mint a short-lived signed link instead; see
+  /// [proofOfDeliveryUrl].
   Future<String> uploadProofOfDelivery({
     required String deliveryId,
     required File file,
@@ -294,14 +300,39 @@ class DeliveryRepository {
         .from(_podBucket)
         .upload(path, file, fileOptions: const FileOptions(upsert: true));
 
-    final publicUrl = _client.storage.from(_podBucket).getPublicUrl(path);
-
     await _client
         .from(_table)
-        .update({'proof_of_delivery_url': publicUrl})
+        .update({'proof_of_delivery_url': path})
         .eq('id', deliveryId);
 
-    return publicUrl;
+    return path;
+  }
+
+  /// A viewable link for one delivery's proof photo, valid for [ttl].
+  ///
+  /// Null rather than throwing when the photo is missing or unreadable -
+  /// the screens that show it have a job to do either way, and a detail
+  /// page that fails to load because one file went astray is worse than
+  /// one with a gap where a photo would be.
+  ///
+  /// Tolerates a stored absolute URL as well as a path, in case a row
+  /// predates 0098's rewrite or was written by a client still on an
+  /// older build.
+  Future<String?> proofOfDeliveryUrl(
+    String? pathOrUrl, {
+    Duration ttl = const Duration(hours: 1),
+  }) async {
+    if (pathOrUrl == null) return null;
+    final path = pathOrUrl.contains('/$_podBucket/')
+        ? pathOrUrl.split('/$_podBucket/').last
+        : pathOrUrl;
+    try {
+      return await _client.storage
+          .from(_podBucket)
+          .createSignedUrl(path, ttl.inSeconds);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<List<Map<String, dynamic>>> fetchStatusHistory(

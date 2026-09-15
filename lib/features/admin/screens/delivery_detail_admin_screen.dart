@@ -16,6 +16,7 @@ import '../../../models/profile.dart';
 import '../../../models/staff_permission.dart';
 import '../../../models/user_role.dart';
 import '../../../models/zone.dart';
+import '../../../shared/widgets/proof_of_delivery_image.dart';
 import '../../../shared/providers/delivery_detail_providers.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/navigation_launcher.dart';
@@ -302,13 +303,7 @@ class _DetailBody extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: Image.network(
-              delivery.proofOfDeliveryUrl!,
-              fit: BoxFit.cover,
-            ),
-          ),
+          ProofOfDeliveryImage(path: delivery.proofOfDeliveryUrl!),
         ],
         if (delivery.failureReason case final reason?) ...[
           const SizedBox(height: 16),

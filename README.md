@@ -1128,7 +1128,12 @@ database checks above are what actually enforce it either way.
 - `audit_log` — an append-only record of staff/vendor/delivery/payment
   actions for the Admin Console, writable only through `log_audit_event`
   and readable only by a super admin.
-- Storage bucket `proof-of-delivery` — photos drivers capture on delivery.
+- Storage bucket `proof-of-delivery` (private) — photos riders capture on
+  delivery, at `<delivery id>/<timestamp>.jpg`. Private since `0098`:
+  these are taken at a customer's door and show their address, so the
+  column stores a path and the two screens that display it (admin and
+  driver detail, both signed in) mint a short-lived signed link per view.
+  The customer tracking page does not show it.
 - Storage bucket `rider-photos` (private) — one face photo per rider, at
   `<user id>/photo.jpg` and capped at 200 KB by the client before upload.
   `profiles.avatar_path` points at it; screens read it through short-lived

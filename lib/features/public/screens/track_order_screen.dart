@@ -279,7 +279,7 @@ class _VendorPromoCard extends StatelessWidget {
               const SizedBox(width: 10),
               const Expanded(
                 child: Text(
-                  'Run a business? Get deliveries like this one.',
+                  'Run a business? Send deliveries like this one.',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,

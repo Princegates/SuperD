@@ -47,10 +47,13 @@ class TrackOrderScreen extends ConsumerWidget {
                   );
                 }
                 final status = DeliveryStatus.fromString(order.status);
-                final canTrack =
+                // Not yet at a final state - worth keeping this page open
+                // for, whether or not a rider's live position is on the
+                // map yet (that's [canTrack] below).
+                final isActive =
                     status != DeliveryStatus.delivered &&
-                    status != DeliveryStatus.cancelled &&
-                    order.hasDriverLocation;
+                    status != DeliveryStatus.cancelled;
+                final canTrack = isActive && order.hasDriverLocation;
                 // Which leg the rider is on decides what an ETA even
                 // means: before collection it is time to the shop, after
                 // it is time to the door. Both are worth knowing, and
@@ -86,6 +89,30 @@ class TrackOrderScreen extends ConsumerWidget {
                               StatusBadge(status: status),
                             ],
                           ),
+                          if (isActive) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  Icons.info_outline,
+                                  size: 14,
+                                  color: Colors.grey.shade500,
+                                ),
+                                const SizedBox(width: 6),
+                                Expanded(
+                                  child: Text(
+                                    'Do not close this window to keep '
+                                    'tracking your order.',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey.shade500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                           const SizedBox(height: 16),
                           _Row(
                             icon: Icons.place_outlined,

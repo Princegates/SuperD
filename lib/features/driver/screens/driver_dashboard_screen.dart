@@ -34,6 +34,30 @@ class DriverDashboardScreen extends ConsumerStatefulWidget {
 class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   StreamSubscription<Position>? _positionSubscription;
 
+  /// How far a rider must move before the OS reports a new position.
+  ///
+  /// It used to be zero, which meant a fix every 15 seconds whether or not
+  /// they had moved an inch - a rider parked at a junction for an hour
+  /// wrote 240 positions describing the same spot. 25m is below the width
+  /// of most Accra junctions, so a rider working still reports
+  /// continuously; a rider waiting goes quiet.
+  static const _minimumMoveMetres = 25;
+
+  /// How often a stationary rider re-sends the position they are already
+  /// at, so dispatch knows they are still there.
+  ///
+  /// This is not optional alongside the filter above, it is what makes it
+  /// safe. Both the Live Map and automatic assignment (0044) treat a rider
+  /// whose last fix is over 15 minutes old as gone - so without a
+  /// keepalive, filtering by movement would quietly make every waiting
+  /// rider invisible and unassignable, which is precisely the rider you
+  /// most want to send a job to. Well inside that window, so a missed
+  /// beat is not enough to drop anyone.
+  static const _keepAliveInterval = Duration(minutes: 5);
+
+  Timer? _keepAlive;
+  Position? _lastPosition;
+
   @override
   void initState() {
     super.initState();
@@ -43,6 +67,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
   @override
   void dispose() {
     _positionSubscription?.cancel();
+    _keepAlive?.cancel();
     super.dispose();
   }
 
@@ -87,6 +112,14 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
           onError: (Object e) =>
               debugPrint('SuperD: live location stream error: $e'),
         );
+
+    // Re-sends the last known position while the rider is not moving.
+    // Cheap by design: one write every few minutes instead of four a
+    // minute, and none at all until the first fix arrives.
+    _keepAlive = Timer.periodic(_keepAliveInterval, (_) {
+      final last = _lastPosition;
+      if (last != null) _pushLocation(last);
+    });
   }
 
   /// Asks for "Allow all the time" on top of the "while in use" grant
@@ -142,7 +175,7 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
     if (defaultTargetPlatform == TargetPlatform.android) {
       return AndroidSettings(
         accuracy: LocationAccuracy.high,
-        distanceFilter: 0,
+        distanceFilter: _minimumMoveMetres,
         intervalDuration: const Duration(seconds: 15),
         foregroundNotificationConfig: backgroundAllowed
             ? const ForegroundNotificationConfig(
@@ -157,18 +190,19 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
       return AppleSettings(
         accuracy: LocationAccuracy.high,
         activityType: ActivityType.otherNavigation,
-        distanceFilter: 0,
+        distanceFilter: _minimumMoveMetres,
         pauseLocationUpdatesAutomatically: false,
         showBackgroundLocationIndicator: backgroundAllowed,
       );
     }
     return const LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 0,
+      distanceFilter: _minimumMoveMetres,
     );
   }
 
   Future<void> _pushLocation(Position position) async {
+    _lastPosition = position;
     final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
     if (userId == null) return;
     try {

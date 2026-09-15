@@ -1154,6 +1154,15 @@ offers a range going back five years and defaults to all of it, so these
 genuinely need the whole table; they just do not need it streaming into
 every dispatcher's session all day.
 
+**Riders report on movement, not on a clock.** A rider's app sends a
+position once they have moved ~25m, plus a keepalive every 5 minutes so a
+waiting rider stays visible and assignable. A rider on the move still
+reports roughly every 15 seconds; a rider parked at a junction writes
+twelve positions an hour instead of 240. The keepalive is not optional
+alongside the movement filter - the Live Map and automatic assignment
+both treat a fix older than 15 minutes as gone, so without it, filtering
+by movement would quietly make every waiting rider unassignable.
+
 **The Live Map polls, it does not subscribe.** Riders push a position
 every 15 seconds. As a realtime subscription over every driver row, each
 of those writes was re-broadcast to every dispatcher watching, so the

@@ -171,8 +171,11 @@ class ProfileRepository {
     return rows.map(Profile.fromMap).toList();
   }
 
-  /// Called roughly every ~15s (or on a meaningful move) by a driver's own
-  /// app, for as long as location is granted - see DriverDashboardScreen.
+  /// Called by a driver's own app whenever they have moved ~25m, and
+  /// every 5 minutes regardless so a waiting rider stays visible and
+  /// assignable - see DriverDashboardScreen. A rider on the move
+  /// therefore still reports about every 15s; a rider parked writes
+  /// twelve times an hour rather than 240.
   /// Keeps flowing while the app is backgrounded/the phone is locked if
   /// the driver granted "Allow all the time"; with just "while in use" it
   /// pauses once the app leaves the foreground. Either way, the position

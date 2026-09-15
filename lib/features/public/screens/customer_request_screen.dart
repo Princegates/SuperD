@@ -112,6 +112,9 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   /// route lookup fails - the price still works without it.
   int? _rideMinutes;
 
+  static String? _emptyToNull(String value) =>
+      value.trim().isEmpty ? null : value.trim();
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -206,7 +209,10 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                 : _packageController.text.trim(),
             roadDistanceKm: _roadDistanceKm,
             scheduledAt: _scheduledAt,
-            customerEmail: _emailController.text.trim(),
+            // Null rather than an empty string, so the column is honestly
+            // empty and every "has an email?" check downstream reads it
+            // the same way.
+            customerEmail: _emptyToNull(_emailController.text),
             vehicleTypeId: _vehicleTypeId,
             turnstileToken: _turnstileToken,
           );
@@ -285,13 +291,23 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    labelText: 'Email',
+                    labelText: 'Email (optional)',
                     prefixIcon: Icon(Icons.mail_outline, size: 20),
-                    helperText: 'Where your tracking link goes',
+                    helperText: 'Your tracking link is sent by SMS. Add an '
+                        'email to get a copy there too.',
+                    helperMaxLines: 2,
                   ),
-                  validator: (v) => (v == null || !v.contains('@'))
-                      ? 'Enter a valid email'
-                      : null,
+                  // Optional, but still checked when filled in: a customer
+                  // who types an address expects it to work, and a typo
+                  // that silently swallows their tracking link is worse
+                  // than no email at all. Empty is fine - the link goes by
+                  // SMS, and notify-delivery-events already falls back to
+                  // texting when there is no address on file.
+                  validator: (v) {
+                    final value = v?.trim() ?? '';
+                    if (value.isEmpty) return null;
+                    return value.contains('@') ? null : 'Enter a valid email';
+                  },
                 ),
               ],
             ),

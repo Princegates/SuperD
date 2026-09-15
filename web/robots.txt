@@ -1,0 +1,12 @@
+User-agent: *
+Allow: /
+Disallow: /v/
+Disallow: /t/
+Disallow: /vendor-orders/
+Disallow: /admin
+Disallow: /driver
+Disallow: /login
+Disallow: /forgot-password
+Disallow: /reset-password
+
+Sitemap: https://superdeliverygh.com/sitemap.xml

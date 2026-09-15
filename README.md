@@ -1154,6 +1154,21 @@ offers a range going back five years and defaults to all of it, so these
 genuinely need the whole table; they just do not need it streaming into
 every dispatcher's session all day.
 
+> **When you drop a column, find its readers in `pg_proc`, not in the
+> migration files.** Grepping the files finds every *historical* mention,
+> which buries the handful that are currently installed - and it only
+> finds the spelling you searched for. Against the built schema:
+>
+> ```sql
+> select p.proname
+> from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+> where n.nspname = 'public' and p.prosrc like '%the_column%';
+> ```
+>
+> This is not hypothetical: 0095 dropped three columns and missed two
+> readers - one never transformed, one transformed only where the column
+> was qualified - and both reached production before 0096 fixed them.
+
 **A rider's position lives in its own table.** `driver_locations`
 (`0095`), one row per rider, overwritten in place. It used to be three
 columns on `profiles`, which meant every GPS fix rewrote the rider's

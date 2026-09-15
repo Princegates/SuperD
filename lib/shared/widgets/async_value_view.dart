@@ -149,16 +149,22 @@ class _AsyncValueViewState<T> extends State<AsyncValueView<T>> {
 }
 
 /// Whether [err] is (transitively) a no-network failure rather than a real
-/// application error - e.g. Supabase's `RealtimeSubscribeException`
-/// wrapping a `SocketException: Failed host lookup` on mobile, or just
-/// `WebSocketChannelException: WebSocket connection failed.` on web (the
-/// browser's WebSocket API never surfaces the dart:io-style socket detail
-/// mobile gets, so it needs its own, vaguer pattern here too). Matched on
-/// the stringified error rather than the concrete exception types
-/// (`SocketException`, `WebSocketChannelException`, Supabase's
-/// `RealtimeSubscribeException`) so this doesn't need to import
-/// `dart:io`/`web_socket_channel`/`realtime_client` here just to check a
-/// wrapped cause.
+/// application error - covers three different flavors seen in practice:
+/// Supabase's `RealtimeSubscribeException` wrapping a
+/// `SocketException: Failed host lookup` on mobile Realtime, just
+/// `WebSocketChannelException: WebSocket connection failed.` for the same
+/// on web (the browser's WebSocket API never surfaces the dart:io-style
+/// socket detail mobile gets), and `ClientException: NetworkError when
+/// attempting to fetch resource.` for a plain REST/RPC call's `fetch()`
+/// failing on web - `package:http`'s `ClientException` specifically means
+/// the request never completed at the transport level; an HTTP error
+/// status (404/500/...) comes back as an ordinary `Response`, never this
+/// exception, so matching on it broadly is still precise. Matched on the
+/// stringified error rather than the concrete exception types
+/// (`SocketException`, `WebSocketChannelException`, `ClientException`,
+/// Supabase's `RealtimeSubscribeException`) so this doesn't need to import
+/// `dart:io`/`web_socket_channel`/`http`/`realtime_client` here just to
+/// check a wrapped cause.
 bool _isConnectivityError(Object err) {
   final text = err.toString();
   return text.contains('SocketException') ||
@@ -169,5 +175,8 @@ bool _isConnectivityError(Object err) {
       text.contains('Network is unreachable') ||
       text.contains('Software caused connection abort') ||
       text.contains('WebSocketChannelException') ||
+      text.contains('ClientException') ||
+      text.contains('NetworkError when attempting to fetch resource') ||
+      text.contains('Failed to fetch') ||
       text.contains('WebSocket connection failed');
 }

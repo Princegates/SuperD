@@ -1358,6 +1358,45 @@ whenever a drop-off location is set; if the secret isn't configured, the
 function returns an error the app already treats the same as "no route
 found" - straight-line pricing, unaffected.
 
+#### Route caching
+
+Every Directions call is billed, and the function is called on every
+price quote and every ETA refresh. Deliveries in a city repeat the same
+corridors all day, so `road_distance_cache`
+(`0094_road_distance_cache.sql`) remembers answers keyed by coordinates
+rounded to 3dp - about 110m at Ghana's latitude, deliberately coarse so
+two pickups from opposite ends of the same forecourt share one route.
+
+This works because the function sends no `departure_time`, so Google
+returns the free-flow estimate: a property of the road, not of the
+moment. Traffic-aware ETAs would not be cacheable this way.
+
+Nothing to configure. The function reads and writes the cache with the
+service role; the table has RLS on with no policies and no grants, so no
+client can reach it - it would otherwise expose every vendor's
+coordinates. Failures fall through to Google, so a cache problem costs
+money rather than availability. Responses carry a `cached` flag, which
+the app ignores.
+
+Routes untouched for 30 days are removed by
+`sweep_road_distance_cache()`, for roads that genuinely change - a new
+link, a lasting closure. It isn't scheduled for you; if `pg_cron` is
+available, call it weekly:
+
+```sql
+select cron.schedule('sweep-road-cache', '0 3 * * 0',
+                     'select public.sweep_road_distance_cache()');
+```
+
+Leaving it unscheduled is fine at this scale - the table is small and a
+stale row costs nothing but a slightly out-of-date distance. To see
+whether the cache is earning its keep:
+
+```sql
+select count(*) as routes, sum(hits) as served_from_cache
+from public.road_distance_cache;
+```
+
 ### Automatic zone recognition
 
 A delivery's zone used to just be copied from the vendor's own

@@ -1154,6 +1154,26 @@ offers a range going back five years and defaults to all of it, so these
 genuinely need the whole table; they just do not need it streaming into
 every dispatcher's session all day.
 
+**A rider's position lives in its own table.** `driver_locations`
+(`0095`), one row per rider, overwritten in place. It used to be three
+columns on `profiles`, which meant every GPS fix rewrote the rider's
+identity row and dragged the whole identity apparatus with it: three
+BEFORE UPDATE triggers comparing fields the write never touched, the
+auto-assign-on-movement trigger, an index update, and a realtime
+broadcast back to the rider who had just sent the position. None of that
+is wrong for identity; all of it is wrong four times a minute per rider.
+`profiles` now changes when a person changes, not when a motorbike moves.
+
+**The ETA counts down between calls.** Each recompute is a billed
+Directions call that can never come from `road_distance_cache` - the
+origin is the rider, so it has moved by definition. The displayed figure
+now ticks down from the last fetched route instead of sitting frozen, so
+the app can ask far less often and still read as live: recomputes at 600m
+travelled rather than 300m, roughly halving the calls on a typical
+delivery. It refuses to count below two minutes without asking again -
+announcing an arrival on an extrapolation would be worse than saying
+nothing.
+
 **Riders report on movement, not on a clock.** A rider's app sends a
 position once they have moved ~25m, plus a keepalive every 5 minutes so a
 waiting rider stays visible and assignable. A rider on the move still

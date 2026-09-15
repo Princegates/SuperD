@@ -65,9 +65,30 @@ class LiveEta extends ConsumerStatefulWidget {
 
 class _LiveEtaState extends ConsumerState<LiveEta> {
   static const _staleAfter = Duration(minutes: 5);
-  static const _recomputeAfterIdle = Duration(minutes: 2);
-  static const _minimumGap = Duration(seconds: 30);
-  static const _recomputeAfterMetres = 300.0;
+  static const _recomputeAfterIdle = Duration(minutes: 4);
+
+  /// The floor between two paid calls.
+  static const _minimumGap = Duration(seconds: 60);
+
+  /// How far a rider must travel before the ETA is bought again.
+  ///
+  /// Every recompute is a billed Directions call, and unlike a price
+  /// quote it can never be served from `road_distance_cache` - the origin
+  /// is the rider, so it has moved by definition. On a 6km delivery this
+  /// is the difference between about twenty calls and about ten.
+  ///
+  /// It could be raised further without the number going stale, because
+  /// [_displayMinutes] now counts down between calls. What stops it is
+  /// accuracy, not liveness: the countdown assumes the rider keeps making
+  /// the progress the last route predicted, and that assumption gets
+  /// worse the longer it runs.
+  static const _recomputeAfterMetres = 600.0;
+
+  /// Never show less than this without having asked again. Counting all
+  /// the way down to zero would announce an arrival the app has no
+  /// evidence for - a rider held up 200m away would show "arriving" for
+  /// as long as the hold-up lasted.
+  static const _countdownFloor = 2;
 
   static const _distance = Distance();
 
@@ -81,6 +102,24 @@ class _LiveEtaState extends ConsumerState<LiveEta> {
   /// rather than leaving the last one up indefinitely.
   Timer? _staleTicker;
 
+  /// The ETA as it should read now: what was last fetched, less the time
+  /// since. The figure used to sit frozen until the next call, so it was
+  /// visibly wrong for most of the gap between them and then jumped -
+  /// which is part of why the gap had to be short. Ticking it down means
+  /// fewer calls read as *more* live, not less.
+  ///
+  /// Null once it has counted down to the floor: at that point the app no
+  /// longer knows anything useful, and [_shouldRecompute] treats it as a
+  /// reason to ask again.
+  int? get _displayMinutes {
+    final computed = _minutes;
+    final at = _computedAt;
+    if (computed == null || at == null) return null;
+    final elapsed = DateTime.now().difference(at).inMinutes;
+    final remaining = computed - elapsed;
+    return remaining < _countdownFloor ? null : remaining;
+  }
+
   bool get _positionIsFresh {
     final at = widget.positionUpdatedAt;
     if (at == null) return false;
@@ -90,10 +129,14 @@ class _LiveEtaState extends ConsumerState<LiveEta> {
   @override
   void initState() {
     super.initState();
-    _staleTicker = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => mounted ? setState(() {}) : null,
-    );
+    // Repaints so the countdown advances, and takes the chance to ask
+    // again if it has run out - a rider sitting in traffic sends no new
+    // position, so movement alone would never trigger it.
+    _staleTicker = Timer.periodic(const Duration(seconds: 30), (_) {
+      if (!mounted) return;
+      setState(() {});
+      unawaited(_refreshIfWorthwhile());
+    });
     unawaited(_refreshIfWorthwhile());
   }
 
@@ -116,6 +159,10 @@ class _LiveEtaState extends ConsumerState<LiveEta> {
     final since = DateTime.now().difference(_computedAt!);
     if (since < _minimumGap) return false;
     if (since > _recomputeAfterIdle) return true;
+
+    // The countdown has run out - whatever happens next, the app needs a
+    // real answer rather than an extrapolation.
+    if (_displayMinutes == null) return true;
 
     final moved = _distance.as(
       LengthUnit.Meter,
@@ -163,7 +210,7 @@ class _LiveEtaState extends ConsumerState<LiveEta> {
 
   @override
   Widget build(BuildContext context) {
-    final minutes = _minutes;
+    final minutes = _displayMinutes;
     // Nothing to say, or no longer entitled to say it.
     if (minutes == null || !_positionIsFresh) return const SizedBox.shrink();
 

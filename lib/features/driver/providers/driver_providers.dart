@@ -32,19 +32,28 @@ final myDeliveriesProvider = StreamProvider<List<Delivery>>((ref) {
 /// One sensible visiting order across every pickup/drop-off the signed-in
 /// driver currently has outstanding - see `optimizeDriverRoute()` for how
 /// the order is worked out. Seeded from the driver's own last-known
-/// position (`profiles.last_lat/last_lng`, kept live by the same location
-/// stream that feeds the Live Map - see DriverDashboardScreen), so the
-/// route re-orders itself as they actually move, not just when a
-/// delivery's status changes.
+/// position, so the route re-orders itself as they actually move, not
+/// just when a delivery's status changes.
 final driverRouteProvider = Provider<List<RouteStop>>((ref) {
   final deliveries = ref.watch(myDeliveriesProvider).valueOrNull ?? const [];
-  final profile = ref.watch(currentProfileProvider).valueOrNull;
+  final me = ref.watch(myPositionProvider);
   return optimizeDriverRoute(
     deliveries,
-    startLat: profile?.lastLat,
-    startLng: profile?.lastLng,
+    startLat: me?.lat,
+    startLng: me?.lng,
   );
 });
+
+/// Where the signed-in rider is, according to their own handset.
+///
+/// Published by DriverDashboardScreen as each fix arrives. This used to be
+/// read back from `profiles.last_lat` - the rider's own phone sending a
+/// position to the server and then waiting for it to come back down over
+/// realtime, to learn something it already knew. Straight from the device
+/// it is instant, costs nothing, and still works while the write is
+/// failing or the connection is down.
+final myPositionProvider =
+    StateProvider<({double lat, double lng, DateTime at})?>((ref) => null);
 
 /// How many deliveries the signed-in driver has completed *today* - the
 /// count that picks their daily-fee tier. Derived from

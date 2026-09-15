@@ -130,12 +130,27 @@ class ProfileRepository {
   }
 
   Future<List<Profile>> fetchDrivers() async {
+    // The position rides along from driver_locations (0095). The roster
+    // itself does not need it, but the Console's "who is nearest this
+    // pickup?" hint reads it off these rows, and a left join costs
+    // nothing here - a rider who has never reported one simply has nulls,
+    // exactly as they did when the columns lived on profiles.
     final rows = await _client
         .from('profiles')
-        .select()
+        .select('*, driver_locations(lat, lng, updated_at)')
         .eq('role', UserRole.driver.wireValue)
         .order('full_name');
-    return rows.map(Profile.fromMap).toList();
+    return [
+      for (final row in rows)
+        Profile.fromMap({
+          ...row,
+          if (row['driver_locations'] case final Map<String, dynamic> loc) ...{
+            'last_lat': loc['lat'],
+            'last_lng': loc['lng'],
+            'location_updated_at': loc['updated_at'],
+          },
+        }),
+    ];
   }
 
   /// A driver whose last fix is older than this is treated as gone - the
@@ -161,14 +176,27 @@ class ProfileRepository {
   /// arrived every 15 seconds; now they are fetched on the same beat.
   Future<List<Profile>> fetchLiveDriverLocations() async {
     final cutoff = DateTime.now().toUtc().subtract(liveLocationWindow);
+    // Driven from driver_locations now, with the rider embedded: the
+    // freshness cut and the "is anyone actually out?" question are both
+    // about the position, so the position table leads and only riders who
+    // have reported one come back at all.
     final rows = await _client
-        .from('profiles')
-        .select()
-        .eq('role', UserRole.driver.wireValue)
-        .eq('is_online', true)
-        .gt('location_updated_at', cutoff.toIso8601String())
-        .order('full_name');
-    return rows.map(Profile.fromMap).toList();
+        .from('driver_locations')
+        .select('lat, lng, updated_at, profiles!inner(*)')
+        .eq('profiles.role', UserRole.driver.wireValue)
+        .eq('profiles.is_online', true)
+        .gt('updated_at', cutoff.toIso8601String());
+
+    final drivers = [
+      for (final row in rows)
+        Profile.fromMap({
+          ...row['profiles'] as Map<String, dynamic>,
+          'last_lat': row['lat'],
+          'last_lng': row['lng'],
+          'location_updated_at': row['updated_at'],
+        }),
+    ]..sort((a, b) => a.displayName.compareTo(b.displayName));
+    return drivers;
   }
 
   /// Called by a driver's own app whenever they have moved ~25m, and
@@ -185,14 +213,16 @@ class ProfileRepository {
     required double lat,
     required double lng,
   }) async {
-    await _client
-        .from('profiles')
-        .update({
-          'last_lat': lat,
-          'last_lng': lng,
-          'location_updated_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', userId);
+    // driver_locations, not profiles - see 0095. A position is telemetry
+    // and belongs in a table that carries nothing else; writing it to the
+    // identity row dragged three identity triggers, an index update and a
+    // realtime echo along with every fix.
+    await _client.from('driver_locations').upsert({
+      'driver_id': userId,
+      'lat': lat,
+      'lng': lng,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
   }
 
   /// Every user in the system, for the super-admin Team screen.

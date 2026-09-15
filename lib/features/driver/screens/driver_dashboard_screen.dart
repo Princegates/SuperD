@@ -203,6 +203,14 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
 
   Future<void> _pushLocation(Position position) async {
     _lastPosition = position;
+    // Publish locally first. The rider's own screens read this rather
+    // than waiting for the write to land and come back down - see
+    // myPositionProvider.
+    ref.read(myPositionProvider.notifier).state = (
+      lat: position.latitude,
+      lng: position.longitude,
+      at: DateTime.now(),
+    );
     final userId = ref.read(supabaseClientProvider).auth.currentUser?.id;
     if (userId == null) return;
     try {
@@ -631,9 +639,9 @@ class _DeliveryList extends ConsumerWidget {
 /// pieces for an honest one are missing - no coordinates for the target,
 /// or no recent position of their own.
 Widget? _etaFor(WidgetRef ref, Delivery delivery) {
-  final me = ref.watch(currentProfileProvider).valueOrNull;
-  final fromLat = me?.lastLat;
-  final fromLng = me?.lastLng;
+  final me = ref.watch(myPositionProvider);
+  final fromLat = me?.lat;
+  final fromLng = me?.lng;
   if (fromLat == null || fromLng == null) return null;
 
   final headingToCustomer =
@@ -648,7 +656,7 @@ Widget? _etaFor(WidgetRef ref, Delivery delivery) {
     originLng: fromLng,
     destLat: toLat,
     destLng: toLng,
-    positionUpdatedAt: me?.locationUpdatedAt,
+    positionUpdatedAt: me?.at,
     label: headingToCustomer ? 'Drop-off in about' : 'Pickup in about',
     compact: true,
   );

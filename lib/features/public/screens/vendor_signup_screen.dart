@@ -386,9 +386,11 @@ class _SubscriptionPaymentCardState
   }
 
   Future<void> _pay() async {
-    final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
-      setState(() => _error = 'Enter a Mobile Money number.');
+    final phone = GhanaPhone.normalize(_phoneController.text);
+    if (phone == null) {
+      setState(
+        () => _error = 'Enter a valid Ghana phone number, e.g. 024 XXX XXXX.',
+      );
       return;
     }
     setState(() {
@@ -521,6 +523,7 @@ class _SubscriptionPaymentCardState
           TextField(
             controller: _otpController,
             keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
             autofocus: true,
             decoration: const InputDecoration(
               labelText: 'One-time code',

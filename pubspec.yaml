@@ -19,8 +19,12 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # The build number must be unique and rising on every Play upload, and it
 # is the repo's only record of what has actually shipped. 1.0.0+2 went to
 # internal testing on 14 Sep 2026 from an uncommitted local bump, which is
-# why this jumps from +1 to +3: Play will refuse +2 a second time.
-version: 1.0.0+6
+# why the sequence jumps from +1 to +3: Play will refuse +2 a second time.
+#
+# +7 exists because of the Play background-location declaration. Its video
+# has to show the prominent disclosure that 716af09 added, so it must be
+# filmed on a build that actually contains it - and +6 does not.
+version: 1.0.0+7
 
 environment:
   sdk: ^3.13.1

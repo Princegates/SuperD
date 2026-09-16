@@ -118,6 +118,7 @@ class DeliveryRepository {
     DateTime? scheduledAt,
     String? vehicleTypeId,
     bool isSpecial = false,
+    String? vendorId,
   }) async {
     final row = await _client
         .from(_table)
@@ -138,6 +139,7 @@ class DeliveryRepository {
           'scheduled_at': scheduledAt?.toIso8601String(),
           'vehicle_type_id': vehicleTypeId,
           'is_special': isSpecial,
+          'vendor_id': vendorId,
           'status': assignedDriverId == null
               ? DeliveryStatus.pending.wireValue
               : DeliveryStatus.assigned.wireValue,

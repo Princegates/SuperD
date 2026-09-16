@@ -20,6 +20,7 @@ import '../../../shared/widgets/proof_of_delivery_image.dart';
 import '../../../shared/providers/delivery_detail_providers.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/navigation_launcher.dart';
+import '../../../shared/utils/payment_access_override.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/fail_delivery_sheet.dart';
 import '../../../shared/widgets/map_preview.dart';
@@ -519,6 +520,30 @@ class _AssignedDriverCardState extends ConsumerState<_AssignedDriverCard> {
             .valueOrNull
             ?.hasPermission(StaffPermission.assignDrivers) ??
         false;
+    final assignable =
+        canAssign &&
+        delivery.status != DeliveryStatus.cancelled &&
+        delivery.status != DeliveryStatus.delivered;
+
+    // Active, unfrozen drivers who are missing from widget.drivers purely
+    // because they owe today's fee or overdue commission - not because
+    // they're inactive/frozen, which no override can fix. Lets a
+    // dispatcher unblock the one driver in front of them right here,
+    // instead of routing through Console > Daily Fees first.
+    final unpaidIds =
+        ref.watch(unpaidDriverIdsTodayProvider).valueOrNull ?? {};
+    final feeBlocked =
+        (ref.watch(driversListProvider).valueOrNull ?? [])
+            .where(
+              (d) =>
+                  d.isActive &&
+                  !d.isFrozen &&
+                  unpaidIds.contains(d.id) &&
+                  !d.hasActivePaymentAccessOverride,
+            )
+            .toList()
+          ..sort((a, b) => a.displayName.compareTo(b.displayName));
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -571,13 +596,53 @@ class _AssignedDriverCardState extends ConsumerState<_AssignedDriverCard> {
                     child: Text(driver.displayName),
                   ),
               ],
-              onChanged:
-                  (delivery.status == DeliveryStatus.cancelled ||
-                      delivery.status == DeliveryStatus.delivered ||
-                      !canAssign)
-                  ? null
-                  : _assignDriver,
+              onChanged: assignable ? _assignDriver : null,
             ),
+            if (assignable && feeBlocked.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              const Divider(height: 1),
+              const SizedBox(height: 10),
+              Text(
+                'Blocked by an unpaid fee (${feeBlocked.length})',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 4),
+              for (final driver in feeBlocked)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          driver.displayName,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 13),
+                        ),
+                      ),
+                      TextButton(
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: Size.zero,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: () => grantPaymentAccessOverride(
+                          context: context,
+                          ref: ref,
+                          driver: driver,
+                        ),
+                        child: const Text(
+                          'Grant access',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
           ],
         ),
       ),

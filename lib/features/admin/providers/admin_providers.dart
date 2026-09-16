@@ -120,7 +120,19 @@ final zoneLocationsProvider = FutureProvider.family<List<ZoneLocation>, String>(
 /// is off. Used by [rankedDriversProvider] to keep the dispatcher's
 /// manual-assignment picker from offering a driver the database would
 /// reject anyway (see `0031_driver_daily_fee.sql`).
-final unpaidDriverIdsTodayProvider = FutureProvider<Set<String>>((ref) {
+///
+/// `autoDispose` on purpose: a driver can pay this fee from their own
+/// device at any moment (real-time Paystack or a dispatcher's manual
+/// confirmation), with nothing on this screen to push that change in.
+/// Without autoDispose this stayed cached for the rest of the app
+/// session once any delivery screen first read it, so a driver who'd
+/// already paid could still be silently missing from the assign-driver
+/// picker. autoDispose means leaving the last screen that watches it
+/// (via [rankedDriversProvider]) drops the cache, so the next visit
+/// re-fetches instead of trusting a snapshot from however long ago.
+final unpaidDriverIdsTodayProvider = FutureProvider.autoDispose<Set<String>>((
+  ref,
+) {
   return ref
       .watch(driverDailyFeeRepositoryProvider)
       .fetchUnpaidDriverIdsToday();
@@ -142,8 +154,8 @@ final unpaidDriverIdsTodayProvider = FutureProvider<Set<String>>((ref) {
 /// unpaid commission) - see `is_frozen` in
 /// `0025_driver_categories_and_status.sql` - nor one who owes today's
 /// daily fee.
-final rankedDriversProvider =
-    Provider.family<List<Profile>, ({double? pickupLat, double? pickupLng})>((
+final rankedDriversProvider = Provider.autoDispose
+    .family<List<Profile>, ({double? pickupLat, double? pickupLng})>((
       ref,
       pickup,
     ) {

@@ -149,20 +149,30 @@ class _AsyncValueViewState<T> extends State<AsyncValueView<T>> {
 }
 
 /// Whether [err] is (transitively) a no-network failure rather than a real
-/// application error - covers three different flavors seen in practice:
+/// application error - covers four different flavors seen in practice:
 /// Supabase's `RealtimeSubscribeException` wrapping a
 /// `SocketException: Failed host lookup` on mobile Realtime, just
 /// `WebSocketChannelException: WebSocket connection failed.` for the same
 /// on web (the browser's WebSocket API never surfaces the dart:io-style
-/// socket detail mobile gets), and `ClientException: NetworkError when
+/// socket detail mobile gets), `ClientException: NetworkError when
 /// attempting to fetch resource.` for a plain REST/RPC call's `fetch()`
 /// failing on web - `package:http`'s `ClientException` specifically means
 /// the request never completed at the transport level; an HTTP error
 /// status (404/500/...) comes back as an ordinary `Response`, never this
-/// exception, so matching on it broadly is still precise. Matched on the
-/// stringified error rather than the concrete exception types
-/// (`SocketException`, `WebSocketChannelException`, `ClientException`,
-/// Supabase's `RealtimeSubscribeException`) so this doesn't need to import
+/// exception, so matching on it broadly is still precise - and a bare
+/// `RealtimeSubscribeException(status: channelError/timedOut/closed,
+/// details: null)`, seen on web specifically after a mobile browser tab
+/// sits backgrounded long enough for the OS/browser to drop the socket
+/// mid-reconnect: `resilientRealtimeStream()` (see that file) is meant to
+/// swallow this and retry silently, but the tab's own JS timers are
+/// throttled while backgrounded too, so the in-flight subscribe attempt
+/// from before backgrounding can resolve with `channelError` right as the
+/// tab wakes, ahead of that retry loop's next pass - worth catching here
+/// regardless, since every status this exception carries is a connection
+/// state, never a permission or data error. Matched on the stringified
+/// error rather than the concrete exception types (`SocketException`,
+/// `WebSocketChannelException`, `ClientException`, Supabase's
+/// `RealtimeSubscribeException`) so this doesn't need to import
 /// `dart:io`/`web_socket_channel`/`http`/`realtime_client` here just to
 /// check a wrapped cause.
 bool _isConnectivityError(Object err) {
@@ -178,5 +188,6 @@ bool _isConnectivityError(Object err) {
       text.contains('ClientException') ||
       text.contains('NetworkError when attempting to fetch resource') ||
       text.contains('Failed to fetch') ||
-      text.contains('WebSocket connection failed');
+      text.contains('WebSocket connection failed') ||
+      text.contains('RealtimeSubscribeException');
 }

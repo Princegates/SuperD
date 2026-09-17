@@ -24,7 +24,16 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # +7 exists because of the Play background-location declaration. Its video
 # has to show the prominent disclosure that 716af09 added, so it must be
 # filmed on a build that actually contains it - and +6 does not.
-version: 1.0.0+7
+#
+# +8 carries the admin/dispatcher-side fixes and features that landed after
+# +7: the stale unpaid-driver-fee cache that could hide a paid-up driver
+# from the assign-driver picker (d9a7086), the on-screen payment-access-
+# override shortcut (3aa4d4a), treating a bare RealtimeSubscribeException
+# as a reconnect rather than a crash (0e99c3a), and letting a special
+# delivery's pickup be filled from a vendor (f1e3a9b). All reachable from
+# `/admin` on the native app too, not just the web build - see the router's
+# redirect logic, which gates drivers off web, not staff off native.
+version: 1.0.0+8
 
 environment:
   sdk: ^3.13.1

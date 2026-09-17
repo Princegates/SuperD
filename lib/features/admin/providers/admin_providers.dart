@@ -6,7 +6,6 @@ import '../../../models/delivery.dart';
 import '../../../models/delivery_rating.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
-import '../../../models/special_delivery_request.dart';
 import '../../../models/vendor.dart';
 import '../../../models/zone.dart';
 import '../../../models/zone_location.dart';
@@ -22,16 +21,6 @@ import '../../../models/zone_location.dart';
 final recentDeliveriesProvider = StreamProvider<List<Delivery>>((ref) {
   return ref.watch(deliveryRepositoryProvider).watchRecentDeliveries();
 });
-
-/// Pending special-delivery requests vendors have submitted from their
-/// private orders page, live - what the Deliveries section's banner shows.
-/// See `0099_vendor_special_delivery_requests.sql`.
-final pendingSpecialDeliveryRequestsProvider =
-    StreamProvider<List<SpecialDeliveryRequest>>((ref) {
-      return ref
-          .watch(vendorRepositoryProvider)
-          .watchPendingSpecialDeliveryRequests();
-    });
 
 /// Every delivery ever - what reporting reads.
 ///

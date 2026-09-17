@@ -27,7 +27,6 @@ import '../../features/public/screens/track_order_screen.dart';
 import '../../features/public/screens/vendor_orders_screen.dart';
 import '../../features/public/screens/vendor_signup_screen.dart';
 import '../../models/profile.dart';
-import '../../models/special_delivery_request.dart';
 import '../../models/user_role.dart';
 import '../../models/vendor.dart';
 import '../providers/core_providers.dart';
@@ -295,9 +294,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: 'new',
             pageBuilder: (context, state) => fadeSlidePage(
               key: state.pageKey,
-              child: CreateDeliveryScreen(
-                prefillRequest: state.extra as SpecialDeliveryRequest?,
-              ),
+              child: const CreateDeliveryScreen(),
             ),
           ),
           GoRoute(

@@ -1,6 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../models/special_delivery_request.dart';
 import '../../models/vendor.dart';
 import '../../models/zone.dart';
 import '../../models/zone_location.dart';
@@ -460,84 +459,6 @@ class VendorRepository {
       yield await fetchVendorDeliveries(ordersCode);
       await Future<void>.delayed(const Duration(seconds: 5));
     }
-  }
-
-  /// A vendor asking dispatch for a hand-priced special delivery, from
-  /// their own private orders page - see
-  /// `0099_vendor_special_delivery_requests.sql`. No fee here on purpose:
-  /// a dispatcher prices and creates the real delivery afterward, the same
-  /// as when a vendor phones this in instead.
-  Future<void> submitSpecialDeliveryRequest({
-    required String ordersCode,
-    required String customerName,
-    required String customerPhone,
-    required String dropoffAddress,
-    double? dropoffLat,
-    double? dropoffLng,
-    String? packageDescription,
-    String? notes,
-  }) async {
-    await _client.rpc(
-      'submit_special_delivery_request',
-      params: {
-        'p_orders_code': ordersCode,
-        'customer_name': customerName,
-        'customer_phone': customerPhone,
-        'dropoff_address': dropoffAddress,
-        'dropoff_lat': dropoffLat,
-        'dropoff_lng': dropoffLng,
-        'package_description': packageDescription,
-        'notes': notes,
-      },
-    );
-  }
-
-  /// Pending vendor-submitted special-delivery requests, live - what the
-  /// Deliveries section's banner reads. Staff-only per RLS, so (unlike
-  /// [watchVendorDeliveries]) this is a real Realtime subscription rather
-  /// than polling.
-  Stream<List<SpecialDeliveryRequest>> watchPendingSpecialDeliveryRequests() {
-    return resilientRealtimeStream(
-      () => _client
-          .from('special_delivery_requests')
-          .stream(primaryKey: ['id'])
-          .eq('status', 'pending')
-          .order('created_at')
-          .map(
-            (rows) => rows.map(SpecialDeliveryRequest.fromMap).toList(),
-          ),
-    );
-  }
-
-  /// Marks a request handled without creating a delivery - the dispatcher
-  /// decided not to (or already handled it another way, e.g. a call back
-  /// to the vendor).
-  Future<void> dismissSpecialDeliveryRequest(String id) async {
-    await _client
-        .from('special_delivery_requests')
-        .update({
-          'status': 'dismissed',
-          'resolved_by': _client.auth.currentUser?.id,
-          'resolved_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', id);
-  }
-
-  /// Links a request to the priced delivery a dispatcher just created from
-  /// it via CreateDeliveryScreen, and marks it fulfilled.
-  Future<void> fulfillSpecialDeliveryRequest({
-    required String id,
-    required String deliveryId,
-  }) async {
-    await _client
-        .from('special_delivery_requests')
-        .update({
-          'status': 'fulfilled',
-          'fulfilled_delivery_id': deliveryId,
-          'resolved_by': _client.auth.currentUser?.id,
-          'resolved_at': DateTime.now().toIso8601String(),
-        })
-        .eq('id', id);
   }
 
   /// A single delivery, scoped to the tracking code a customer was given

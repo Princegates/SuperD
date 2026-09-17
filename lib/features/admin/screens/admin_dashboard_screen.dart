@@ -17,6 +17,7 @@ import '../../../shared/widgets/delivery_card.dart';
 import '../../../shared/widgets/staggered_list_item.dart';
 import '../providers/admin_providers.dart';
 import '../widgets/scheduled_delivery_banner.dart';
+import '../widgets/special_delivery_requests_banner.dart';
 
 /// The "Deliveries" section of the admin dashboard shell
 /// ([AdminShellScreen]) - just this section's own content, no app bar of
@@ -123,6 +124,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
             ?.hasPermission(StaffPermission.createDeliveries) ??
         false;
     final deliveriesState = ref.watch(recentDeliveriesProvider);
+    final specialRequests =
+        ref.watch(pendingSpecialDeliveryRequestsProvider).valueOrNull ?? [];
     final drivers = ref.watch(driversListProvider).valueOrNull ?? [];
     final driverNames = {for (final d in drivers) d.id: d.displayName};
 
@@ -180,6 +183,8 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
           : null,
       body: Column(
         children: [
+          if (canCreateDeliveries && specialRequests.isNotEmpty)
+            SpecialDeliveryRequestsBanner(requests: specialRequests),
           if (deliveriesState.valueOrNull case final all?) ...[
             _CapacityBar(deliveries: all, drivers: drivers),
             ScheduledDeliveryBanner(deliveries: all),

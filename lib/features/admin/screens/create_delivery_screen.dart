@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/payment_method.dart';
+import '../../../models/special_delivery_request.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/audit_log.dart';
@@ -19,7 +20,14 @@ import '../../../shared/widgets/schedule_picker.dart';
 import '../providers/admin_providers.dart';
 
 class CreateDeliveryScreen extends ConsumerStatefulWidget {
-  const CreateDeliveryScreen({super.key});
+  const CreateDeliveryScreen({super.key, this.prefillRequest});
+
+  /// A vendor's own special-delivery ask, if this screen was opened from
+  /// the Deliveries section's "Price it" button rather than the plain "New
+  /// delivery" FAB - see `SpecialDeliveryRequestsBanner`. Pre-fills the
+  /// customer/vendor/dropoff fields and turns Special delivery on; the fee
+  /// is still left for the dispatcher to type, same as always.
+  final SpecialDeliveryRequest? prefillRequest;
 
   @override
   ConsumerState<CreateDeliveryScreen> createState() =>
@@ -62,11 +70,51 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   /// same way as for any other delivery.
   String? _specialVendorId;
 
+  /// Set once [_applyVendorPickup] has run for [CreateDeliveryScreen.
+  /// prefillRequest]'s vendor - guards against re-applying it (and
+  /// clobbering anything the dispatcher has since edited by hand) on every
+  /// rebuild once [vendorsProvider] loads.
+  bool _prefillPickupApplied = false;
+
   bool _isSubmitting = false;
   bool _isLocating = false;
   bool _isGeocodingPickup = false;
   bool _isGeocodingDropoff = false;
   String? _errorMessage;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.prefillRequest case final request?) {
+      _isSpecial = true;
+      _specialVendorId = request.vendorId;
+      _customerNameController.text = request.customerName;
+      _customerPhoneController.text = request.customerPhone;
+      _dropoffController.text = request.dropoffAddress;
+      _dropoffLat = request.dropoffLat;
+      _dropoffLng = request.dropoffLng;
+      _packageController.text = request.packageDescription ?? '';
+      if (request.notes case final notes? when notes.trim().isNotEmpty) {
+        _notesController.text = "Vendor's note: $notes";
+      }
+      // Pickup itself (the vendor's saved location) needs vendorsProvider
+      // loaded first - applied from build() via _prefillPickupApplied
+      // once that list is in hand.
+    }
+  }
+
+  /// Fills the Pickup fields from [vendor]'s saved location and records
+  /// which vendor this special delivery is for - shared by the "Pickup
+  /// from a vendor" dropdown's onChanged and the one-time prefill from
+  /// [CreateDeliveryScreen.prefillRequest] once vendors have loaded.
+  void _applyVendorPickup(Vendor vendor) {
+    _specialVendorId = vendor.id;
+    _pickupController.text = vendor.zoneName == null
+        ? vendor.vendorName
+        : '${vendor.vendorName} - ${vendor.zoneName}';
+    _pickupLat = vendor.locationLat;
+    _pickupLng = vendor.locationLng;
+  }
 
   @override
   void dispose() {
@@ -252,6 +300,15 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
             );
       }
 
+      if (widget.prefillRequest case final request?) {
+        await ref
+            .read(vendorRepositoryProvider)
+            .fulfillSpecialDeliveryRequest(
+              id: request.id,
+              deliveryId: deliveryId,
+            );
+      }
+
       if (mounted) context.pop();
     } on PostgrestException catch (e) {
       // The pre-assigned driver may be at the cap on active deliveries -
@@ -277,6 +334,24 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
     final vehicleTypes =
         ref.watch(vehicleTypesProvider).valueOrNull ?? const [];
     final vendors = ref.watch(vendorsProvider).valueOrNull ?? const [];
+    if (widget.prefillRequest != null &&
+        !_prefillPickupApplied &&
+        vendors.isNotEmpty) {
+      for (final vendor in vendors) {
+        if (vendor.id == widget.prefillRequest!.vendorId) {
+          _prefillPickupApplied = true;
+          // Deferred, not applied inline: the driver ranking above already
+          // read the pre-prefill (null) pickup coordinates for this build,
+          // so a bare mutation here would leave it stale until some other
+          // setState happened to come along - a setState of its own, after
+          // this frame, guarantees the follow-up rebuild that ranking needs.
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _applyVendorPickup(vendor));
+          });
+          break;
+        }
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('New delivery')),
@@ -478,14 +553,13 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                         ),
                     ],
                     onChanged: (value) => setState(() {
-                      _specialVendorId = value;
-                      if (value == null) return;
-                      final vendor = vendors.firstWhere((v) => v.id == value);
-                      _pickupController.text = vendor.zoneName == null
-                          ? vendor.vendorName
-                          : '${vendor.vendorName} - ${vendor.zoneName}';
-                      _pickupLat = vendor.locationLat;
-                      _pickupLng = vendor.locationLng;
+                      if (value == null) {
+                        _specialVendorId = null;
+                        return;
+                      }
+                      _applyVendorPickup(
+                        vendors.firstWhere((v) => v.id == value),
+                      );
                     }),
                   ),
                   if (_specialVendorId != null &&

@@ -71,6 +71,7 @@ create trigger profiles_enforce_role_change
 -- functions, then drop is_admin() now that nothing depends on it.
 -- ---------------------------------------------------------------------------
 drop policy if exists "profiles: read own or admin reads all" on public.profiles;
+drop policy if exists "profiles: read own or dispatcher reads all" on public.profiles;
 create policy "profiles: read own or dispatcher reads all"
   on public.profiles for select
   using (id = auth.uid() or public.is_dispatcher_or_above());
@@ -82,31 +83,37 @@ create policy "profiles: user updates own non-role fields"
   with check (id = auth.uid() or public.is_dispatcher_or_above());
 
 drop policy if exists "profiles: admin inserts" on public.profiles;
+drop policy if exists "profiles: dispatcher inserts" on public.profiles;
 create policy "profiles: dispatcher inserts"
   on public.profiles for insert
   with check (public.is_dispatcher_or_above());
 
 drop policy if exists "deliveries: admin full read" on public.deliveries;
+drop policy if exists "deliveries: dispatcher full read" on public.deliveries;
 create policy "deliveries: dispatcher full read"
   on public.deliveries for select
   using (public.is_dispatcher_or_above() or assigned_driver_id = auth.uid());
 
 drop policy if exists "deliveries: admin insert" on public.deliveries;
+drop policy if exists "deliveries: dispatcher insert" on public.deliveries;
 create policy "deliveries: dispatcher insert"
   on public.deliveries for insert
   with check (public.is_dispatcher_or_above());
 
 drop policy if exists "deliveries: admin or assigned driver update" on public.deliveries;
+drop policy if exists "deliveries: dispatcher or assigned driver update" on public.deliveries;
 create policy "deliveries: dispatcher or assigned driver update"
   on public.deliveries for update
   using (public.is_dispatcher_or_above() or assigned_driver_id = auth.uid());
 
 drop policy if exists "deliveries: admin delete" on public.deliveries;
+drop policy if exists "deliveries: dispatcher delete" on public.deliveries;
 create policy "deliveries: dispatcher delete"
   on public.deliveries for delete
   using (public.is_dispatcher_or_above());
 
 drop policy if exists "history: admin or assigned driver read" on public.delivery_status_history;
+drop policy if exists "history: dispatcher or assigned driver read" on public.delivery_status_history;
 create policy "history: dispatcher or assigned driver read"
   on public.delivery_status_history for select
   using (
@@ -118,11 +125,13 @@ create policy "history: dispatcher or assigned driver read"
   );
 
 drop policy if exists "pod: owner or admin update" on storage.objects;
+drop policy if exists "pod: owner or dispatcher update" on storage.objects;
 create policy "pod: owner or dispatcher update"
   on storage.objects for update
   using (bucket_id = 'proof-of-delivery' and (owner = auth.uid() or public.is_dispatcher_or_above()));
 
 drop policy if exists "pod: owner or admin delete" on storage.objects;
+drop policy if exists "pod: owner or dispatcher delete" on storage.objects;
 create policy "pod: owner or dispatcher delete"
   on storage.objects for delete
   using (bucket_id = 'proof-of-delivery' and (owner = auth.uid() or public.is_dispatcher_or_above()));

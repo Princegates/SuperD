@@ -14,6 +14,7 @@ import '../../../data/repositories/vendor_repository.dart'
 import '../../../models/vendor.dart';
 import '../../../shared/legal/superd_legal_policy.dart';
 import '../../../shared/utils/ghana_phone.dart';
+import '../../../shared/utils/google_places_search.dart';
 import '../../../shared/utils/vendor_link.dart';
 import '../../../shared/widgets/location_field.dart';
 import '../../../shared/widgets/terms_checkbox.dart';
@@ -202,6 +203,18 @@ class _VendorSignupScreenState extends ConsumerState<VendorSignupScreen> {
                             validator: (v) => (v == null || v.trim().isEmpty)
                                 ? 'Required'
                                 : null,
+                            search: (query, {sessionToken}) =>
+                                searchAddressGoogle(
+                                  ref.read(supabaseClientProvider),
+                                  query,
+                                  sessionToken: sessionToken,
+                                ),
+                            resolveLocation: (placeId, {sessionToken}) =>
+                                resolvePlaceLocationGoogle(
+                                  ref.read(supabaseClientProvider),
+                                  placeId,
+                                  sessionToken: sessionToken,
+                                ),
                           ),
                           if (_errorMessage != null) ...[
                             const SizedBox(height: 12),

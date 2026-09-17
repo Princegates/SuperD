@@ -31,6 +31,8 @@ class LocationField extends StatefulWidget {
     this.confirmedHint,
     this.validator,
     this.initialCenter,
+    this.search = searchAddress,
+    this.resolveLocation,
   });
 
   final TextEditingController controller;
@@ -55,6 +57,14 @@ class LocationField extends StatefulWidget {
 
   final FormFieldValidator<String>? validator;
   final LatLng? initialCenter;
+
+  /// Passed straight through to the typed-address box - see
+  /// [AddressAutocompleteField.search]/[AddressAutocompleteField.
+  /// resolveLocation]. Defaults to free Nominatim search; pass
+  /// `searchAddressGoogle`/`resolvePlaceLocationGoogle` (bound to a
+  /// `SupabaseClient`) for Google Places instead.
+  final AddressSearchFn search;
+  final PlaceLocationResolver? resolveLocation;
 
   @override
   State<LocationField> createState() => _LocationFieldState();
@@ -153,8 +163,12 @@ class _LocationFieldState extends State<LocationField> {
       '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
 
   void _onSuggestion(GeocodeResult result) {
+    // AddressAutocompleteField only ever calls onPlaceSelected once a
+    // result's location is resolved, whichever provider it came from -
+    // see its _select().
+    final location = result.location!;
     setState(() => _locateError = null);
-    widget.onPicked(result.location.latitude, result.location.longitude);
+    widget.onPicked(location.latitude, location.longitude);
   }
 
   @override
@@ -171,6 +185,8 @@ class _LocationFieldState extends State<LocationField> {
           ),
           validator: widget.validator,
           onPlaceSelected: _onSuggestion,
+          search: widget.search,
+          resolveLocation: widget.resolveLocation,
         ),
         const SizedBox(height: 10),
         // Wrap, not Row: at ~320dp these two don't fit side by side, and a

@@ -83,9 +83,13 @@ class _VendorFormScreenState extends ConsumerState<VendorFormScreen> {
   /// point is chosen, just skipping the map screen and reverse-geocode
   /// step since the suggestion already carries both.
   void _selectSuggestion(GeocodeResult result) {
+    // This screen's AddressAutocompleteField uses the default (free
+    // Nominatim) search, whose results always carry a location - the null
+    // case only exists for a Google-backed search elsewhere.
+    final location = result.location!;
     setState(() {
-      _lat = result.location.latitude;
-      _lng = result.location.longitude;
+      _lat = location.latitude;
+      _lng = location.longitude;
     });
   }
 

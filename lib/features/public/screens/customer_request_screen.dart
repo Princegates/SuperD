@@ -12,6 +12,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/vehicle_type.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/utils/ghana_phone.dart';
+import '../../../shared/utils/google_places_search.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/location_field.dart';
 import '../../../shared/widgets/turnstile_widget.dart';
@@ -306,6 +307,17 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                   onPicked: _onLocationPicked,
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
+                  search: (query, {sessionToken}) => searchAddressGoogle(
+                    ref.read(supabaseClientProvider),
+                    query,
+                    sessionToken: sessionToken,
+                  ),
+                  resolveLocation: (placeId, {sessionToken}) =>
+                      resolvePlaceLocationGoogle(
+                        ref.read(supabaseClientProvider),
+                        placeId,
+                        sessionToken: sessionToken,
+                      ),
                 ),
               ],
             ),

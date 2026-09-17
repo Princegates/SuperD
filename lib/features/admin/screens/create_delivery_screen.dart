@@ -176,17 +176,23 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   String _coordsLabel(LatLng point) =>
       '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}';
 
+  // Both AddressAutocompleteFields on this screen use the default (free
+  // Nominatim) search, whose results always carry a location - the null
+  // case only exists for a Google-backed search elsewhere.
+
   void _selectPickupSuggestion(GeocodeResult result) {
+    final location = result.location!;
     setState(() {
-      _pickupLat = result.location.latitude;
-      _pickupLng = result.location.longitude;
+      _pickupLat = location.latitude;
+      _pickupLng = location.longitude;
     });
   }
 
   void _selectDropoffSuggestion(GeocodeResult result) {
+    final location = result.location!;
     setState(() {
-      _dropoffLat = result.location.latitude;
-      _dropoffLng = result.location.longitude;
+      _dropoffLat = location.latitude;
+      _dropoffLng = location.longitude;
     });
   }
 

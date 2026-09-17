@@ -122,9 +122,14 @@ class _LocationPickerScreenState extends State<LocationPickerScreen> {
   }
 
   Future<void> _selectResult(GeocodeResult result) async {
-    await _moveCamera(result.location);
+    // This screen only ever searches via the free Nominatim searchAddress()
+    // above, whose results always carry a location - the null case only
+    // exists for a Google-backed search elsewhere (see GeocodeResult's doc
+    // comment).
+    final location = result.location!;
+    await _moveCamera(location);
     setState(() {
-      _picked = result.location;
+      _picked = location;
       _searchResults = const [];
       _searchController.text = result.displayName;
     });

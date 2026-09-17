@@ -5,12 +5,23 @@ import 'package:latlong2/latlong.dart';
 
 import '../../core/app_identity.dart';
 
-/// One address match from [searchAddress].
+/// One address match from [searchAddress] or `searchAddressGoogle`
+/// (`google_places_search.dart`). [location] is null only for a Google
+/// suggestion that hasn't been resolved yet - Places API (New) splits
+/// Autocomplete (text + [placeId], no coordinates) from Place Details
+/// (coordinates), so [AddressAutocompleteField] fills [location] in on
+/// selection rather than up front. Nominatim has no such split - its
+/// results always carry [location] and never a [placeId].
 class GeocodeResult {
-  const GeocodeResult({required this.displayName, required this.location});
+  const GeocodeResult({required this.displayName, this.location, this.placeId})
+      : assert(
+          location != null || placeId != null,
+          'a result needs a location, or a placeId to resolve one from',
+        );
 
   final String displayName;
-  final LatLng location;
+  final LatLng? location;
+  final String? placeId;
 }
 
 /// Turns a typed address/place name into candidate coordinates, using
@@ -20,7 +31,15 @@ class GeocodeResult {
 /// Google Maps; this only powers the search box that jumps the map to
 /// what someone typed. Returns an empty list on any failure or empty
 /// query, never throws.
-Future<List<GeocodeResult>> searchAddress(String query) async {
+///
+/// [sessionToken] is accepted but unused - it only matters for Google's
+/// billing model (see `searchAddressGoogle`) - purely so both functions
+/// share one signature and [AddressAutocompleteField] can swap between
+/// them without a wrapper closure.
+Future<List<GeocodeResult>> searchAddress(
+  String query, {
+  String? sessionToken,
+}) async {
   final trimmed = query.trim();
   if (trimmed.isEmpty) return const [];
 

@@ -310,6 +310,12 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
               ],
             ),
             const SizedBox(height: 14),
+            _PriceCard(
+              estimate: _estimate,
+              rideMinutes: _rideMinutes,
+              hasLocation: _lat != null && _lng != null,
+            ),
+            const SizedBox(height: 16),
             _FormStep(
               step: 2,
               title: 'Who are we delivering to?',
@@ -353,11 +359,6 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
               ],
             ),
             const SizedBox(height: 16),
-            _PriceCard(
-              estimate: _estimate,
-              rideMinutes: _rideMinutes,
-              hasLocation: _lat != null && _lng != null,
-            ),
             if (_errorMessage != null) ...[
               const SizedBox(height: 12),
               Text(

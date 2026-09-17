@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:intl/intl.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -15,21 +14,19 @@ import '../../../models/vendor.dart';
 import '../../../shared/utils/ghana_phone.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/location_field.dart';
-import '../../../shared/widgets/schedule_picker.dart';
 import '../../../shared/widgets/turnstile_widget.dart';
 import '../providers/public_providers.dart';
 
-/// SharedPreferences keys a repeat customer's name/phone/email are
-/// remembered under - device-local only, never sent anywhere but back into
-/// this same form, and never scoped to one vendor's code: the point is
-/// "who is filling this in", which doesn't change between vendors. Not
-/// tied to a "remember me" checkbox the way the login screen's saved email
-/// is - nothing here is a credential, and it's already being submitted to
-/// the vendor on every request regardless, so there's nothing extra being
+/// SharedPreferences keys a repeat customer's name/phone are remembered
+/// under - device-local only, never sent anywhere but back into this same
+/// form, and never scoped to one vendor's code: the point is "who is
+/// filling this in", which doesn't change between vendors. Not tied to a
+/// "remember me" checkbox the way the login screen's saved email is -
+/// nothing here is a credential, and it's already being submitted to the
+/// vendor on every request regardless, so there's nothing extra being
 /// collected by also keeping a local copy for next time.
 const _rememberedNameKey = 'superd_public_request_name';
 const _rememberedPhoneKey = 'superd_public_request_phone';
-const _rememberedEmailKey = 'superd_public_request_email';
 
 /// The page a customer lands on after opening a vendor's link. No login -
 /// they just say who they are and where the package should go; pickup is
@@ -86,7 +83,6 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _emailController = TextEditingController();
   final _addressController = TextEditingController();
   final _packageController = TextEditingController();
 
@@ -96,7 +92,6 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   String? _errorMessage;
   DeliveryQuote? _quote;
   PriceEstimate? _estimate;
-  DateTime? _scheduledAt;
 
   /// Set once the visitor passes the Cloudflare Turnstile challenge - see
   /// `TurnstileWidget` and the README's "Public form protection" section.
@@ -125,52 +120,40 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   /// route lookup fails - the price still works without it.
   int? _rideMinutes;
 
-  static String? _emptyToNull(String value) =>
-      value.trim().isEmpty ? null : value.trim();
-
   @override
   void initState() {
     super.initState();
     unawaited(_loadRememberedDetails());
   }
 
-  /// Fills in name/phone/email from a previous request on this device, if
-  /// any - see [_rememberedNameKey] and friends. A customer who's ordered
-  /// before shouldn't have to retype who they are on every single request,
-  /// even from a different vendor's link.
+  /// Fills in name/phone from a previous request on this device, if any -
+  /// see [_rememberedNameKey] and friends. A customer who's ordered before
+  /// shouldn't have to retype who they are on every single request, even
+  /// from a different vendor's link.
   Future<void> _loadRememberedDetails() async {
     final prefs = await SharedPreferences.getInstance();
     final name = prefs.getString(_rememberedNameKey);
     final phone = prefs.getString(_rememberedPhoneKey);
-    final email = prefs.getString(_rememberedEmailKey);
-    if (!mounted || (name == null && phone == null && email == null)) return;
+    if (!mounted || (name == null && phone == null)) return;
     setState(() {
       if (name != null) _nameController.text = name;
       if (phone != null) _phoneController.text = phone;
-      if (email != null) _emailController.text = email;
     });
   }
 
-  /// Saves name/phone/email for [_loadRememberedDetails] to fill in next
-  /// time - called only after a request actually goes through, so a typo'd
-  /// phone number that fails submission never gets remembered.
+  /// Saves name/phone for [_loadRememberedDetails] to fill in next time -
+  /// called only after a request actually goes through, so a typo'd phone
+  /// number that fails submission never gets remembered.
   Future<void> _rememberDetails() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_rememberedNameKey, _nameController.text.trim());
     await prefs.setString(_rememberedPhoneKey, _phoneController.text.trim());
-    final email = _emailController.text.trim();
-    if (email.isEmpty) {
-      await prefs.remove(_rememberedEmailKey);
-    } else {
-      await prefs.setString(_rememberedEmailKey, email);
-    }
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _phoneController.dispose();
-    _emailController.dispose();
     _addressController.dispose();
     _packageController.dispose();
     super.dispose();
@@ -259,11 +242,6 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                 ? null
                 : _packageController.text.trim(),
             roadDistanceKm: _roadDistanceKm,
-            scheduledAt: _scheduledAt,
-            // Null rather than an empty string, so the column is honestly
-            // empty and every "has an email?" check downstream reads it
-            // the same way.
-            customerEmail: _emptyToNull(_emailController.text),
             vehicleTypeId: _vehicleTypeId,
             turnstileToken: _turnstileToken,
           );
@@ -282,11 +260,9 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
   @override
   Widget build(BuildContext context) {
     if (_quote != null) {
-      return _SubmittedCard(quote: _quote!, scheduledAt: _scheduledAt);
+      return _SubmittedCard(quote: _quote!);
     }
 
-    final vehicleTypes =
-        ref.watch(publicVehicleTypesProvider).valueOrNull ?? const [];
     // Applies the default vehicle type (motorcycle, out of the box) the
     // moment the list loads - only once, and only if the customer hasn't
     // already picked one themselves.
@@ -315,7 +291,28 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
             const SizedBox(height: 20),
             _FormStep(
               step: 1,
-              title: 'Who should the rider call?',
+              title: 'Where should we deliver?',
+              children: [
+                LocationField(
+                  controller: _addressController,
+                  label: 'Delivery address',
+                  mapTitle: 'Where should it be delivered?',
+                  helperText: "Can't name the street? Drop a pin instead",
+                  hasLocation: _lat != null && _lng != null,
+                  confirmedHint: 'Got it - your price is below',
+                  initialCenter: (_lat != null && _lng != null)
+                      ? LatLng(_lat!, _lng!)
+                      : null,
+                  onPicked: _onLocationPicked,
+                  validator: (v) =>
+                      (v == null || v.trim().isEmpty) ? 'Required' : null,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _FormStep(
+              step: 2,
+              title: 'Who are we delivering to?',
               children: [
                 TextFormField(
                   controller: _nameController,
@@ -338,89 +335,20 @@ class _RequestFormState extends ConsumerState<_RequestForm> {
                   ),
                   validator: GhanaPhone.validator(),
                 ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email (optional)',
-                    prefixIcon: Icon(Icons.mail_outline, size: 20),
-                    helperText: 'Your tracking link is sent by SMS. Add an '
-                        'email to get a copy there too.',
-                    helperMaxLines: 2,
-                  ),
-                  // Optional, but still checked when filled in: a customer
-                  // who types an address expects it to work, and a typo
-                  // that silently swallows their tracking link is worse
-                  // than no email at all. Empty is fine - the link goes by
-                  // SMS, and notify-delivery-events already falls back to
-                  // texting when there is no address on file.
-                  validator: (v) {
-                    final value = v?.trim() ?? '';
-                    if (value.isEmpty) return null;
-                    return value.contains('@') ? null : 'Enter a valid email';
-                  },
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            _FormStep(
-              step: 2,
-              title: 'Where are we taking it?',
-              children: [
-                LocationField(
-                  controller: _addressController,
-                  label: 'Delivery address',
-                  mapTitle: 'Where should it be delivered?',
-                  helperText: "Can't name the street? Drop a pin instead",
-                  hasLocation: _lat != null && _lng != null,
-                  confirmedHint: 'Got it - your price is below',
-                  initialCenter: (_lat != null && _lng != null)
-                      ? LatLng(_lat!, _lng!)
-                      : null,
-                  onPicked: _onLocationPicked,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Required' : null,
-                ),
               ],
             ),
             const SizedBox(height: 14),
             _FormStep(
               step: 3,
-              title: 'What and when?',
+              title: 'What are we sending?',
               children: [
                 TextFormField(
                   controller: _packageController,
                   decoration: const InputDecoration(
-                    labelText: 'What are we delivering?',
+                    labelText: 'Item (optional)',
                     prefixIcon: Icon(Icons.inventory_2_outlined, size: 20),
                     helperText: 'Optional - helps the rider bring the right bag',
                   ),
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue: _vehicleTypeId,
-                  decoration: const InputDecoration(
-                    labelText: 'Vehicle',
-                    prefixIcon: Icon(Icons.two_wheeler_outlined, size: 20),
-                    isDense: true,
-                  ),
-                  hint: const Text('Loading...'),
-                  items: [
-                    for (final type in vehicleTypes)
-                      DropdownMenuItem(value: type.id, child: Text(type.name)),
-                  ],
-                  onChanged: vehicleTypes.isEmpty
-                      ? null
-                      : (value) {
-                          setState(() => _vehicleTypeId = value);
-                          unawaited(_refreshEstimate());
-                        },
-                ),
-                const SizedBox(height: 16),
-                SchedulePicker(
-                  value: _scheduledAt,
-                  onChanged: (value) => setState(() => _scheduledAt = value),
                 ),
               ],
             ),
@@ -696,10 +624,9 @@ class _PriceCard extends StatelessWidget {
 }
 
 class _SubmittedCard extends StatelessWidget {
-  const _SubmittedCard({required this.quote, this.scheduledAt});
+  const _SubmittedCard({required this.quote});
 
   final DeliveryQuote quote;
-  final DateTime? scheduledAt;
 
   @override
   Widget build(BuildContext context) {
@@ -729,15 +656,6 @@ class _SubmittedCard extends StatelessWidget {
               '${quote.amount.toStringAsFixed(2)}',
               textAlign: TextAlign.center,
               style: const TextStyle(fontWeight: FontWeight.w700),
-            ),
-          ],
-          if (scheduledAt case final scheduled?) ...[
-            const SizedBox(height: 6),
-            Text(
-              'Scheduled for '
-              '${DateFormat('EEE d MMM, h:mm a').format(scheduled)}',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
           ],
           const SizedBox(height: 20),

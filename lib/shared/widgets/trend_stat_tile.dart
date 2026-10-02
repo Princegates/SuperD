@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../../core/theme/app_theme.dart';
+import '../../core/theme/console_design.dart';
 
 /// A KPI tile for [TileGrid] with an optional trend delta against a prior
-/// period - the one piece every existing private `_StatTile` (duplicated
-/// per Console tab) lacks. Visually matches those: white card, 16 radius,
-/// a light border, value above label.
+/// period. Flat surface + hairline border + a left accent edge, matching
+/// [ConsoleCard]'s panel language rather than the soft-shadow cards this
+/// superseded - see `console_design.dart`.
 class TrendStatTile extends StatelessWidget {
   const TrendStatTile({
     super.key,
@@ -35,53 +35,59 @@ class TrendStatTile extends StatelessWidget {
     final isUp = (change ?? 0) > 0;
     final isFlat = change == null || change == 0;
     final changeColor = isFlat
-        ? Colors.grey.shade500
-        : (isUp == increaseIsGood ? AppTheme.success : AppTheme.danger);
+        ? ConsoleColors.inkFaint
+        : (isUp == increaseIsGood ? ConsoleColors.success : ConsoleColors.danger);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE7EAEE)),
+        color: ConsoleColors.surface,
+        borderRadius: BorderRadius.circular(ConsoleRadius.md),
+        border: Border(
+          top: const BorderSide(color: ConsoleColors.border),
+          right: const BorderSide(color: ConsoleColors.border),
+          bottom: const BorderSide(color: ConsoleColors.border),
+          left: BorderSide(color: color, width: 3),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            value,
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
+            label.toUpperCase(),
+            style: ConsoleText.eyebrow,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 6),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Expanded(
-                child: Text(
-                  label,
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5),
-                ),
-              ),
+              Text(value, style: ConsoleText.statValue.copyWith(color: color)),
               if (change != null) ...[
-                Icon(
-                  isFlat
-                      ? Icons.remove
-                      : (isUp
-                            ? Icons.arrow_upward
-                            : Icons.arrow_downward),
-                  size: 13,
-                  color: changeColor,
-                ),
-                Text(
-                  '${(change.abs() * 100).toStringAsFixed(0)}%',
-                  style: TextStyle(
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w700,
-                    color: changeColor,
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 3),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isFlat
+                            ? Icons.remove
+                            : (isUp ? Icons.arrow_upward : Icons.arrow_downward),
+                        size: 12,
+                        color: changeColor,
+                      ),
+                      Text(
+                        '${(change.abs() * 100).toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: changeColor,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],

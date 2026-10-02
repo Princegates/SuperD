@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../models/audit_log_entry.dart';
 import '../../../models/commission_payment.dart';
 import '../../../models/commission_status.dart';
@@ -12,6 +13,7 @@ import '../../../models/delivery_status.dart';
 import '../../../models/system_alert.dart';
 import '../../../shared/widgets/alert_row.dart';
 import '../../../shared/widgets/async_value_view.dart';
+import '../../../shared/widgets/console/console_card.dart';
 import '../../../shared/widgets/tile_grid.dart';
 import '../../../shared/widgets/trend_chart.dart';
 import '../../../shared/widgets/trend_stat_tile.dart';
@@ -137,7 +139,7 @@ class ConsoleDashboardTab extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 22),
-            _Card(
+            ConsoleCard(
               title: 'Delivery volume',
               subtitle: 'Last $_trendDays days',
               icon: Icons.local_shipping_outlined,
@@ -149,7 +151,7 @@ class ConsoleDashboardTab extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _Card(
+            ConsoleCard(
               title: 'Commission due',
               subtitle: dueCommissionCurrency == null
                   ? 'Last $_trendDays days'
@@ -164,7 +166,7 @@ class ConsoleDashboardTab extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            _Card(
+            ConsoleCard(
               title: 'Needs attention',
               subtitle: alerts.isEmpty ? 'All clear' : '${alerts.length} item(s)',
               icon: Icons.notifications_active_outlined,
@@ -178,7 +180,7 @@ class ConsoleDashboardTab extends ConsumerWidget {
                       padding: const EdgeInsets.symmetric(vertical: 8),
                       child: Text(
                         'Nothing needs attention right now',
-                        style: TextStyle(color: Colors.grey.shade500),
+                        style: TextStyle(color: ConsoleColors.inkMuted),
                       ),
                     )
                   : Column(
@@ -196,7 +198,7 @@ class ConsoleDashboardTab extends ConsumerWidget {
                     ),
             ),
             const SizedBox(height: 16),
-            _Card(
+            ConsoleCard(
               title: 'Recent activity',
               icon: Icons.history,
               iconColor: AppTheme.neutral,
@@ -210,7 +212,7 @@ class ConsoleDashboardTab extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         child: Text(
                           'No activity recorded yet',
-                          style: TextStyle(color: Colors.grey.shade500),
+                          style: TextStyle(color: ConsoleColors.inkMuted),
                         ),
                       )
                     : Column(
@@ -231,7 +233,7 @@ class ConsoleDashboardTab extends ConsumerWidget {
                 ),
                 error: (_, _) => Text(
                   "Couldn't load recent activity",
-                  style: TextStyle(color: Colors.grey.shade500),
+                  style: TextStyle(color: ConsoleColors.inkMuted),
                 ),
               ),
             ),
@@ -292,88 +294,6 @@ class ConsoleDashboardTab extends ConsumerWidget {
   }
 }
 
-class _Card extends StatelessWidget {
-  const _Card({
-    required this.title,
-    required this.child,
-    this.subtitle,
-    this.icon,
-    this.iconColor,
-    this.trailing,
-  });
-
-  final String title;
-  final String? subtitle;
-  final Widget child;
-  final IconData? icon;
-  final Color? iconColor;
-  final Widget? trailing;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = iconColor ?? AppTheme.primary;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.045),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              if (icon != null) ...[
-                Container(
-                  padding: const EdgeInsets.all(7),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(9),
-                  ),
-                  child: Icon(icon, size: 16, color: color),
-                ),
-                const SizedBox(width: 10),
-              ],
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                      ),
-                    ),
-                    if (subtitle != null)
-                      Text(
-                        subtitle!,
-                        style: TextStyle(
-                          color: Colors.grey.shade500,
-                          fontSize: 11.5,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-              if (trailing != null) trailing!,
-            ],
-          ),
-          const SizedBox(height: 14),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
 class _ActivityRow extends StatelessWidget {
   const _ActivityRow({required this.entry});
 
@@ -395,7 +315,7 @@ class _ActivityRow extends StatelessWidget {
                   Text(
                     entry.actorName!,
                     style: TextStyle(
-                      color: Colors.grey.shade500,
+                      color: ConsoleColors.inkMuted,
                       fontSize: 11.5,
                     ),
                   ),
@@ -405,7 +325,7 @@ class _ActivityRow extends StatelessWidget {
           const SizedBox(width: 8),
           Text(
             DateFormat('d MMM, h:mm a').format(entry.createdAt.toLocal()),
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 11, color: ConsoleColors.inkMuted),
           ),
         ],
       ),

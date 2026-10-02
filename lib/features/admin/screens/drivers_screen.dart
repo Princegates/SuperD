@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
@@ -213,7 +214,7 @@ class DriversScreen extends ConsumerWidget {
                   'No drivers yet. Tap "Add driver" below, or ask them to '
                   'create an account from the app themselves.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: TextStyle(color: ConsoleColors.inkMuted),
                 ),
               ),
             );
@@ -244,7 +245,7 @@ class DriversScreen extends ConsumerWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 12.5,
-                        color: Colors.grey.shade600,
+                        color: ConsoleColors.inkMuted,
                         letterSpacing: 0.3,
                       ),
                     ),
@@ -352,7 +353,7 @@ class _PoorRatings extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12.5,
                             fontStyle: FontStyle.italic,
-                            color: Colors.grey.shade700,
+                            color: ConsoleColors.inkMuted,
                           ),
                         ),
                       ),
@@ -364,7 +365,7 @@ class _PoorRatings extends StatelessWidget {
                 padding: const EdgeInsets.only(top: 4, bottom: 4),
                 child: Text(
                   'and ${ratings.length - 5} more',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: ConsoleColors.inkMuted),
                 ),
               ),
           ],

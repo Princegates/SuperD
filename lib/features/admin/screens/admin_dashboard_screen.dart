@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
@@ -273,7 +274,7 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
                                   ? 'No ${_filter!.label.toLowerCase()} deliveries'
                                   : 'No deliveries yet',
                               textAlign: TextAlign.center,
-                              style: TextStyle(color: Colors.grey.shade500),
+                              style: TextStyle(color: ConsoleColors.inkMuted),
                             ),
                           ),
                         )
@@ -363,11 +364,11 @@ class _StatusFilterBar extends StatelessWidget {
         onSelected: (_) => onTap(),
         selectedColor: AppTheme.primaryLight,
         labelStyle: TextStyle(
-          color: selected ? AppTheme.primary : Colors.black87,
+          color: selected ? AppTheme.primary : ConsoleColors.ink,
           fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
         ),
         side: BorderSide(
-          color: selected ? AppTheme.primary : const Color(0xFFE0E4E9),
+          color: selected ? AppTheme.primary : ConsoleColors.border,
         ),
       ),
     );
@@ -433,7 +434,7 @@ class _StuckBanner extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade700,
+                        color: ConsoleColors.inkMuted,
                       ),
                     ),
                   ],
@@ -516,7 +517,7 @@ class _CapacityBar extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 textAlign: TextAlign.right,
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+                style: TextStyle(fontSize: 12, color: ConsoleColors.inkMuted),
               ),
             ),
         ],

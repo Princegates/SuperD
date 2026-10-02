@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/user_role.dart';
@@ -324,16 +325,32 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
         void select(int i) => setState(() => _index = i);
 
         return Scaffold(
+          backgroundColor: ConsoleColors.canvas,
           appBar: AppBar(
-            title: Text(sections[index].label),
+            backgroundColor: AppTheme.primary,
+            foregroundColor: Colors.white,
+            elevation: 0,
+            titleSpacing: isWide ? 24 : null,
+            title: Text(
+              sections[index].label,
+              style: const TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.1,
+              ),
+            ),
             actions: const [
               ConnectionStatusDot(),
+              SizedBox(width: 4),
               AccountMenuButton(changePasswordRoute: '/admin/change-password'),
+              SizedBox(width: 8),
             ],
           ),
           drawer: isWide
               ? null
               : Drawer(
+                  backgroundColor: ConsoleColors.ink,
+                  width: 264,
                   child: SafeArea(
                     child: _NavList(
                       sections: sections,
@@ -348,25 +365,37 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
           body: isWide
               ? Row(
                   children: [
-                    SizedBox(
-                      width: 220,
+                    Container(
+                      width: 236,
+                      color: ConsoleColors.ink,
                       child: _NavList(
                         sections: sections,
                         selectedIndex: index,
                         onSelect: select,
                       ),
                     ),
-                    const VerticalDivider(width: 1),
-                    Expanded(child: sections[index].body),
+                    Expanded(
+                      child: ColoredBox(
+                        color: ConsoleColors.canvas,
+                        child: sections[index].body,
+                      ),
+                    ),
                   ],
                 )
-              : sections[index].body,
+              : ColoredBox(
+                  color: ConsoleColors.canvas,
+                  child: sections[index].body,
+                ),
         );
       },
     );
   }
 }
 
+/// The Console's wayfinding surface - a fixed dark panel (not swapped by
+/// theme preset, unlike the app bar above it) so the shell reads as one
+/// stable control surface regardless of which brand color is active; the
+/// active preset still shows through as the selected item's accent edge.
 class _NavList extends StatelessWidget {
   const _NavList({
     required this.sections,
@@ -378,49 +407,127 @@ class _NavList extends StatelessWidget {
   final int selectedIndex;
   final ValueChanged<int> onSelect;
 
+  static const _inkLight = Color(0xFFAEB4C4);
+
   @override
   Widget build(BuildContext context) {
     final opsCount = sections.where((s) => !s.superAdminOnly).length;
 
     return ListView(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.symmetric(vertical: ConsoleSpace.lg),
       children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+          child: Row(
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: AppTheme.accent,
+                  borderRadius: BorderRadius.circular(ConsoleRadius.sm),
+                ),
+                child: Icon(
+                  Icons.local_shipping_outlined,
+                  size: 16,
+                  color: AppTheme.primary,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Text(
+                'SuperDelivery',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 15,
+                  letterSpacing: -0.1,
+                ),
+              ),
+            ],
+          ),
+        ),
         for (var i = 0; i < sections.length; i++) ...[
           if (i == opsCount && opsCount < sections.length)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+            const Padding(
+              padding: EdgeInsets.fromLTRB(20, 16, 20, 6),
               child: Text(
                 'ADMIN CONSOLE',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 10.5,
                   fontWeight: FontWeight.w700,
-                  color: Colors.grey.shade500,
-                  letterSpacing: 0.5,
+                  color: _inkLight,
+                  letterSpacing: 0.6,
                 ),
               ),
             ),
-          ListTile(
-            leading: Icon(
-              sections[i].icon,
-              color: selectedIndex == i
-                  ? AppTheme.primary
-                  : Colors.grey.shade600,
-            ),
-            title: Text(
-              sections[i].label,
-              style: TextStyle(
-                fontWeight: selectedIndex == i
-                    ? FontWeight.w700
-                    : FontWeight.w500,
-                color: selectedIndex == i ? AppTheme.primary : Colors.black87,
-              ),
-            ),
+          _NavItem(
+            icon: sections[i].icon,
+            label: sections[i].label,
             selected: selectedIndex == i,
-            selectedTileColor: AppTheme.primaryLight,
             onTap: () => onSelect(i),
           ),
         ],
       ],
+    );
+  }
+}
+
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = selected ? Colors.white : const Color(0xFFC2C7D6);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(10, 1, 10, 1),
+      child: Material(
+        color: selected ? Colors.white.withValues(alpha: 0.08) : Colors.transparent,
+        borderRadius: BorderRadius.circular(ConsoleRadius.sm),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(ConsoleRadius.sm),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(ConsoleRadius.sm),
+              border: Border(
+                left: BorderSide(
+                  color: selected ? AppTheme.accent : Colors.transparent,
+                  width: 3,
+                ),
+              ),
+            ),
+            child: Row(
+              children: [
+                const SizedBox(width: 6),
+                Icon(icon, size: 18, color: fg),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: fg,
+                      fontSize: 13.5,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../data/repositories/profile_repository.dart'
     show StaffManagementException;
 import '../../../models/delivery_rating.dart';
@@ -141,7 +142,7 @@ class PersonCard extends StatelessWidget {
                               label: person.isOnline ? 'Online' : 'Offline',
                               color: person.isOnline
                                   ? AppTheme.success
-                                  : Colors.grey.shade500,
+                                  : ConsoleColors.inkFaint,
                             ),
                           // Colour carries the judgement, so a weak
                           // average is visible while scanning the roster
@@ -171,7 +172,7 @@ class PersonCard extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: Colors.grey.shade700,
+                              color: ConsoleColors.inkMuted,
                             ),
                           ),
                         ),
@@ -182,7 +183,7 @@ class PersonCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         maxLines: 1,
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: ConsoleColors.inkMuted,
                           fontSize: 13,
                         ),
                       ),
@@ -208,7 +209,7 @@ class PersonCard extends StatelessWidget {
                       size: 26,
                       color: person.isActive
                           ? AppTheme.success
-                          : Colors.black38,
+                          : ConsoleColors.inkFaint,
                     ),
                     onPressed: onToggleActive,
                   ),
@@ -224,7 +225,7 @@ class PersonCard extends StatelessWidget {
                         size: 20,
                         color: person.isFrozen
                             ? AppTheme.danger
-                            : Colors.black38,
+                            : ConsoleColors.inkFaint,
                       ),
                       onPressed: onToggleFrozen,
                     ),

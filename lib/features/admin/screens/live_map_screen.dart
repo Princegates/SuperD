@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart' as gmap;
 
+import '../../../core/theme/console_design.dart';
 import '../../../models/profile.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../providers/admin_providers.dart';
@@ -33,7 +34,7 @@ class LiveMapScreen extends ConsumerWidget {
                 'A driver shows up here while their app is open and '
                 'location is granted.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade600),
+                style: TextStyle(color: ConsoleColors.inkMuted),
               ),
             ),
           );

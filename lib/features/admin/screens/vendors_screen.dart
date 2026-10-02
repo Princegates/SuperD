@@ -6,6 +6,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../data/repositories/vendor_repository.dart'
     show VendorLinkException;
 import '../../../models/staff_permission.dart';
@@ -63,7 +64,7 @@ class VendorsScreen extends ConsumerWidget {
                                   'one, or share the self-signup link: '
                                   '$base/vendor',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade600),
+                        style: TextStyle(color: ConsoleColors.inkMuted),
                       ),
                     ),
                   ),
@@ -337,7 +338,7 @@ class _VendorCard extends ConsumerWidget {
                         size: 26,
                         color: vendor.isActive
                             ? AppTheme.success
-                            : Colors.black38,
+                            : ConsoleColors.inkFaint,
                       ),
                       onPressed: () => _toggleActive(ref, context),
                     ),
@@ -365,7 +366,7 @@ class _VendorCard extends ConsumerWidget {
               const SizedBox(height: 8),
               Text(
                 "Private orders link (vendor only - never share with a customer):",
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 11, color: ConsoleColors.inkMuted),
               ),
               const SizedBox(height: 4),
               _LinkRow(link: vendorOrdersLink(vendor.ordersCode)),

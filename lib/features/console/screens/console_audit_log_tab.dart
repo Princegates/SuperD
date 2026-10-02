@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/console_design.dart';
 import '../../../models/audit_log_entry.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../providers/console_providers.dart';
@@ -30,7 +31,7 @@ class ConsoleAuditLogTab extends ConsumerWidget {
                   child: Center(
                     child: Text(
                       'No activity recorded yet',
-                      style: TextStyle(color: Colors.grey.shade500),
+                      style: TextStyle(color: ConsoleColors.inkFaint),
                     ),
                   ),
                 ),
@@ -117,7 +118,7 @@ class _LogRow extends StatelessWidget {
                   Text(
                     '${entry.actorName ?? 'Someone'} · '
                     '${DateFormat('dd MMM, h:mm a').format(entry.createdAt.toLocal())}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+                    style: TextStyle(fontSize: 12, color: ConsoleColors.inkFaint),
                   ),
                 ],
               ),

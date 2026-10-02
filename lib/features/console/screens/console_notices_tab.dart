@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../models/driver_notice.dart';
 import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
@@ -191,7 +192,7 @@ class _ConsoleNoticesTabState extends ConsumerState<ConsoleNoticesTab> {
                         'or delete a notice - ask a dispatcher or super '
                         'admin.',
                         style: TextStyle(
-                          color: Colors.grey.shade700,
+                          color: ConsoleColors.inkMuted,
                           fontSize: 12.5,
                         ),
                       ),
@@ -219,7 +220,7 @@ class _ConsoleNoticesTabState extends ConsumerState<ConsoleNoticesTab> {
                       'Send every driver a promotion or heads-up, or pick '
                       'one driver to message directly. Shows as a '
                       "dismissible banner on the driver's own dashboard.",
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -266,7 +267,7 @@ class _ConsoleNoticesTabState extends ConsumerState<ConsoleNoticesTab> {
                         Expanded(
                           child: Text(
                             expiryLabel,
-                            style: TextStyle(color: Colors.grey.shade700),
+                            style: TextStyle(color: ConsoleColors.inkMuted),
                           ),
                         ),
                         TextButton(
@@ -322,7 +323,7 @@ class _ConsoleNoticesTabState extends ConsumerState<ConsoleNoticesTab> {
                   padding: const EdgeInsets.symmetric(vertical: 20),
                   child: Text(
                     'No notices posted yet.',
-                    style: TextStyle(color: Colors.grey.shade500),
+                    style: TextStyle(color: ConsoleColors.inkFaint),
                   ),
                 );
               }
@@ -405,7 +406,7 @@ class _NoticeRow extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
-                      color: isLive ? AppTheme.success : Colors.grey.shade700,
+                      color: isLive ? AppTheme.success : ConsoleColors.inkMuted,
                     ),
                   ),
                 ),
@@ -416,7 +417,7 @@ class _NoticeRow extends StatelessWidget {
             const SizedBox(height: 6),
             Text(
               '$who · $when',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+              style: TextStyle(fontSize: 12, color: ConsoleColors.inkFaint),
             ),
             if (onDeactivate != null || onDelete != null) ...[
               if (isLive) ...[

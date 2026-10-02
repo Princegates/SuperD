@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../models/user_role.dart';
 import '../../../models/zone.dart';
 import '../../../models/zone_location.dart';
@@ -102,7 +103,7 @@ class ConsoleZonesTab extends ConsumerWidget {
                             'one.'
                       : 'No zones yet.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: TextStyle(color: ConsoleColors.inkMuted),
                 ),
               ),
             );
@@ -370,7 +371,7 @@ class _ZoneCardState extends ConsumerState<_ZoneCard> {
               const SizedBox(height: 4),
               Text(
                 'e.g. American House, 5.6234, -0.1712',
-                style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                style: TextStyle(fontSize: 12, color: ConsoleColors.inkMuted),
               ),
               const SizedBox(height: 12),
               TextField(
@@ -555,14 +556,14 @@ class _ZoneCardState extends ConsumerState<_ZoneCard> {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 12.5,
-                    color: Colors.grey.shade700,
+                    color: ConsoleColors.inkMuted,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   'Leave blank to use the app-wide default from Console > '
                   'Settings.',
-                  style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+                  style: TextStyle(fontSize: 12, color: ConsoleColors.inkMuted),
                 ),
                 const SizedBox(height: 10),
                 Row(
@@ -666,7 +667,7 @@ class _ZoneCardState extends ConsumerState<_ZoneCard> {
                       ),
                       child: Text(
                         'No location matches "$_locationFilter".',
-                        style: TextStyle(color: Colors.grey.shade500),
+                        style: TextStyle(color: ConsoleColors.inkFaint),
                       ),
                     ),
                   for (final location in filtered)

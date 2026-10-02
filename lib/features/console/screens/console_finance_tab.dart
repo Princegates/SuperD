@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../models/payment.dart';
 import '../../../models/payment_method.dart';
 import '../../../models/payment_status.dart';
@@ -37,7 +38,7 @@ class ConsoleFinanceTab extends ConsumerWidget {
           return Center(
             child: Text(
               'No payments recorded yet',
-              style: TextStyle(color: Colors.grey.shade500),
+              style: TextStyle(color: ConsoleColors.inkFaint),
             ),
           );
         }
@@ -124,7 +125,7 @@ class ConsoleFinanceTab extends ConsumerWidget {
                                 Icon(
                                   method.icon,
                                   size: 18,
-                                  color: Colors.grey.shade600,
+                                  color: ConsoleColors.inkMuted,
                                 ),
                                 const SizedBox(width: 10),
                                 Expanded(child: Text(method.label)),
@@ -200,7 +201,7 @@ class _CurrencySummary extends StatelessWidget {
             Text(
               'Money riders take from customers, not business income. '
               'See Commission for what the business earns.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: ConsoleColors.inkMuted),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -278,7 +279,7 @@ class _AmountTile extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5),
+            style: TextStyle(color: ConsoleColors.inkMuted, fontSize: 12.5),
           ),
         ],
       ),
@@ -297,7 +298,7 @@ class _PaymentRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          Icon(payment.method.icon, size: 18, color: Colors.grey.shade600),
+          Icon(payment.method.icon, size: 18, color: ConsoleColors.inkMuted),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -323,7 +324,7 @@ class _PaymentRow extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             DateFormat('dd MMM').format(payment.createdAt.toLocal()),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 12, color: ConsoleColors.inkFaint),
           ),
         ],
       ),

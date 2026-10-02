@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../models/commission_payment.dart';
 import '../../../models/commission_status.dart';
 import '../../../shared/utils/csv_export.dart';
@@ -49,7 +50,7 @@ class ConsoleCommissionTab extends ConsumerWidget {
                 'percentage per delivery in Console > Settings to start '
                 'tracking it.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey.shade500),
+                style: TextStyle(color: ConsoleColors.inkFaint),
               ),
             ),
           );
@@ -242,7 +243,7 @@ class _CurrencySummary extends StatelessWidget {
             Text(
               'Commission is the business\u2019s income. Fares belong to '
               'the rider.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 12, color: ConsoleColors.inkMuted),
             ),
             const SizedBox(height: 12),
             Wrap(
@@ -320,7 +321,7 @@ class _AmountTile extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5),
+            style: TextStyle(color: ConsoleColors.inkMuted, fontSize: 12.5),
           ),
         ],
       ),
@@ -370,7 +371,7 @@ class _CommissionRow extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             DateFormat('dd MMM').format(record.createdAt.toLocal()),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 12, color: ConsoleColors.inkFaint),
           ),
           if (onMarkPaid != null) ...[
             const SizedBox(width: 8),

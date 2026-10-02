@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../models/daily_fee_status.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/driver_daily_fee.dart';
@@ -239,7 +240,7 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
                     'The driver daily fee is currently off. Add a tier in '
                     'Console > Settings to start collecting it. Commission '
                     'and Emergency access below are unaffected.',
-                    style: TextStyle(color: Colors.grey.shade500),
+                    style: TextStyle(color: ConsoleColors.inkFaint),
                   ),
                 ),
               ),
@@ -272,7 +273,7 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
                         "These drivers can't be given a new delivery until "
                         'they pay or you waive today for them.',
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: ConsoleColors.inkMuted,
                           fontSize: 12.5,
                         ),
                       ),
@@ -316,7 +317,7 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
                       "access here instead of waiving what they owe - it's "
                       'still due, just not blocking them meanwhile.',
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: ConsoleColors.inkMuted,
                         fontSize: 12.5,
                       ),
                     ),
@@ -338,7 +339,7 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
                                 child: Text(
                                   'Until ${DateFormat('d MMM, HH:mm').format(driver.paymentAccessOverrideUntil!)}',
                                   style: TextStyle(
-                                    color: Colors.grey.shade600,
+                                    color: ConsoleColors.inkMuted,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -399,7 +400,7 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
                                 'completed deliveries. You can also grant '
                                 'extra days by hand.',
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: ConsoleColors.inkMuted,
                         fontSize: 12.5,
                       ),
                     ),
@@ -471,7 +472,7 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
                         'payment made outside the app - check it against '
                         'your MoMo statement before approving.',
                         style: TextStyle(
-                          color: Colors.grey.shade600,
+                          color: ConsoleColors.inkMuted,
                           fontSize: 12.5,
                         ),
                       ),
@@ -509,7 +510,7 @@ class ConsoleDailyFeesTab extends ConsumerWidget {
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         child: Text(
                           'No daily fee payments recorded yet.',
-                          style: TextStyle(color: Colors.grey.shade500),
+                          style: TextStyle(color: ConsoleColors.inkFaint),
                         ),
                       ),
                     for (final record in recent)
@@ -627,7 +628,7 @@ class _AmountTile extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5),
+            style: TextStyle(color: ConsoleColors.inkMuted, fontSize: 12.5),
           ),
         ],
       ),
@@ -712,7 +713,7 @@ class _FeeRow extends StatelessWidget {
           const SizedBox(width: 10),
           Text(
             DateFormat('dd MMM').format(record.feeDate),
-            style: TextStyle(fontSize: 12, color: Colors.grey.shade500),
+            style: TextStyle(fontSize: 12, color: ConsoleColors.inkFaint),
           ),
         ],
       ),
@@ -753,7 +754,7 @@ class _TierOverridesCard extends StatelessWidget {
               "Pin a driver to one tier regardless of how many deliveries "
               "they complete - overrides the automatic calculation for "
               'them entirely until set back to Automatic.',
-              style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5),
+              style: TextStyle(color: ConsoleColors.inkMuted, fontSize: 12.5),
             ),
             const SizedBox(height: 12),
             for (final driver in drivers)

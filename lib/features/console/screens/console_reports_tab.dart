@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../models/commission_payment.dart';
 import '../../../models/commission_status.dart';
 import '../../../models/daily_fee_status.dart';
@@ -17,6 +18,7 @@ import '../../../shared/widgets/async_value_view.dart';
 import '../../admin/providers/admin_providers.dart';
 import '../providers/console_providers.dart';
 import '../../../shared/widgets/tile_grid.dart';
+import '../../../shared/widgets/trend_stat_tile.dart';
 
 /// Historical reporting with a date range, plus a CSV export of the
 /// underlying records for whatever range is selected - a complement to
@@ -162,7 +164,7 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                   children: [
                     Icon(
                       Icons.date_range_outlined,
-                      color: Colors.grey.shade600,
+                      color: ConsoleColors.inkMuted,
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -215,48 +217,48 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
             TileGrid(
               maxColumns: 4,
               children: [
-                _StatTile(
+                TrendStatTile(
                   label: 'Deliveries',
                   value: '${deliveries.length}',
                   color: AppTheme.primary,
                 ),
-                _StatTile(
+                TrendStatTile(
                   label: 'Delivered',
                   value: '$delivered',
                   color: AppTheme.success,
                 ),
-                _StatTile(
+                TrendStatTile(
                   label: 'Cancelled',
                   value: '$cancelled',
                   color: AppTheme.danger,
                 ),
-                _StatTile(
+                TrendStatTile(
                   label: 'Collected',
                   value: '$currency ${collected.toStringAsFixed(2)}',
                   color: AppTheme.success,
                 ),
-                _StatTile(
+                TrendStatTile(
                   label: 'Outstanding',
                   value: '$currency ${outstanding.toStringAsFixed(2)}',
                   color: AppTheme.warning,
                 ),
-                _StatTile(
+                TrendStatTile(
                   label: 'Commission collected',
                   value: '$currency ${commissionCollected.toStringAsFixed(2)}',
                   color: AppTheme.success,
                 ),
-                _StatTile(
+                TrendStatTile(
                   label: 'Commission outstanding',
                   value:
                       '$currency ${commissionOutstanding.toStringAsFixed(2)}',
                   color: AppTheme.warning,
                 ),
-                _StatTile(
+                TrendStatTile(
                   label: 'Daily fees collected',
                   value: '$currency ${dailyFeeCollected.toStringAsFixed(2)}',
                   color: AppTheme.success,
                 ),
-                _StatTile(
+                TrendStatTile(
                   label: 'Daily fees pending',
                   value: '$currency ${dailyFeePending.toStringAsFixed(2)}',
                   color: AppTheme.warning,
@@ -284,7 +286,7 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                         'rate that is not paying.',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: ConsoleColors.inkMuted,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -339,7 +341,7 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                                         textAlign: TextAlign.right,
                                         style: TextStyle(
                                           fontSize: 13,
-                                          color: Colors.grey.shade700,
+                                          color: ConsoleColors.inkMuted,
                                           fontFeatures: const [
                                             FontFeature.tabularFigures(),
                                           ],
@@ -374,7 +376,7 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                         textAlign: TextAlign.right,
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey.shade500,
+                          color: ConsoleColors.inkFaint,
                         ),
                       ),
                     ],
@@ -401,7 +403,7 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                       'Downloads a CSV of exactly what\'s shown above (the '
                       'selected date range) - available from the web '
                       'dashboard.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 12),
                     Wrap(
@@ -549,7 +551,7 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
                         "export doesn't work from this build.",
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade500,
+                          color: ConsoleColors.inkFaint,
                         ),
                       ),
                     ],
@@ -560,48 +562,6 @@ class _ConsoleReportsTabState extends ConsumerState<ConsoleReportsTab> {
           ],
         );
       },
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String label;
-  final String value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE7EAEE)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 12.5),
-          ),
-        ],
-      ),
     );
   }
 }

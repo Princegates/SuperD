@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
+import '../../../shared/widgets/console/console_badge.dart';
 import '../../../models/user_role.dart';
 import '../../admin/providers/admin_providers.dart';
 
@@ -32,7 +34,7 @@ class ConsoleOnboardingTab extends ConsumerWidget {
           'Staff',
           style: TextStyle(
             fontWeight: FontWeight.w700,
-            color: Colors.grey.shade700,
+            color: ConsoleColors.inkMuted,
           ),
         ),
         const SizedBox(height: 8),
@@ -45,13 +47,13 @@ class ConsoleOnboardingTab extends ConsumerWidget {
               subtitle: '${person.role.label} · ${person.email}',
               badges: [
                 if (!person.isActive)
-                  const _Badge(
-                    text: 'Pending approval',
+                  const ConsoleBadge(
+                    label: 'Pending approval',
                     color: AppTheme.warning,
                   ),
                 if (person.mustChangePassword)
-                  const _Badge(
-                    text: 'Awaiting password setup',
+                  const ConsoleBadge(
+                    label: 'Awaiting password setup',
                     color: AppTheme.warning,
                   ),
               ],
@@ -63,7 +65,7 @@ class ConsoleOnboardingTab extends ConsumerWidget {
           'Vendors',
           style: TextStyle(
             fontWeight: FontWeight.w700,
-            color: Colors.grey.shade700,
+            color: ConsoleColors.inkMuted,
           ),
         ),
         const SizedBox(height: 8),
@@ -76,9 +78,9 @@ class ConsoleOnboardingTab extends ConsumerWidget {
               subtitle: vendor.phone,
               badges: [
                 if (!vendor.isActive)
-                  const _Badge(text: 'Inactive', color: AppTheme.danger),
+                  const ConsoleBadge(label: 'Inactive', color: AppTheme.danger),
                 if (vendor.zoneId == null)
-                  const _Badge(text: 'No zone', color: AppTheme.neutral),
+                  const ConsoleBadge(label: 'No zone', color: AppTheme.neutral),
               ],
               createdAt: vendor.createdAt,
               onTap: () => context.push('/admin/vendors/edit', extra: vendor),
@@ -99,7 +101,7 @@ class _OnboardingCard extends StatelessWidget {
 
   final String title;
   final String subtitle;
-  final List<_Badge> badges;
+  final List<ConsoleBadge> badges;
   final DateTime? createdAt;
   final VoidCallback onTap;
 
@@ -118,7 +120,7 @@ class _OnboardingCard extends StatelessWidget {
             if (createdAt != null)
               Text(
                 DateFormat('dd MMM yyyy').format(createdAt!.toLocal()),
-                style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: 11, color: ConsoleColors.inkFaint),
               ),
             if (badges.isNotEmpty) ...[
               const SizedBox(height: 4),
@@ -131,31 +133,6 @@ class _OnboardingCard extends StatelessWidget {
   }
 }
 
-class _Badge extends StatelessWidget {
-  const _Badge({required this.text, required this.color});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 10.5,
-          fontWeight: FontWeight.w700,
-          color: color,
-        ),
-      ),
-    );
-  }
-}
 
 class _EmptyCard extends StatelessWidget {
   const _EmptyCard({required this.text});
@@ -167,7 +144,7 @@ class _EmptyCard extends StatelessWidget {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Text(text, style: TextStyle(color: Colors.grey.shade500)),
+        child: Text(text, style: TextStyle(color: ConsoleColors.inkFaint)),
       ),
     );
   }

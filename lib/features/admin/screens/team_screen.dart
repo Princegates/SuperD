@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../data/repositories/profile_repository.dart';
 import '../../../models/profile.dart';
 import '../../../models/user_role.dart';
@@ -176,7 +177,7 @@ class TeamScreen extends ConsumerWidget {
                       ? 'No other staff yet. Tap "Add team member" below.'
                       : 'No other staff yet.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: TextStyle(color: ConsoleColors.inkMuted),
                 ),
               ),
             );
@@ -255,7 +256,7 @@ class _SectionHeader extends StatelessWidget {
         style: TextStyle(
           fontWeight: FontWeight.w700,
           fontSize: 14,
-          color: Colors.grey.shade600,
+          color: ConsoleColors.inkMuted,
           letterSpacing: 0.3,
         ),
       ),

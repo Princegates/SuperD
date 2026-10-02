@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../data/repositories/customer_repository.dart'
     show CustomerException;
 import '../../../models/customer.dart';
@@ -72,7 +73,7 @@ class _ConsoleCustomersTabState extends ConsumerState<ConsoleCustomersTab> {
                       'No customers yet - one shows up here the moment '
                       'their first delivery request comes in.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                   ),
                 );
@@ -81,7 +82,7 @@ class _ConsoleCustomersTabState extends ConsumerState<ConsoleCustomersTab> {
                 return Center(
                   child: Text(
                     'No customer matches "$_filter".',
-                    style: TextStyle(color: Colors.grey.shade500),
+                    style: TextStyle(color: ConsoleColors.inkFaint),
                   ),
                 );
               }
@@ -173,7 +174,7 @@ class _CustomerCard extends ConsumerWidget {
           customer.email?.isNotEmpty == true
               ? '${customer.phone} · ${customer.email}'
               : customer.phone,
-          style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+          style: TextStyle(color: ConsoleColors.inkMuted, fontSize: 13),
         ),
         children: [
           Padding(
@@ -187,13 +188,13 @@ class _CustomerCard extends ConsumerWidget {
                       Icon(
                         Icons.place_outlined,
                         size: 16,
-                        color: Colors.grey.shade500,
+                        color: ConsoleColors.inkFaint,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
                           customer.address!,
-                          style: TextStyle(color: Colors.grey.shade700),
+                          style: TextStyle(color: ConsoleColors.inkMuted),
                         ),
                       ),
                     ],
@@ -205,7 +206,7 @@ class _CustomerCard extends ConsumerWidget {
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     fontSize: 12.5,
-                    color: Colors.grey.shade700,
+                    color: ConsoleColors.inkMuted,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -220,7 +221,7 @@ class _CustomerCard extends ConsumerWidget {
                         if (deliveries.isEmpty) {
                           return Text(
                             'No deliveries on file.',
-                            style: TextStyle(color: Colors.grey.shade500),
+                            style: TextStyle(color: ConsoleColors.inkFaint),
                           );
                         }
                         return Column(
@@ -277,7 +278,7 @@ class _HistoryRow extends StatelessWidget {
                 Text(
                   DateFormat('d MMM yyyy, h:mm a')
                       .format(delivery.createdAt.toLocal()),
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade500),
+                  style: TextStyle(fontSize: 11, color: ConsoleColors.inkFaint),
                 ),
               ],
             ),

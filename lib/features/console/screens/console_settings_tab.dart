@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/console_design.dart';
 import '../../../models/app_settings.dart';
 import '../../../models/driver_daily_fee_tier.dart';
 import '../../../models/user_role.dart';
@@ -418,7 +419,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       'call if something goes wrong with the delivery or '
                       'the driver. Leave blank to leave it out of those '
                       'messages.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -479,7 +480,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       "mid-trip - separate from the support number above, "
                       "which is for customers and vendors to call, not you. "
                       'Leave either blank to skip that channel.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -552,7 +553,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       'shown across the app. Changing it only affects new '
                       'payments - amounts already recorded keep the '
                       'currency they were entered in.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
@@ -593,7 +594,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       'The brand color everyone sees across the app - app '
                       'bars, buttons, highlights. Applies for every user, '
                       'not just you.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     Wrap(
@@ -634,7 +635,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       "vendor and the drop-off (straight-line distance, "
                       "not actual road distance). Doesn't affect deliveries "
                       'already submitted.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -736,7 +737,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       "driver by hand (or creating a delivery already "
                       "assigned to someone) is blocked the same way once "
                       "that driver is at the cap. Must be between 3 and 20.",
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -810,7 +811,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       'zone location (Console > Zones) within this radius '
                       "wins. Beyond it, the vendor's own registered zone "
                       'is used instead. Must be between 1 and 50 km.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -889,7 +890,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       "the job instead of leaving it unassigned just "
                       "because nobody's nearby. Must be between 1 and "
                       '100 km.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -977,7 +978,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       'new deliveries while it\'s off, and the amounts you '
                       'set below are kept exactly as they are for when '
                       'you\'re ready to go commercial.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                   ],
                 ),
@@ -1006,7 +1007,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       'Console > Commission the moment a delivery is marked '
                       "delivered. Set both to 0 to stop tracking it. Doesn't "
                       'affect commission already recorded.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -1104,7 +1105,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       'automatic rule off. You can also grant free days by '
                       'hand at any time from Console > Daily Fees, '
                       'regardless of this setting.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -1194,7 +1195,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       'drivers use the mobile app. Turn this on to test the '
                       'driver experience in a browser before the Android/iOS '
                       'apps are ready, then turn it back off once they are.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                   ],
                 ),
@@ -1238,7 +1239,7 @@ class _ConsoleSettingsTabState extends ConsumerState<ConsoleSettingsTab> {
                       'badge there - this is a soft gate, not a hard '
                       'block, so you can still activate them by hand at '
                       'any time regardless.',
-                      style: TextStyle(color: Colors.grey.shade600),
+                      style: TextStyle(color: ConsoleColors.inkMuted),
                     ),
                     const SizedBox(height: 16),
                     Row(
@@ -1520,7 +1521,7 @@ class _VehicleTypesCard extends ConsumerWidget {
               "fare + distance price. The default is the picker's starting "
               'selection (motorcycle, out of the box); it can only be '
               'removed by making a different type the default first.',
-              style: TextStyle(color: Colors.grey.shade600),
+              style: TextStyle(color: ConsoleColors.inkMuted),
             ),
             const SizedBox(height: 16),
             AsyncValueView<List<VehicleType>>(
@@ -1531,7 +1532,7 @@ class _VehicleTypesCard extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
                       'No vehicle types yet.',
-                      style: TextStyle(color: Colors.grey.shade500),
+                      style: TextStyle(color: ConsoleColors.inkFaint),
                     ),
                   );
                 }
@@ -1648,7 +1649,7 @@ class _ReadOnlySettingsBanner extends StatelessWidget {
             child: Text(
               "You can view these settings but can't change them - ask a "
               'super admin to make changes.',
-              style: TextStyle(color: Colors.grey.shade700, fontSize: 12.5),
+              style: TextStyle(color: ConsoleColors.inkMuted, fontSize: 12.5),
             ),
           ),
         ],
@@ -1849,7 +1850,7 @@ class _DailyFeeTiersCard extends ConsumerWidget {
               'Console > Daily Fees to review payments and confirm ones '
               'paid outside the app. Shown to drivers simply as '
               '"commission" - they never see how it\'s collected.',
-              style: TextStyle(color: Colors.grey.shade600),
+              style: TextStyle(color: ConsoleColors.inkMuted),
             ),
             const SizedBox(height: 16),
             AsyncValueView<List<DriverDailyFeeTier>>(
@@ -1860,7 +1861,7 @@ class _DailyFeeTiersCard extends ConsumerWidget {
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Text(
                       'No tiers set - the daily fee is off.',
-                      style: TextStyle(color: Colors.grey.shade500),
+                      style: TextStyle(color: ConsoleColors.inkFaint),
                     ),
                   );
                 }
@@ -1926,7 +1927,7 @@ class _ThemeSwatch extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(14),
           border: Border.all(
-            color: selected ? preset.primary : Colors.grey.shade300,
+            color: selected ? preset.primary : ConsoleColors.border,
             width: selected ? 2 : 1,
           ),
         ),

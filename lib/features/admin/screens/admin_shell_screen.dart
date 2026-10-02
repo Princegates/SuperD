@@ -164,7 +164,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
     // recon (what third-party secrets are set, raw rate-limit/cache
     // volume), not an oversight/audit concern an auditor's read-only
     // role exists to cover. The admin-integration-status Edge Function
-    // and the two RPCs in 0096_rate_limit_and_cache_admin_stats.sql
+    // and the two RPCs in 0099_rate_limit_and_cache_admin_stats.sql
     // enforce the same restriction server-side.
     _AdminSection(
       Icons.monitor_heart_outlined,

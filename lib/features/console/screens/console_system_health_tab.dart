@@ -14,7 +14,7 @@ import '../providers/system_health_providers.dart';
 /// credential is never edited here, only whether one is present; the
 /// actual secret stays in Supabase's own Edge Function secrets, never
 /// reaching this screen or the client at all. See
-/// `admin-integration-status` and `0096_rate_limit_and_cache_admin_stats.sql`.
+/// `admin-integration-status` and `0099_rate_limit_and_cache_admin_stats.sql`.
 class ConsoleSystemHealthTab extends ConsumerWidget {
   const ConsoleSystemHealthTab({super.key});
 

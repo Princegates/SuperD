@@ -16,7 +16,7 @@ class SystemHealthException implements Exception {
 /// method here is super-admin-only, enforced server-side (the
 /// `admin-integration-status` Edge Function checks the caller's role
 /// directly; the two RPCs each guard themselves with an internal
-/// `is_super_admin()` check - see `0096_rate_limit_and_cache_admin_stats.sql`).
+/// `is_super_admin()` check - see `0099_rate_limit_and_cache_admin_stats.sql`).
 /// A dispatcher/auditor calling any of these gets a clean 403/exception,
 /// never data.
 class SystemHealthRepository {

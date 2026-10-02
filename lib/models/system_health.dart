@@ -1,5 +1,5 @@
 /// One action's rate-limit hit volume - see
-/// `get_rate_limit_summary()` in `0096_rate_limit_and_cache_admin_stats.sql`.
+/// `get_rate_limit_summary()` in `0099_rate_limit_and_cache_admin_stats.sql`.
 class RateLimitSummaryRow {
   const RateLimitSummaryRow({
     required this.action,
@@ -22,7 +22,7 @@ class RateLimitSummaryRow {
 
 /// How well the road-distance cache is earning its keep - see
 /// `get_road_distance_cache_stats()` in
-/// `0096_rate_limit_and_cache_admin_stats.sql`.
+/// `0099_rate_limit_and_cache_admin_stats.sql`.
 class RoadDistanceCacheStats {
   const RoadDistanceCacheStats({
     required this.totalRoutes,

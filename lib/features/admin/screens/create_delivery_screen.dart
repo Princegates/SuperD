@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/payment_method.dart';
+import '../../../models/vendor.dart';
 import '../../../shared/screens/location_picker_screen.dart';
 import '../../../shared/utils/audit_log.dart';
 import '../../../shared/utils/geocode_search.dart';
@@ -51,6 +52,15 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   /// the fee field below required instead of optional; driver commission
   /// still applies to it exactly like any other delivery's payment.
   bool _isSpecial = false;
+
+  /// A vendor phoning in for a hand-priced job, picked from the Special
+  /// delivery section - filling this in overwrites the Pickup fields
+  /// above with that vendor's registered location, saving a dispatcher
+  /// from retyping an address they already have on file. Left null, the
+  /// Pickup section above works exactly as it always has - a dispatcher
+  /// who never touches this picks their own ("a different") location the
+  /// same way as for any other delivery.
+  String? _specialVendorId;
 
   bool _isSubmitting = false;
   bool _isLocating = false;
@@ -166,17 +176,23 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
   String _coordsLabel(LatLng point) =>
       '${point.latitude.toStringAsFixed(5)}, ${point.longitude.toStringAsFixed(5)}';
 
+  // Both AddressAutocompleteFields on this screen use the default (free
+  // Nominatim) search, whose results always carry a location - the null
+  // case only exists for a Google-backed search elsewhere.
+
   void _selectPickupSuggestion(GeocodeResult result) {
+    final location = result.location!;
     setState(() {
-      _pickupLat = result.location.latitude;
-      _pickupLng = result.location.longitude;
+      _pickupLat = location.latitude;
+      _pickupLng = location.longitude;
     });
   }
 
   void _selectDropoffSuggestion(GeocodeResult result) {
+    final location = result.location!;
     setState(() {
-      _dropoffLat = result.location.latitude;
-      _dropoffLng = result.location.longitude;
+      _dropoffLat = location.latitude;
+      _dropoffLng = location.longitude;
     });
   }
 
@@ -217,6 +233,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
             scheduledAt: _scheduledAt,
             vehicleTypeId: _vehicleTypeId,
             isSpecial: _isSpecial,
+            vendorId: _isSpecial ? _specialVendorId : null,
           );
 
       await logAuditEvent(
@@ -265,6 +282,7 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
         ref.watch(appSettingsProvider).valueOrNull?.currency ?? 'GHS';
     final vehicleTypes =
         ref.watch(vehicleTypesProvider).valueOrNull ?? const [];
+    final vendors = ref.watch(vendorsProvider).valueOrNull ?? const [];
 
     return Scaffold(
       appBar: AppBar(title: const Text('New delivery')),
@@ -433,8 +451,66 @@ class _CreateDeliveryScreenState extends ConsumerState<CreateDeliveryScreen> {
                     'commission still applies to it as normal.',
                   ),
                   value: _isSpecial,
-                  onChanged: (value) => setState(() => _isSpecial = value),
+                  onChanged: (value) => setState(() {
+                    _isSpecial = value;
+                    if (!value) _specialVendorId = null;
+                  }),
                 ),
+                if (_isSpecial) ...[
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String?>(
+                    initialValue: _specialVendorId,
+                    decoration: const InputDecoration(
+                      labelText: 'Pickup from a vendor (optional)',
+                      helperText:
+                          "For a vendor phoning in a special request - fills "
+                          "in the Pickup fields above with their saved "
+                          "location. Leave as None to pick a different "
+                          "location there yourself.",
+                      helperMaxLines: 3,
+                    ),
+                    items: [
+                      const DropdownMenuItem<String?>(
+                        value: null,
+                        child: Text('None - use the pickup address above'),
+                      ),
+                      for (final vendor in vendors)
+                        DropdownMenuItem<String?>(
+                          value: vendor.id,
+                          child: Text(
+                            vendor.vendorName,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (value) => setState(() {
+                      _specialVendorId = value;
+                      if (value == null) return;
+                      final vendor = vendors.firstWhere((v) => v.id == value);
+                      _pickupController.text = vendor.zoneName == null
+                          ? vendor.vendorName
+                          : '${vendor.vendorName} - ${vendor.zoneName}';
+                      _pickupLat = vendor.locationLat;
+                      _pickupLng = vendor.locationLng;
+                    }),
+                  ),
+                  if (_specialVendorId != null &&
+                      vendors
+                          .firstWhere((v) => v.id == _specialVendorId)
+                          .locationLat ==
+                          null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      "This vendor has no saved location - add one to the "
+                      "pickup address above, or switch back to None and "
+                      "enter a different location.",
+                      style: TextStyle(
+                        color: AppTheme.danger,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                  ],
+                ],
                 const SizedBox(height: 8),
                 TextFormField(
                   controller: _feeController,

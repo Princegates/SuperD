@@ -90,6 +90,16 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
     }
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
+      // Google Play requires a prominent disclosure BEFORE the runtime
+      // prompt, not after it - it has to name the data, say that it keeps
+      // being collected while the app is in the background, and give the
+      // rider a real choice. Asking first and explaining afterwards, which
+      // is what this did, does not satisfy that however good the later
+      // explanation is.
+      if (!await _showProminentDisclosure()) {
+        debugPrint('SuperD: rider declined location sharing at disclosure.');
+        return;
+      }
       permission = await Geolocator.requestPermission();
     }
     if (permission == LocationPermission.denied ||
@@ -120,6 +130,46 @@ class _DriverDashboardScreenState extends ConsumerState<DriverDashboardScreen> {
       final last = _lastPosition;
       if (last != null) _pushLocation(last);
     });
+  }
+
+  /// The prominent disclosure, shown before any permission is requested.
+  ///
+  /// Deliberately plain about the three things Google asks a disclosure to
+  /// cover, and that a rider deserves to know regardless: what is
+  /// collected, that it continues while the app is not on screen, and what
+  /// it is for. Dismissing it is a real "no" - the permission is never
+  /// requested, and the rider can still take and complete deliveries; they
+  /// simply will not appear on the dispatch map.
+  Future<bool> _showProminentDisclosure() async {
+    if (!mounted) return false;
+    final agreed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        title: const Text('Sharing your location'),
+        content: const Text(
+          '$kAppName collects your location so dispatch and the customer '
+          'waiting for a delivery can see where you are and when you will '
+          'arrive.\n\n'
+          'This includes collecting your location while the app is in the '
+          'background or your phone is locked - you ride with the phone '
+          'pocketed, and tracking has to keep working then.\n\n'
+          'Your location is shared only while you are on duty, and stops '
+          'when you go offline.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Continue'),
+          ),
+        ],
+      ),
+    );
+    return agreed ?? false;
   }
 
   /// Asks for "Allow all the time" on top of the "while in use" grant

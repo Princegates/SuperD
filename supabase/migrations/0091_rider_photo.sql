@@ -81,6 +81,7 @@ create policy "rider photos: first upload or staff"
 -- littering the rider's folder with abandoned ones. Same window as the
 -- insert policy: only while unapproved.
 drop policy if exists "rider photos: staff update" on storage.objects;
+drop policy if exists "rider photos: unapproved own or staff update" on storage.objects;
 create policy "rider photos: unapproved own or staff update"
   on storage.objects for update
   using (

@@ -1128,7 +1128,12 @@ database checks above are what actually enforce it either way.
 - `audit_log` — an append-only record of staff/vendor/delivery/payment
   actions for the Admin Console, writable only through `log_audit_event`
   and readable only by a super admin.
-- Storage bucket `proof-of-delivery` — photos drivers capture on delivery.
+- Storage bucket `proof-of-delivery` (private) — photos riders capture on
+  delivery, at `<delivery id>/<timestamp>.jpg`. Private since `0098`:
+  these are taken at a customer's door and show their address, so the
+  column stores a path and the two screens that display it (admin and
+  driver detail, both signed in) mint a short-lived signed link per view.
+  The customer tracking page does not show it.
 - Storage bucket `rider-photos` (private) — one face photo per rider, at
   `<user id>/photo.jpg` and capped at 200 KB by the client before upload.
   `profiles.avatar_path` points at it; screens read it through short-lived
@@ -1154,6 +1159,21 @@ offers a range going back five years and defaults to all of it, so these
 genuinely need the whole table; they just do not need it streaming into
 every dispatcher's session all day.
 
+> **When you drop a column, find its readers in `pg_proc`, not in the
+> migration files.** Grepping the files finds every *historical* mention,
+> which buries the handful that are currently installed - and it only
+> finds the spelling you searched for. Against the built schema:
+>
+> ```sql
+> select p.proname
+> from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+> where n.nspname = 'public' and p.prosrc like '%the_column%';
+> ```
+>
+> This is not hypothetical: 0095 dropped three columns and missed two
+> readers - one never transformed, one transformed only where the column
+> was qualified - and both reached production before 0096 fixed them.
+
 **A rider's position lives in its own table.** `driver_locations`
 (`0095`), one row per rider, overwritten in place. It used to be three
 columns on `profiles`, which meant every GPS fix rewrote the rider's
@@ -1173,6 +1193,18 @@ travelled rather than 300m, roughly halving the calls on a typical
 delivery. It refuses to count below two minutes without asking again -
 announcing an arrival on an extrapolation would be worse than saying
 nothing.
+
+**The location disclosure comes before the permission prompt.** Google
+Play requires a prominent disclosure that names the data, says it keeps
+being collected while the app is in the background, and gives a real
+choice - *before* the runtime permission dialog, not after it. The app
+showed its explanation only afterwards, and only to riders who had picked
+"while in use", which does not satisfy that however well it read.
+`_showProminentDisclosure()` in DriverDashboardScreen now runs first, and
+declining it means the permission is never requested at all: the rider
+can still take and complete deliveries, they simply will not appear on
+the dispatch map. This is also the screen Play asks to see in the
+background-location declaration video.
 
 **Riders report on movement, not on a clock.** A rider's app sends a
 position once they have moved ~25m, plus a keepalive every 5 minutes so a

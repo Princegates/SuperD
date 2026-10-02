@@ -15,6 +15,7 @@ import '../../../models/delivery.dart';
 import '../../../models/delivery_status.dart';
 import '../../../models/payment.dart';
 import '../../../models/payment_status.dart';
+import '../../../shared/widgets/proof_of_delivery_image.dart';
 import '../../../shared/providers/delivery_detail_providers.dart';
 import '../../../shared/widgets/fail_delivery_sheet.dart';
 import '../providers/driver_providers.dart';
@@ -573,12 +574,9 @@ class _DriverDetailBodyState extends ConsumerState<_DriverDetailBody> {
                       ),
                       const SizedBox(height: 10),
                       if (delivery.proofOfDeliveryUrl != null)
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(12),
-                          child: Image.network(
-                            delivery.proofOfDeliveryUrl!,
-                            fit: BoxFit.cover,
-                          ),
+                        ProofOfDeliveryImage(
+                          path: delivery.proofOfDeliveryUrl!,
+                          borderRadius: 12,
                         ),
                       const SizedBox(height: 10),
                       OutlinedButton.icon(

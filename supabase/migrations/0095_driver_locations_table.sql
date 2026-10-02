@@ -55,10 +55,12 @@ alter table public.driver_locations enable row level security;
 -- rider that they alone can say, and the one thing they must be able to
 -- say freely - see 0091, where the rest of their profile is read-only to
 -- them precisely so that this can stay open.
+drop policy if exists "driver_locations: rider upserts own" on public.driver_locations;
 create policy "driver_locations: rider upserts own"
   on public.driver_locations for insert to authenticated
   with check (driver_id = auth.uid());
 
+drop policy if exists "driver_locations: rider updates own" on public.driver_locations;
 create policy "driver_locations: rider updates own"
   on public.driver_locations for update to authenticated
   using (driver_id = auth.uid())
@@ -66,6 +68,7 @@ create policy "driver_locations: rider updates own"
 
 -- A rider may read their own; dispatch reads everyone's, for the Live Map
 -- and for assignment.
+drop policy if exists "driver_locations: rider reads own, staff read all" on public.driver_locations;
 create policy "driver_locations: rider reads own, staff read all"
   on public.driver_locations for select to authenticated
   using (driver_id = auth.uid() or public.is_dispatcher_or_above());
@@ -548,6 +551,7 @@ end;
 $$;
 
 drop trigger if exists assign_pending_on_driver_location on public.profiles;
+drop trigger if exists assign_pending_on_driver_location on public.driver_locations;
 
 create trigger assign_pending_on_driver_location
   after insert or update of lat, lng on public.driver_locations

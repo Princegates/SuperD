@@ -11,6 +11,7 @@ import '../../data/repositories/driver_notice_repository.dart';
 import '../../data/repositories/payment_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../data/repositories/settings_repository.dart';
+import '../../data/repositories/system_health_repository.dart';
 import '../../data/repositories/vehicle_type_repository.dart';
 import '../../data/repositories/rating_repository.dart';
 import '../../data/repositories/vendor_repository.dart';
@@ -82,6 +83,12 @@ final customerRepositoryProvider = Provider<CustomerRepository>((ref) {
 
 final vehicleTypeRepositoryProvider = Provider<VehicleTypeRepository>((ref) {
   return VehicleTypeRepository(ref.watch(supabaseClientProvider));
+});
+
+final systemHealthRepositoryProvider = Provider<SystemHealthRepository>((
+  ref,
+) {
+  return SystemHealthRepository(ref.watch(supabaseClientProvider));
 });
 
 /// The app-wide settings row (currently just the currency), kept live so a

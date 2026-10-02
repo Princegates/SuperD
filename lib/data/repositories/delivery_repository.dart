@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../models/delivery.dart';
@@ -38,7 +39,9 @@ class DeliveryRepository {
   /// One filter, because a realtime stream only takes one - hence a plain
   /// date cut rather than "active OR recent". A delivery still live after
   /// 90 days is a data problem, not a dispatch one.
-  Stream<List<Delivery>> watchRecentDeliveries() {
+  Stream<List<Delivery>> watchRecentDeliveries({
+    ValueChanged<bool>? onConnected,
+  }) {
     final cutoff = DateTime.now().toUtc().subtract(recentWindow);
     return resilientRealtimeStream(
       () => _client
@@ -47,6 +50,7 @@ class DeliveryRepository {
           .gte('created_at', cutoff.toIso8601String())
           .order('created_at', ascending: false)
           .map((rows) => rows.map(Delivery.fromMap).toList()),
+      onConnected: onConnected,
     );
   }
 

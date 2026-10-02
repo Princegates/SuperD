@@ -11,6 +11,7 @@ import '../../../models/delivery_status.dart';
 import '../../../models/profile.dart';
 import '../../../models/staff_permission.dart';
 import '../../../shared/utils/csv_export.dart';
+import '../../../shared/utils/delivery_alerts.dart';
 import '../../../shared/widgets/async_value_view.dart';
 import '../../../shared/widgets/csv_export_button.dart';
 import '../../../shared/widgets/delivery_card.dart';
@@ -51,40 +52,14 @@ class _AdminDashboardScreenState extends ConsumerState<AdminDashboardScreen> {
     super.dispose();
   }
 
-  /// How long a delivery may sit in a status before it is worth someone
-  /// looking at it. Only the states where nothing happens without a
-  /// person: a delivered or cancelled job is finished, and a scheduled
-  /// one is already handled by ScheduledDeliveryBanner.
-  static const _stuckAfter = {
-    DeliveryStatus.pending: Duration(minutes: 20),
-    DeliveryStatus.assigned: Duration(minutes: 45),
-    DeliveryStatus.pickedUp: Duration(hours: 3),
-    DeliveryStatus.inTransit: Duration(hours: 3),
-  };
-
   /// Deliveries that have been sitting too long in a status that should
   /// have moved on. A scheduled delivery whose time has not come yet is
   /// not stuck - it is waiting on purpose.
-  List<Delivery> _stuck(List<Delivery> all) {
-    final now = DateTime.now();
-    final overdue = <Delivery>[];
-    for (final delivery in all) {
-      final limit = _stuckAfter[delivery.status];
-      if (limit == null) continue;
-      if (delivery.scheduledAt case final at? when at.isAfter(now)) continue;
-      // Measured from the last thing that actually happened to it, so a
-      // job assigned two minutes ago is not judged on when it was raised.
-      final since =
-          delivery.pickedUpAt ?? delivery.assignedAt ?? delivery.createdAt;
-      if (now.difference(since) > limit) overdue.add(delivery);
-    }
-    overdue.sort((a, b) {
-      final aSince = a.pickedUpAt ?? a.assignedAt ?? a.createdAt;
-      final bSince = b.pickedUpAt ?? b.assignedAt ?? b.createdAt;
-      return aSince.compareTo(bSince);
-    });
-    return overdue;
-  }
+  ///
+  /// The threshold table and the actual check live in
+  /// `shared/utils/delivery_alerts.dart` now, shared with the Console
+  /// Dashboard's unified alerts feed so the two never quietly drift apart.
+  List<Delivery> _stuck(List<Delivery> all) => stuckDeliveries(all);
 
   /// The last nine digits of a Ghanaian number - the part that is the
   /// same however it was written.

@@ -104,6 +104,14 @@ dependencies:
   sentry_flutter: ^9.28.0
   image: ^4.10.1
 
+  # Trend charts on the Admin Console's Dashboard tab - pure Dart/Flutter,
+  # no platform channels, so it behaves identically on web (this app's
+  # actual deployment target for the console). The one existing chart in
+  # the app (_BarChart in earnings_screen.dart) is a simpler, single-series
+  # problem left as hand-rolled; this is for genuinely interactive
+  # multi-series trend lines with tooltips, which is worth a library.
+  fl_chart: ^0.69.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

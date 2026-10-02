@@ -9,16 +9,18 @@ import '../../../models/delivery_status.dart';
 import '../../../models/user_role.dart';
 import '../../../models/vendor.dart';
 import '../../../shared/widgets/account_menu_button.dart';
+import '../../../shared/widgets/connection_status_dot.dart';
 import '../../console/screens/console_audit_log_tab.dart';
 import '../../console/screens/console_commission_tab.dart';
 import '../../console/screens/console_customers_tab.dart';
 import '../../console/screens/console_daily_fees_tab.dart';
+import '../../console/screens/console_dashboard_tab.dart';
 import '../../console/screens/console_finance_tab.dart';
 import '../../console/screens/console_notices_tab.dart';
 import '../../console/screens/console_reports_tab.dart';
 import '../../console/screens/console_onboarding_tab.dart';
-import '../../console/screens/console_overview_tab.dart';
 import '../../console/screens/console_settings_tab.dart';
+import '../../console/screens/console_system_health_tab.dart';
 import '../../console/screens/console_zones_tab.dart';
 import '../providers/admin_providers.dart';
 import 'admin_dashboard_screen.dart';
@@ -75,15 +77,22 @@ class _AdminSection {
 /// all routine dispatch work, not a super-admin-only decision - matching
 /// the RLS on `commission_payments`/`driver_daily_fees`/`driver_notices`,
 /// which already allow either role); a super admin AND an auditor also see
-/// Team and the remaining Console sections (Overview, Reports, Finance,
-/// Audit log, Onboarding, Zones, Settings) - an auditor can view every one
-/// of these but can't write to the admin-level ones (dispatcher/super-admin
+/// Team and the remaining Console sections (Reports, Finance, Audit log,
+/// Onboarding, Zones, Settings) - an auditor can view every one of these
+/// but can't write to the admin-level ones (dispatcher/super-admin
 /// management is exclusive to a super admin, so is the rest of Team; an
 /// auditor's own read-only access is enforced server-side, not just by
-/// hiding buttons - see `0054_auditor_role_permissions.sql`). Customers is
-/// the one section a super admin does NOT share with an auditor at all
-/// (see [_AdminSection.superAdminExclusive]) - customer contact details
-/// aren't something an oversight role needs, unlike everything else here.
+/// hiding buttons - see `0054_auditor_role_permissions.sql`). Customers and
+/// System Health are the two sections a super admin does NOT share with an
+/// auditor at all (see [_AdminSection.superAdminExclusive]) - customer
+/// contact details and infra/integration status aren't things an oversight
+/// role needs, unlike everything else here.
+///
+/// Slot 0 itself is role-conditional rather than a fixed section: a
+/// dispatcher gets a lightweight quick-link Home; a super admin/auditor
+/// gets the richer [ConsoleDashboardTab] (trends, a unified alerts feed,
+/// recent activity) in that same slot instead - see `build()`.
+///
 /// See [DriversScreen] for why the driver roster is split out into its
 /// own section instead of living under Team.
 class AdminShellScreen extends StatefulWidget {
@@ -134,12 +143,6 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       superAdminExclusive: true,
     ),
     _AdminSection(
-      Icons.insights_outlined,
-      'Overview',
-      ConsoleOverviewTab(),
-      superAdminOnly: true,
-    ),
-    _AdminSection(
       Icons.summarize_outlined,
       'Reports',
       ConsoleReportsTab(),
@@ -156,6 +159,19 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
       'Audit log',
       ConsoleAuditLogTab(),
       superAdminOnly: true,
+    ),
+    // Exclusive to a super admin, same as Customers - this is infra
+    // recon (what third-party secrets are set, raw rate-limit/cache
+    // volume), not an oversight/audit concern an auditor's read-only
+    // role exists to cover. The admin-integration-status Edge Function
+    // and the two RPCs in 0096_rate_limit_and_cache_admin_stats.sql
+    // enforce the same restriction server-side.
+    _AdminSection(
+      Icons.monitor_heart_outlined,
+      'System Health',
+      ConsoleSystemHealthTab(),
+      superAdminOnly: true,
+      superAdminExclusive: true,
     ),
     _AdminSection(
       Icons.how_to_reg_outlined,
@@ -277,20 +293,31 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
           }
         });
 
-        final sections = [
-          _AdminSection(
-            Icons.dashboard_outlined,
-            'Home',
-            HomeScreen(
-              quickLinks: [
-                for (final section in restOfSections)
-                  DashboardQuickLink(section.icon, section.label),
-              ],
-              onNavigate: goToLabel,
-            ),
-          ),
-          ...restOfSections,
-        ];
+        // Slot 0 is role-conditional rather than always HomeScreen: a
+        // super admin/auditor gets the rich Dashboard (trends, a unified
+        // alerts feed, recent activity - several of its providers
+        // resolve to an RLS-restricted empty list for a plain dispatcher,
+        // which would read as a broken/empty screen rather than "nothing
+        // to see here"), while a dispatcher keeps today's lightweight
+        // quick-link Home unchanged. See `canViewAdminConsole`.
+        final landing = (myRole?.canViewAdminConsole ?? false)
+            ? _AdminSection(
+                Icons.dashboard_outlined,
+                'Dashboard',
+                ConsoleDashboardTab(onNavigate: goToLabel),
+              )
+            : _AdminSection(
+                Icons.dashboard_outlined,
+                'Home',
+                HomeScreen(
+                  quickLinks: [
+                    for (final section in restOfSections)
+                      DashboardQuickLink(section.icon, section.label),
+                  ],
+                  onNavigate: goToLabel,
+                ),
+              );
+        final sections = [landing, ...restOfSections];
         final index = _index.clamp(0, sections.length - 1);
         final isWide = MediaQuery.sizeOf(context).width >= 900;
 
@@ -300,6 +327,7 @@ class _AdminShellScreenState extends State<AdminShellScreen> {
           appBar: AppBar(
             title: Text(sections[index].label),
             actions: const [
+              ConnectionStatusDot(),
               AccountMenuButton(changePasswordRoute: '/admin/change-password'),
             ],
           ),

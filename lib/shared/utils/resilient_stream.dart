@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:sentry_flutter/sentry_flutter.dart';
 
 /// Wraps a Supabase Realtime stream so a transient WebSocket drop (e.g.
@@ -23,18 +24,31 @@ import 'package:sentry_flutter/sentry_flutter.dart';
 Stream<T> resilientRealtimeStream<T>(
   Stream<T> Function() create, {
   Duration retryDelay = const Duration(seconds: 3),
+
+  /// Optional side-channel for a caller that wants to show connection
+  /// health somewhere (see `ConnectionStatusDot`) - `null` for every
+  /// existing caller, which is a complete no-op: behavior is otherwise
+  /// identical to before this parameter existed. Called with `true` right
+  /// before each subscribe attempt (a fresh `create()` call - optimistic,
+  /// not a confirmed "data is flowing" signal, since a Realtime `.stream()`
+  /// has no "first row received" event to key off), and `false` the
+  /// moment one actually throws.
+  ValueChanged<bool>? onConnected,
 }) async* {
   while (true) {
     try {
+      onConnected?.call(true);
       yield* create();
       // A realtime `.stream()` isn't expected to complete on its own -
       // if it somehow does, retrying is still better than going dead.
     } catch (e, stackTrace) {
       // Recovered from deliberately - see the doc comment above, the UI
-      // never sees this. Still reported to Sentry as a non-fatal event:
-      // a connection that's failing over and over (vs. one genuine drop)
-      // is worth knowing about even though nothing on screen ever shows
-      // it - see the README's "Crash reporting" section.
+      // never sees this (beyond the optional onConnected signal). Still
+      // reported to Sentry as a non-fatal event: a connection that's
+      // failing over and over (vs. one genuine drop) is worth knowing
+      // about even though nothing on screen ever shows it - see the
+      // README's "Crash reporting" section.
+      onConnected?.call(false);
       unawaited(Sentry.captureException(e, stackTrace: stackTrace));
     }
     await Future.delayed(retryDelay);

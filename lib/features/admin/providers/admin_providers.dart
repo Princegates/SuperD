@@ -10,6 +10,23 @@ import '../../../models/vendor.dart';
 import '../../../models/zone.dart';
 import '../../../models/zone_location.dart';
 
+/// Optimistic realtime connection health, fed by exactly one "canary"
+/// stream - the one backing [recentDeliveriesProvider] below, already
+/// watched globally while the Console is open - via
+/// `resilientRealtimeStream`'s `onConnected` side-channel. Supabase
+/// multiplexes every realtime channel over one shared WebSocket per
+/// client, so one canary is a reasonable proxy for the whole connection,
+/// not a per-subscription guarantee. `true` means "connecting or live",
+/// flipping to `false` only once a subscribe attempt has actually thrown -
+/// strictly more signal than existed before this (nothing), not a
+/// confirmed-delivery guarantee. Read by [ConnectionStatusDot].
+///
+/// Lives here rather than in `alerts_providers.dart` (which otherwise
+/// reads as the more natural home) because [alerts_providers.dart]
+/// already imports this file - defining it there instead would make the
+/// two import each other.
+final connectionStatusProvider = StateProvider<bool>((ref) => true);
+
 /// Recent deliveries, live - the operational feed. Everything dispatch
 /// does today reads this: the Deliveries screen, the dashboard tiles, the
 /// Drivers screen's active counts, the shell's new-order notification.
@@ -19,7 +36,12 @@ import '../../../models/zone_location.dart';
 /// otherwise would be a quiet lie to every screen reading it. For the
 /// whole history, see [deliveryHistoryProvider].
 final recentDeliveriesProvider = StreamProvider<List<Delivery>>((ref) {
-  return ref.watch(deliveryRepositoryProvider).watchRecentDeliveries();
+  return ref
+      .watch(deliveryRepositoryProvider)
+      .watchRecentDeliveries(
+        onConnected: (connected) =>
+            ref.read(connectionStatusProvider.notifier).state = connected,
+      );
 });
 
 /// Every delivery ever - what reporting reads.

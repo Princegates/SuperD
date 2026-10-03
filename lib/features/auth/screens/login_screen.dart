@@ -13,6 +13,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/widgets/fade_slide_in.dart';
 import '../../../shared/widgets/glow_orbs_background.dart';
+import '../../../shared/widgets/password_field.dart';
 import '../../../shared/widgets/shake_x.dart';
 import '../../../core/app_identity.dart';
 
@@ -280,16 +281,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                         : null,
                                   ),
                                   const SizedBox(height: 14),
-                                  TextFormField(
+                                  PasswordField(
                                     controller: _passwordController,
-                                    obscureText: true,
+                                    labelText: 'Password',
+                                    prefixIcon: Icons.lock_outline,
                                     autofillHints: const [
                                       AutofillHints.password,
                                     ],
-                                    decoration: const InputDecoration(
-                                      labelText: 'Password',
-                                      prefixIcon: Icon(Icons.lock_outline),
-                                    ),
                                     validator: (value) =>
                                         (value == null || value.length < 6)
                                         ? 'Password must be at least 6 characters'

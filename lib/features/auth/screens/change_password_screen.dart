@@ -7,6 +7,7 @@ import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../models/user_role.dart';
 import '../../../shared/widgets/fade_slide_in.dart';
+import '../../../shared/widgets/password_field.dart';
 import '../../../shared/widgets/shake_x.dart';
 
 class ChangePasswordScreen extends ConsumerStatefulWidget {
@@ -148,26 +149,20 @@ class _ChangePasswordScreenState extends ConsumerState<ChangePasswordScreen> {
                             ),
                             const SizedBox(height: 20),
                           ],
-                          TextFormField(
+                          PasswordField(
                             controller: _currentPasswordController,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Current password',
-                              prefixIcon: Icon(Icons.lock_outline),
-                            ),
+                            labelText: 'Current password',
+                            prefixIcon: Icons.lock_outline,
                             validator: (value) =>
                                 (value == null || value.isEmpty)
                                 ? 'Required'
                                 : null,
                           ),
                           const SizedBox(height: 14),
-                          TextFormField(
+                          PasswordField(
                             controller: _newPasswordController,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'New password',
-                              prefixIcon: Icon(Icons.lock_reset_outlined),
-                            ),
+                            labelText: 'New password',
+                            prefixIcon: Icons.lock_reset_outlined,
                             validator: (value) =>
                                 (value == null || value.length < 6)
                                 ? 'Password must be at least 6 characters'

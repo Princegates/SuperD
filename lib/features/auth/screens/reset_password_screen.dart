@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/providers/core_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/widgets/fade_slide_in.dart';
+import '../../../shared/widgets/password_field.dart';
 import '../../../shared/widgets/shake_x.dart';
 
 class ResetPasswordScreen extends ConsumerStatefulWidget {
@@ -105,13 +106,10 @@ class _ResetPasswordScreenState extends ConsumerState<ResetPasswordScreen> {
                               : null,
                         ),
                         const SizedBox(height: 14),
-                        TextFormField(
+                        PasswordField(
                           controller: _passwordController,
-                          obscureText: true,
-                          decoration: const InputDecoration(
-                            labelText: 'New password',
-                            prefixIcon: Icon(Icons.lock_outline),
-                          ),
+                          labelText: 'New password',
+                          prefixIcon: Icons.lock_outline,
                           validator: (value) =>
                               (value == null || value.length < 6)
                               ? 'Password must be at least 6 characters'

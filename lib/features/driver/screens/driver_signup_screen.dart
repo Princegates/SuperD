@@ -11,6 +11,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../models/driver_vehicle_type.dart';
 import '../../../shared/utils/ghana_phone.dart';
 import '../../../shared/utils/rider_photo.dart';
+import '../../../shared/widgets/password_field.dart';
 import '../../../shared/widgets/terms_checkbox.dart';
 
 /// Self-service signup for drivers only - reachable from the login screen's
@@ -402,23 +403,17 @@ class _DriverSignupScreenState extends ConsumerState<DriverSignupScreen> {
                             ),
                           ),
                           const SizedBox(height: 14),
-                          TextFormField(
+                          PasswordField(
                             controller: _passwordController,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Password',
-                            ),
+                            labelText: 'Password',
                             validator: (v) => (v == null || v.length < 6)
                                 ? 'Password must be at least 6 characters'
                                 : null,
                           ),
                           const SizedBox(height: 14),
-                          TextFormField(
+                          PasswordField(
                             controller: _confirmController,
-                            obscureText: true,
-                            decoration: const InputDecoration(
-                              labelText: 'Confirm password',
-                            ),
+                            labelText: 'Confirm password',
                             onFieldSubmitted: (_) => _submit(),
                           ),
                           const SizedBox(height: 16),

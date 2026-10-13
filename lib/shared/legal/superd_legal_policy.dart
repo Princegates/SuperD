@@ -322,3 +322,106 @@ const List<PolicySection> kPolicySections = [
         '$kOperatorContactEmail.',
   ),
 ];
+
+/// $kAppName's Cookie Policy - what the Flutter web build and the static
+/// marketing/delete-data pages under `web/` store in a browser, and why.
+/// Reachable publicly at '/legal/cookies' (see `PolicyScreen` and the
+/// '/legal/cookies' exemption in app_router.dart), and linked from the
+/// marketing site's footer alongside the main Terms & Privacy Policy.
+///
+/// Most of what's listed here is `localStorage`/`SharedPreferences`
+/// (device-local storage we write directly), not a server-set cookie in
+/// the strict sense - "Cookie Policy" is used as the familiar umbrella
+/// term covering both, as is standard practice. The one genuine
+/// third-party cookie is Cloudflare Turnstile's, used on the public
+/// forms. The native Android/iOS apps don't use browser cookies at all;
+/// this document mainly concerns the web build and the marketing site.
+///
+/// Same caveat as [kPolicySections]: a reasonable starting point, not
+/// drafted by a lawyer - have it reviewed before relying on it.
+const String kCookiePolicyVersion = '1.0';
+const String kCookiePolicyEffectiveDate = '13 October 2026';
+
+const List<PolicySection> kCookiePolicySections = [
+  PolicySection(
+    'Introduction',
+    'This Cookie Policy explains what $kAppName (operated by '
+        '$kOperatorLegalName) stores in your browser or device when you '
+        'use our website or web app, and why. It covers real browser '
+        'cookies and the similar device-local storage ("local storage") '
+        'our web app uses directly - we use the term "cookies" for both, '
+        'as is common practice, and say which is which below.\n\n'
+        'This policy took effect on $kCookiePolicyEffectiveDate and is '
+        'identified internally as version $kCookiePolicyVersion. It '
+        'supplements, and does not replace, our Terms & Privacy Policy.',
+  ),
+  PolicySection(
+    'Strictly necessary',
+    'These keep the Platform working and cannot be switched off without '
+        'breaking the feature they support:\n'
+        '- Sign-in session (local storage) - keeps you signed in between '
+        'visits so you don\'t have to log in again on every page load. '
+        'Clearing it signs you out.\n'
+        '- Bot verification (cookie, set by Cloudflare Turnstile) - set '
+        'when you open the Vendor sign-up or Customer delivery-request '
+        'form, so we can tell a real visitor from automated spam before '
+        'accepting the submission. Blocking it means those forms can\'t '
+        'be submitted.',
+  ),
+  PolicySection(
+    'Functional',
+    'These make a return visit more convenient. None are required, and '
+        'none leave your device - we never receive them on our servers:\n'
+        '- Remembered email (local storage/device storage) - the login '
+        'screen\'s "Remember me" pre-fills your email next time, if you '
+        'turned it on. We never store your password this way; see the '
+        'login screen\'s own note on this in our Terms & Privacy Policy.\n'
+        '- Remembered name and phone (device storage) - the Customer '
+        'delivery-request form can pre-fill these for a repeat customer '
+        'coming back to the same or a different vendor\'s link.\n'
+        '- Theme preference (local storage, marketing site only) - '
+        'remembers whether you last chose light or dark mode on our '
+        'marketing website.',
+  ),
+  PolicySection(
+    'Third-party',
+    'Some features embed a third-party service that may set its own '
+        'cookie, governed by that provider\'s own policy, not this one:\n'
+        '- Google Maps - may set cookies when it renders a map or looks '
+        'up an address.\n'
+        '- Cloudflare Turnstile - see "Strictly necessary" above.\n'
+        '- Firebase (Google) - where push notifications are enabled, '
+        'registers a browser service worker to receive them; this '
+        'carries a device notification token, not your personal '
+        'information.',
+  ),
+  PolicySection(
+    'What we don\'t use',
+    'We do not use advertising cookies, and we do not run any '
+        'analytics or tracking service (no Google Analytics, no '
+        'Facebook Pixel, and nothing like them). Nothing described in '
+        'this policy is used to build an advertising profile of you, and '
+        'none of it is sold.',
+  ),
+  PolicySection(
+    'Managing cookies and local storage',
+    'Most browsers let you view, block, or delete cookies and local '
+        'storage from their settings, and most devices let you clear an '
+        'app\'s storage the same way. Doing so resets anything under '
+        '"Functional" above with no other effect, but will sign you out '
+        'and may stop the public forms from submitting, since the '
+        'items under "Strictly necessary" are what make those features '
+        'work.',
+  ),
+  PolicySection(
+    'Changes to this policy',
+    'We may update this policy if what we store changes, for example '
+        'when we add a new feature. We\'ll update the version number and '
+        'effective date above when we do.',
+  ),
+  PolicySection(
+    'Contact us',
+    'For any question about this policy, contact $kOperatorLegalName at '
+        '$kOperatorContactEmail.',
+  ),
+];

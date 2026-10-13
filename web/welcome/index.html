@@ -271,6 +271,32 @@
 
   .btn-sm { padding: .68rem 1.25rem; font-size: .86rem; }
 
+  /* ---------- cookie consent ---------- */
+
+  .cookie-bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 90;
+    background: var(--navy-950);
+    color: var(--on-ink);
+    box-shadow: var(--lift-2);
+    transform: translateY(100%);
+    transition: transform .5s var(--ease);
+  }
+  .cookie-bar[data-open='true'] { transform: translateY(0); }
+  .cookie-bar .shell {
+    display: flex;
+    align-items: center;
+    gap: clamp(1rem, 3vw, 2rem);
+    padding-block: 1.1rem;
+    flex-wrap: wrap;
+  }
+  .cookie-bar p { flex: 1 1 32rem; color: var(--on-ink-soft); font-size: var(--s--1); line-height: 1.5; }
+  .cookie-bar .actions { display: flex; align-items: center; gap: .4rem; flex: 0 0 auto; }
+  .cookie-bar .btn { padding: .68rem 1.4rem; font-size: .86rem; }
+
   /* ---------- motion ---------- */
 
   /* Entrance states exist only once JS has confirmed motion is wanted, so
@@ -1490,11 +1516,25 @@
       <span>&copy; <span id="yr">2026</span> SuperDelivery. All rights reserved. Operated by Anknovate IT Services.</span>
       <span class="col-links">
         <a href="/legal/terms" target="_blank" rel="noopener">Terms &amp; Privacy Policy</a>
+        <a href="/legal/cookies" target="_blank" rel="noopener">Cookie Policy</a>
         <a href="/delete-data/">Delete your data</a>
       </span>
     </div>
   </div>
 </footer>
+
+<div class="cookie-bar" id="cookie-bar" role="region" aria-label="Cookie notice">
+  <div class="shell">
+    <p>
+      We use essential cookies to keep this site working and a device-local
+      preference to remember your light/dark choice. No advertising or
+      tracking cookies. See our <a href="/legal/cookies" target="_blank" rel="noopener" style="text-decoration:underline">Cookie Policy</a>.
+    </p>
+    <div class="actions">
+      <button type="button" class="btn btn-gold" id="cookie-accept">Got it</button>
+    </div>
+  </div>
+</div>
 
 <script>
   window.SUPERD_PUBLIC = {
@@ -1513,6 +1553,23 @@
       root.setAttribute('data-mode', next);
       try { localStorage.setItem('superd-theme-mode', next); } catch (e) {}
     });
+
+    // Cookie notice - shown once per browser until acknowledged. Nothing
+    // it describes is gated behind this; it's a notice-and-acknowledge,
+    // not a blocker, since everything this site stores is either
+    // essential or a harmless on-device preference (see
+    // /legal/cookies).
+    (function () {
+      var key = 'superd-cookie-consent';
+      var bar = document.getElementById('cookie-bar');
+      var acked = false;
+      try { acked = localStorage.getItem(key) === '1'; } catch (e) {}
+      if (!acked) bar.setAttribute('data-open', 'true');
+      document.getElementById('cookie-accept').addEventListener('click', function () {
+        bar.removeAttribute('data-open');
+        try { localStorage.setItem(key, '1'); } catch (e) {}
+      });
+    })();
 
     // The masthead takes the paper ground once the cover has passed.
     var mast = document.getElementById('mast');

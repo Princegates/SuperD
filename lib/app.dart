@@ -7,6 +7,7 @@ import 'core/providers/core_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/app_identity.dart';
+import 'shared/widgets/cookie_consent_banner.dart';
 
 class SuperDApp extends ConsumerWidget {
   const SuperDApp({super.key});
@@ -68,6 +69,10 @@ class SuperDApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       routerConfig: router,
+      builder: (context, child) => CookieConsentBanner(
+        router: router,
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }

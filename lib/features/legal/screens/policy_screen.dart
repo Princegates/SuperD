@@ -3,18 +3,39 @@ import 'package:flutter/material.dart';
 import '../../../shared/legal/superd_legal_policy.dart';
 import '../../../core/app_identity.dart';
 
-/// Renders [kPolicySections] - the one Terms of Service & Privacy Policy
-/// document both the vendor and driver signup screens link to before
-/// their "I agree" checkbox can be ticked. Public - reachable with no
-/// session, same as the signup screens themselves (see the '/legal/terms'
-/// exemption in app_router.dart).
+/// Renders one of this app's legal documents - [kPolicySections] (the
+/// Terms of Service & Privacy Policy both the vendor and driver signup
+/// screens link to before their "I agree" checkbox can be ticked) by
+/// default, or [kCookiePolicySections] when pushed as the Cookie Policy.
+/// Public - reachable with no session, same as the signup screens
+/// themselves (see the '/legal/terms' and '/legal/cookies' exemptions in
+/// app_router.dart).
 class PolicyScreen extends StatelessWidget {
-  const PolicyScreen({super.key});
+  const PolicyScreen({
+    super.key,
+    this.appBarTitle = 'Terms & Privacy Policy',
+    this.sections = kPolicySections,
+    this.version = kTermsVersion,
+    this.effectiveDate = kTermsEffectiveDate,
+  });
+
+  /// A dedicated constructor rather than every call site repeating the
+  /// four constants below - see [kCookiePolicySections]'s doc comment.
+  const PolicyScreen.cookies({super.key})
+    : appBarTitle = 'Cookie Policy',
+      sections = kCookiePolicySections,
+      version = kCookiePolicyVersion,
+      effectiveDate = kCookiePolicyEffectiveDate;
+
+  final String appBarTitle;
+  final List<PolicySection> sections;
+  final String version;
+  final String effectiveDate;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Terms & Privacy Policy')),
+      appBar: AppBar(title: Text(appBarTitle)),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -31,11 +52,11 @@ class PolicyScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Version $kTermsVersion - effective $kTermsEffectiveDate',
+                  'Version $version - effective $effectiveDate',
                   style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                 ),
                 const SizedBox(height: 24),
-                for (final section in kPolicySections) ...[
+                for (final section in sections) ...[
                   Text(
                     section.title,
                     style: const TextStyle(

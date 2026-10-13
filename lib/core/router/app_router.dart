@@ -114,7 +114,10 @@ final routerProvider = Provider<GoRouter>((ref) {
           // screens link to before their "I agree" checkbox - has to work
           // for a visitor who hasn't submitted the form yet, i.e. has no
           // session at all.
-          loc == '/legal/terms') {
+          loc == '/legal/terms' ||
+          // Same reasoning - the Cookie Policy the consent banner links
+          // to has to work for a completely anonymous visitor too.
+          loc == '/legal/cookies') {
         return null;
       }
 
@@ -251,6 +254,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/legal/terms',
         pageBuilder: (context, state) =>
             fadeSlidePage(key: state.pageKey, child: const PolicyScreen()),
+      ),
+      GoRoute(
+        path: '/legal/cookies',
+        pageBuilder: (context, state) => fadeSlidePage(
+          key: state.pageKey,
+          child: const PolicyScreen.cookies(),
+        ),
       ),
       GoRoute(
         path: '/v/:code',

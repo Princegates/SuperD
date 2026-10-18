@@ -9,6 +9,13 @@ import 'core/theme/app_theme.dart';
 import 'core/app_identity.dart';
 import 'shared/widgets/cookie_consent_banner.dart';
 
+/// A single global key for the whole app's lifetime - `CookieConsentBanner`
+/// shows its notice through it rather than `ScaffoldMessenger.of(context)`,
+/// since the `context` `MaterialApp.router`'s `builder` hands it sits
+/// outside the subtree that ancestor is scoped to.
+final GlobalKey<ScaffoldMessengerState> _scaffoldMessengerKey =
+    GlobalKey<ScaffoldMessengerState>();
+
 class SuperDApp extends ConsumerWidget {
   const SuperDApp({super.key});
 
@@ -68,9 +75,11 @@ class SuperDApp extends ConsumerWidget {
       title: kAppName,
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
+      scaffoldMessengerKey: _scaffoldMessengerKey,
       routerConfig: router,
       builder: (context, child) => CookieConsentBanner(
         router: router,
+        scaffoldMessengerKey: _scaffoldMessengerKey,
         child: child ?? const SizedBox.shrink(),
       ),
     );

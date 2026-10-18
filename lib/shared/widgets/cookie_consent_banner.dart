@@ -1,25 +1,34 @@
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/theme/app_theme.dart';
 
-/// A one-time "we use cookies" notice for the web build - wraps the whole
-/// app via `app.dart`'s `MaterialApp.router(builder: ...)`. Native builds
-/// never show it: they don't touch a browser cookie jar at all, only this
-/// device's own storage, which is covered by the main Terms & Privacy
-/// Policy instead. See `superd_legal_policy.dart`'s
-/// `kCookiePolicySections` for what's actually stored and why.
+/// A one-time "we use cookies" notice for the web build, shown via
+/// [MaterialBanner] through `app.dart`'s `scaffoldMessengerKey` - never a
+/// custom-positioned overlay. An earlier version wrapped the whole app in
+/// a `Stack` from `MaterialApp.router`'s `builder`, which depends on
+/// getting that Stack's sizing exactly right; it didn't, and the deployed
+/// web build rendered as a blank page. Driving Flutter's own
+/// ScaffoldMessenger instead means this widget never touches the real
+/// page's layout at all - [build] just returns [child] unchanged.
 ///
-/// `router` is passed in rather than looked up via `context` because this
-/// widget sits in `builder`, outside the subtree GoRouter's own
-/// `InheritedWidget` is scoped to - `app.dart` already has the instance
-/// to hand (it reads `routerProvider` to build the app itself).
+/// Native builds never show it: they don't touch a browser cookie jar at
+/// all, only this device's own storage, which is covered by the main
+/// Terms & Privacy Policy instead. See `superd_legal_policy.dart`'s
+/// `kCookiePolicySections` for what's actually stored and why.
 class CookieConsentBanner extends StatefulWidget {
-  const CookieConsentBanner({super.key, required this.router, required this.child});
+  const CookieConsentBanner({
+    super.key,
+    required this.router,
+    required this.scaffoldMessengerKey,
+    required this.child,
+  });
 
   final GoRouter router;
+  final GlobalKey<ScaffoldMessengerState> scaffoldMessengerKey;
   final Widget child;
 
   @override
@@ -29,133 +38,62 @@ class CookieConsentBanner extends StatefulWidget {
 class _CookieConsentBannerState extends State<CookieConsentBanner> {
   static const _ackKey = 'superd_cookie_consent_ack';
 
-  bool _ready = false;
-  bool _acknowledged = true;
+  bool _attempted = false;
 
   @override
   void initState() {
     super.initState();
-    if (kIsWeb) {
-      _load();
-    }
+    if (kIsWeb) _maybeShow();
   }
 
-  Future<void> _load() async {
+  Future<void> _maybeShow() async {
+    // initState re-runs across a theme-change remount (see app.dart's
+    // ValueKey on MaterialApp.router) - only act on the first one.
+    if (_attempted) return;
+    _attempted = true;
+
     final prefs = await SharedPreferences.getInstance();
-    if (!mounted) return;
-    setState(() {
-      _acknowledged = prefs.getBool(_ackKey) ?? false;
-      _ready = true;
+    if (!mounted || (prefs.getBool(_ackKey) ?? false)) return;
+
+    // Wait for the first real frame so the ScaffoldMessenger this key
+    // points at is actually mounted.
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      final messenger = widget.scaffoldMessengerKey.currentState;
+      if (messenger == null) return;
+      messenger.showMaterialBanner(
+        MaterialBanner(
+          backgroundColor: const Color(0xFF13192B),
+          leading: const Icon(Icons.info_outline, color: Colors.white70),
+          content: const Text(
+            "We use essential cookies and local storage to keep you "
+            "signed in and verify you're not a bot on our public forms, "
+            "plus a few on-device preferences. No advertising or "
+            "tracking cookies.",
+            style: TextStyle(color: Colors.white, fontSize: 13, height: 1.4),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => widget.router.push('/legal/cookies'),
+              child: const Text(
+                'Cookie Policy',
+                style: TextStyle(color: Colors.white70),
+              ),
+            ),
+            TextButton(
+              onPressed: () async {
+                messenger.hideCurrentMaterialBanner();
+                final prefs = await SharedPreferences.getInstance();
+                await prefs.setBool(_ackKey, true);
+              },
+              style: TextButton.styleFrom(foregroundColor: AppTheme.accent),
+              child: const Text('Got it'),
+            ),
+          ],
+        ),
+      );
     });
   }
 
-  Future<void> _acknowledge() async {
-    setState(() => _acknowledged = true);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_ackKey, true);
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final showBanner = kIsWeb && _ready && !_acknowledged;
-    // `fit: StackFit.expand` forces this Stack - and widget.child, its one
-    // non-positioned child - to take the full incoming size rather than
-    // shrink-wrap it (Stack's default StackFit.loose). Without this, the
-    // Stack's size depends on widget.child's own intrinsic size, which
-    // isn't guaranteed to resolve to the viewport - on the deployed web
-    // build this collapsed to a near-zero width, so both the real page
-    // and the banner's text ended up wrapping one character per line
-    // instead of filling the screen.
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        widget.child,
-        if (showBanner)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: SafeArea(
-              top: false,
-              child: _ConsentBar(
-                onViewPolicy: () => widget.router.push('/legal/cookies'),
-                onAcknowledge: _acknowledge,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-}
-
-class _ConsentBar extends StatelessWidget {
-  const _ConsentBar({required this.onViewPolicy, required this.onAcknowledge});
-
-  final VoidCallback onViewPolicy;
-  final VoidCallback onAcknowledge;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      elevation: 8,
-      color: const Color(0xFF13192B),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final text = Text(
-              "We use essential cookies and local storage to keep you "
-              "signed in and verify you're not a bot on our public forms, "
-              "plus a few on-device preferences. No advertising or "
-              "tracking cookies.",
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.9),
-                fontSize: 13,
-                height: 1.4,
-              ),
-            );
-            final actions = Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextButton(
-                  onPressed: onViewPolicy,
-                  child: const Text(
-                    'Cookie Policy',
-                    style: TextStyle(color: Colors.white70),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                ElevatedButton(
-                  onPressed: onAcknowledge,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accent,
-                    foregroundColor: Colors.white,
-                  ),
-                  child: const Text('Got it'),
-                ),
-              ],
-            );
-            if (constraints.maxWidth < 560) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  text,
-                  const SizedBox(height: 10),
-                  Align(alignment: Alignment.centerRight, child: actions),
-                ],
-              );
-            }
-            return Row(
-              children: [
-                Expanded(child: text),
-                const SizedBox(width: 16),
-                actions,
-              ],
-            );
-          },
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => widget.child;
 }

@@ -58,7 +58,16 @@ class _CookieConsentBannerState extends State<CookieConsentBanner> {
   @override
   Widget build(BuildContext context) {
     final showBanner = kIsWeb && _ready && !_acknowledged;
+    // `fit: StackFit.expand` forces this Stack - and widget.child, its one
+    // non-positioned child - to take the full incoming size rather than
+    // shrink-wrap it (Stack's default StackFit.loose). Without this, the
+    // Stack's size depends on widget.child's own intrinsic size, which
+    // isn't guaranteed to resolve to the viewport - on the deployed web
+    // build this collapsed to a near-zero width, so both the real page
+    // and the banner's text ended up wrapping one character per line
+    // instead of filling the screen.
     return Stack(
+      fit: StackFit.expand,
       children: [
         widget.child,
         if (showBanner)

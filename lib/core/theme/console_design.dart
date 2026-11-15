@@ -25,28 +25,27 @@ import 'app_theme.dart';
 class ConsoleColors {
   ConsoleColors._();
 
-  /// Page background - cooler and a shade darker than the app-wide
-  /// scaffold color, so a white [ConsoleCard] actually separates from the
-  /// page instead of needing a shadow to prove it's there.
-  static const canvas = Color(0xFFEFF2F6);
+  /// Page background - a shade darker than the app-wide scaffold color, so
+  /// a white [ConsoleCard] actually separates from the page instead of
+  /// needing a shadow to prove it's there.
+  static const canvas = Color(0xFFF5F0EA);
 
   static const surface = Color(0xFFFFFFFF);
 
   /// An inset surface one step down from [surface] - a table's header
   /// row, a stat tile inside a card, anything that reads as "beneath" the
   /// panel it sits in rather than beside it.
-  static const surfaceSunken = Color(0xFFF6F7FA);
+  static const surfaceSunken = Color(0xFFFAF6F1);
 
-  static const border = Color(0xFFE1E5EB);
-  static const borderStrong = Color(0xFFCDD3DD);
+  static const border = Color(0xFFEAE4DC);
+  static const borderStrong = Color(0xFFD9CFC2);
 
-  /// Near-black navy rather than pure black - warmer under the cool
-  /// canvas, and close in hue to the Navy & Gold preset's own primary so
-  /// body text never looks like an unrelated system bolted on, whichever
-  /// preset is active.
-  static const ink = Color(0xFF13192B);
-  static const inkMuted = Color(0xFF5B6478);
-  static const inkFaint = Color(0xFF9AA2B1);
+  /// Warm near-black rather than pure black or a cool grey - close in hue
+  /// to the Orange & White preset's own primary so body text never looks
+  /// like an unrelated system bolted on, whichever preset is active.
+  static const ink = Color(0xFF1E1309);
+  static const inkMuted = Color(0xFF6E6256);
+  static const inkFaint = Color(0xFFA79C8E);
 
   static Color get accent => AppTheme.accent;
   static Color get primary => AppTheme.primary;

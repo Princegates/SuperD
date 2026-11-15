@@ -4,7 +4,7 @@
     "start_url": ".",
     "display": "standalone",
     "background_color": "#FFFFFF",
-    "theme_color": "#16213E",
+    "theme_color": "#6B2510",
     "description": "The delivery management platform for local businesses - connecting vendors, dispatchers, and riders from order to doorstep.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,

@@ -233,7 +233,7 @@ void main() {
       const Offset(0, -200),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Navy & Gold'), findsOneWidget);
+    expect(find.text('Orange & White'), findsOneWidget);
     expect(find.text('Ocean Blue'), findsOneWidget);
     expect(find.text('Charcoal'), findsOneWidget);
 

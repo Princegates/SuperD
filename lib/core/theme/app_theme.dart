@@ -28,11 +28,11 @@ class ThemePreset {
 const List<ThemePreset> kThemePresets = [
   ThemePreset(
     key: 'navy_gold',
-    label: 'Navy & Gold',
-    primary: Color(0xFF16213E),
-    primaryLight: Color(0xFFE7EAF2),
-    accent: Color(0xFFF5A623),
-    accentLight: Color(0xFFFFF3DC),
+    label: 'Orange & White',
+    primary: Color(0xFF6B2510),
+    primaryLight: Color(0xFFF7E2D8),
+    accent: Color(0xFFFB923C),
+    accentLight: Color(0xFFFFEDD5),
   ),
   ThemePreset(
     key: 'ocean_blue',

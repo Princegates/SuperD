@@ -40,7 +40,13 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # that followed it, a new Console-only design system applied to the nav
 # shell and every Console tab (f7fd5f7, c15d5c4). Same reasoning as +8:
 # the whole Console is reachable from `/admin` on native, not just web.
-version: 1.0.0+9
+#
+# +10 is the Orange & White rebrand: the default theme preset, the
+# Console's own warm-neutral tokens, and the app icon/logo all swapped
+# from navy/gold to orange/white. AppTheme.primary/accent are read by
+# every screen in the app, native included, same reasoning as +8/+9 -
+# this isn't a web-only or Console-only change.
+version: 1.0.0+10
 
 environment:
   sdk: ^3.13.1
@@ -155,7 +161,7 @@ flutter_launcher_icons:
   web:
     generate: true
     background_color: "#FFFFFF"
-    theme_color: "#16213E"
+    theme_color: "#6B2510"
   android_min_sdk: 21
   adaptive_icon_background: "#FFFFFF"
   adaptive_icon_foreground: "assets/icon/icon.png"

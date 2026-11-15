@@ -2213,8 +2213,8 @@ about how a single delivery is worked changes.
 ## App theme
 
 A super admin can switch the whole app's brand color from **Console >
-Settings**: six built-in presets (Navy & Gold - the original brand look
-and the default - Ocean Blue, Forest Green, Sunset Orange, Royal Purple,
+Settings**: six built-in presets (Orange & White - the brand look and
+the default - Ocean Blue, Forest Green, Sunset Orange, Royal Purple,
 and Charcoal), defined in `lib/core/theme/app_theme.dart` as
 `kThemePresets`. Only the identity colors (`primary`/`accent` and their
 light tints) change per theme; the semantic status colors (success/
@@ -3108,7 +3108,7 @@ back out of. What shows up in the nav is role-based:
     the UI theme, delivery pricing (see **Delivery pricing** above), the
     zone-detection radius (see **Automatic zone recognition** above), and
     whether drivers may sign in on web (see **Web dashboard is
-    back-office only**). Six built-in color themes (Navy & Gold, Ocean
+    back-office only**). Six built-in color themes (Orange & White, Ocean
     Blue, Forest Green, Sunset Orange, Royal Purple, Charcoal) - picking
     one applies for every user of the app, not just the super admin who
     changed it. All of these are backed by the single-row `app_settings`

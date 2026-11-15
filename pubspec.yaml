@@ -46,7 +46,13 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # from navy/gold to orange/white. AppTheme.primary/accent are read by
 # every screen in the app, native included, same reasoning as +8/+9 -
 # this isn't a web-only or Console-only change.
-version: 1.0.0+10
+#
+# +11 carries the regenerated Android mipmap/adaptive-icon and iOS
+# AppIcon.appiconset files (ea5b56e) that +10 itself didn't include -
+# without this bump the Play/App Store listing would still show the
+# old navy/gold launcher icon even though every in-app screen is
+# already orange/white.
+version: 1.0.0+11
 
 environment:
   sdk: ^3.13.1
